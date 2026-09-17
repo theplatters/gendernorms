@@ -11,7 +11,11 @@ include("resources/observers.jl")
 include("resources/properties.jl")
 include("resources/utility_functions.jl")
 
-for_gender(x, ::Male) = x.men
-for_gender(x, ::Female) = x.woman
+include("systems/initialisation.jl")
+
+for_gender(x, ::Male)::Float64 = x.men
+for_gender(x, ::Female)::Float64 = x.woman
+
+gender_mean(x) = (x.men + x.woman) / 2
 
 end
