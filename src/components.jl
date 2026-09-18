@@ -11,7 +11,7 @@ struct TransferToWoman
   current::Float64
   old::Float64
 end
-)
+
 struct Spouse
   entity::Ark.Entity
 end

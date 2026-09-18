@@ -2,8 +2,9 @@ module GenderNorms
 
 import Ark
 import Graphs
+import Random
+using Distributions: Normal
 
-include("components.jl")
 include("components.jl")
 include("systems/household_bargaining.jl")
 include("resources/social_network.jl")

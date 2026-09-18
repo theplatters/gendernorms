@@ -1,7 +1,8 @@
-Base.@kwdef struct ModelProperties
+Base.@kwdef struct ModelProperties{T<:NetworkSpec}
   agents_per_gender::Int64 = 400
   std_dev::Float64 = 0.2
   initial_transfer::Float64 = 0.0
+  network::T = WattsStrogatz()
 end
 
 Base.@kwdef struct PaidTime
@@ -20,8 +21,8 @@ Base.@kwdef struct MeanPreference
 end
 
 Base.@kwdef struct InitialConformism
-  male::Float64 = 10.0
-  female::Float64 = 10.0
+  men::Float64 = 10.0
+  woman::Float64 = 10.0
 end
 
 
