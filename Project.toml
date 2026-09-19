@@ -18,3 +18,9 @@ Optim = "2.3.2"
 Optimization = "5.9.1"
 Random = "1.11.0"
 Statistics = "1.11.5"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

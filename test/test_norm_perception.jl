@@ -1,0 +1,192 @@
+# Tests for the norm perception system in `src/systems/norm_perception.jl`
+# (NetLogo `calculate-utility`, ODD section Norm perception
+# (`calculate-utility`)). Each testset builds a small world with
+# `initialize_household`, overwrites the traits with known values, installs
+# a controlled `SocialNetwork` resource directly, and checks the stored
+# `PerceptionNormDivisionOfLabor` / `NormParameter` components against
+# hand-computed values.
+
+using Ark
+using GenderNorms
+using Graphs
+using Random
+using Test
+
+const GN = GenderNorms
+
+function make_world(network::GN.NetworkSpec, n::Int)
+    world = Ark.World(
+        GN.Male,
+        GN.Female,
+        GN.WorkingTime,
+        GN.TransferToWoman,
+        GN.Spouse,
+        GN.Wage,
+        GN.PreferencePrivate,
+        GN.Conformism,
+        GN.CurrentUtility,
+        GN.NormParameter,
+        GN.PerceptionNormDivisionOfLabor,
+    )
+    Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
+    Ark.add_resource!(world, GN.PaidTime())
+    Ark.add_resource!(world, GN.MeanWage())
+    Ark.add_resource!(world, GN.MeanPreference())
+    Ark.add_resource!(world, GN.InitialConformism())
+    women, men = GN.initialize_household(world)
+    return world, women, men
+end
+
+function set_state!(world, entity; h, h_old, theta, theta_old, conformism = 2.0)
+    Ark.set_components!(
+        world,
+        entity,
+        (
+            GN.WorkingTime(h, h_old),
+            GN.TransferToWoman(theta, theta_old),
+            GN.Conformism(conformism),
+        ),
+    )
+    return nothing
+end
+
+function set_payoff_traits!(world, entity; wage, alpha)
+    Ark.set_components!(world, entity, (GN.Wage(wage, wage), GN.PreferencePrivate(alpha)))
+    return nothing
+end
+
+function stored_percepts(world, entity)
+    percept, penalty = Ark.get_components(
+        world, entity, (GN.PerceptionNormDivisionOfLabor, GN.NormParameter)
+    )
+    return percept.amount, penalty.amount
+end
+
+@testset "linked women see neighbour and spouses-of-neighbours means" begin
+    Random.seed!(10)
+    world, women, men = make_world(GN.NoNetwork(), 2)
+    w1, w2 = women
+    m1, m2 = men
+
+    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+
+    women_graph = Graphs.SimpleGraph(2)
+    Graphs.add_edge!(women_graph, 1, 2)
+    men_graph = Graphs.SimpleGraph(2)
+    Ark.add_resource!(world, GN.SocialNetwork(men_graph, women_graph, men, women))
+
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
+
+    percept_w1, penalty_w1 = stored_percepts(world, w1)
+    @test percept_w1 ≈ 0.50
+    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.50)^2 + (0.12 - 0.30)^2 + (0.72 - 0.90)^2)
+
+    percept_w2, penalty_w2 = stored_percepts(world, w2)
+    @test percept_w2 ≈ 0.30
+    @test penalty_w2 ≈ -1.5 * ((0.55 - 0.30)^2 + (0.32 - 0.10)^2 + (0.92 - 0.70)^2)
+
+    # Isolated men under a non-mixing network fall back to their own lag.
+    percept_m1, penalty_m1 = stored_percepts(world, m1)
+    @test percept_m1 ≈ 0.70
+    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.70)^2 + (0.12 - 0.10)^2 + (0.35 - 0.30)^2)
+end
+
+@testset "isolated agent under NoNetwork uses own lag and spouse lag" begin
+    Random.seed!(11)
+    world, women, men = make_world(GN.NoNetwork(), 1)
+    w1 = only(women)
+    m1 = only(men)
+
+    set_state!(world, w1; h = 0.40, h_old = 0.36, theta = 0.20, theta_old = 0.25, conformism = 3.0)
+    set_state!(world, m1; h = 0.80, h_old = 0.77, theta = 0.20, theta_old = 0.25, conformism = 3.0)
+
+    Ark.add_resource!(
+        world, GN.SocialNetwork(Graphs.SimpleGraph(1), Graphs.SimpleGraph(1), men, women)
+    )
+
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
+
+    percept_w1, penalty_w1 = stored_percepts(world, w1)
+    @test percept_w1 ≈ 0.36
+    @test penalty_w1 ≈ -3.0 * ((0.40 - 0.36)^2 + (0.20 - 0.25)^2 + (0.80 - 0.77)^2)
+
+    percept_m1, penalty_m1 = stored_percepts(world, m1)
+    @test percept_m1 ≈ 0.77
+    @test penalty_m1 ≈ -3.0 * ((0.80 - 0.77)^2 + (0.20 - 0.25)^2 + (0.40 - 0.36)^2)
+end
+
+@testset "isolated agents under HomogeneousMixing use global lagged means" begin
+    Random.seed!(12)
+    world, women, men = make_world(GN.HomogeneousMixing(), 2)
+    w1, w2 = women
+    m1, m2 = men
+
+    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 2.0)
+    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 2.0)
+
+    # `HomogeneousMixing` generates an empty graph: every agent is isolated.
+    net = GN.SocialNetwork(Graphs.SimpleGraph(2), Graphs.SimpleGraph(2), men, women)
+    Ark.add_resource!(world, net)
+
+    globals = GN.norm_global_means(world, net)
+    @test globals.women_h ≈ 0.40
+    @test globals.men_h ≈ 0.80
+    @test globals.transfer ≈ 0.20
+
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
+
+    # Women see the women hours mean, the women transfer mean, and the men
+    # hours mean for the spouse percept.
+    percept_w1, penalty_w1 = stored_percepts(world, w1)
+    @test percept_w1 ≈ 0.40
+    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.40)^2 + (0.12 - 0.20)^2 + (0.72 - 0.80)^2)
+
+    # Men see the men hours mean, the same women transfer mean, and the
+    # women hours mean for the spouse percept.
+    percept_m1, penalty_m1 = stored_percepts(world, m1)
+    @test percept_m1 ≈ 0.80
+    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.80)^2 + (0.12 - 0.20)^2 + (0.35 - 0.40)^2)
+end
+
+@testset "agent_payoff_params bridges network norms into payoffs" begin
+    Random.seed!(13)
+    world, women, men = make_world(GN.NoNetwork(), 2)
+    w1, w2 = women
+    m1, m2 = men
+
+    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_payoff_traits!(world, w1; wage = 1.1, alpha = 0.4)
+    set_payoff_traits!(world, m1; wage = 0.9, alpha = 0.6)
+
+    women_graph = Graphs.SimpleGraph(2)
+    Graphs.add_edge!(women_graph, 1, 2)
+    Ark.add_resource!(world, GN.SocialNetwork(Graphs.SimpleGraph(2), women_graph, men, women))
+
+    params_w1 = GN.agent_payoff_params(world, w1)
+    @test params_w1.is_woman === true
+    @test params_w1.N_h ≈ 0.50
+    @test params_w1.N_theta ≈ 0.30
+    @test params_w1.N_h_spouse ≈ 0.90
+    @test params_w1.wage_self ≈ 1.1
+    @test params_w1.wage_spouse ≈ 0.9
+    @test params_w1.alpha ≈ 0.4
+    @test params_w1.conformism ≈ 2.0
+
+    params_m1 = GN.agent_payoff_params(world, m1)
+    @test params_m1.is_woman === false
+    @test params_m1.N_h ≈ 0.70
+    @test params_m1.N_theta ≈ 0.10
+    @test params_m1.N_h_spouse ≈ 0.30
+    @test params_m1.wage_self ≈ 0.9
+    @test params_m1.wage_spouse ≈ 1.1
+    @test params_m1.alpha ≈ 0.6
+    @test params_m1.conformism ≈ 2.0
+end
