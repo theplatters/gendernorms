@@ -1,8 +1,11 @@
-Base.@kwdef struct ModelProperties{T<:NetworkSpec}
+# Non-parametric so Ark can retrieve it by its declared type: Ark resources
+# are keyed by their exact concrete type, and every access point uses the
+# bare name `ModelProperties` (see `ADR-0005`).
+Base.@kwdef struct ModelProperties
   agents_per_gender::Int64 = 400
   std_dev::Float64 = 0.2
   initial_transfer::Float64 = 0.0
-  network::T = WattsStrogatz()
+  network::NetworkSpec = WattsStrogatz()
 end
 
 Base.@kwdef struct PaidTime
