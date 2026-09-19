@@ -2,17 +2,19 @@ module GenderNorms
 
 import Ark
 import Graphs
+import Optim
 import Random
 using Distributions: Normal
 
 include("components.jl")
+include("resources/utility_functions.jl")
 include("systems/household_bargaining.jl")
 include("resources/social_network.jl")
 include("resources/observers.jl")
 include("resources/properties.jl")
-include("resources/utility_functions.jl")
 
 include("systems/initialisation.jl")
+include("systems/norm_perception.jl")
 
 for_gender(x, ::Male)::Float64 = x.men
 for_gender(x, ::Female)::Float64 = x.woman

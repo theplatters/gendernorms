@@ -1,7 +1,7 @@
 # Initialisation of the model (`setup`, `set-initials-women`, `set-initials-men`,
 # `generate-network` and `generate-homophilic-network` in the NetLogo model).
 
-# Normal draw with zero variance handled as a point mass (`Normal` requires σ > 0).
+# Normal draw with zero variance handled as a point mass (`Normal` requires sigma > 0).
 draw_normal(mu::Float64, sigma::Float64) = sigma > 0 ? rand(Normal(mu, sigma)) : mu
 
 """
@@ -79,6 +79,8 @@ function get_agent(world::Ark.World, gender::Gender)
     conformism,
     private_preference,
     CurrentUtility(0.0),
+    NormParameter(0.0),
+    PerceptionNormDivisionOfLabor(0.0),
     Spouse(Ark.zero_entity),
   )
 end
