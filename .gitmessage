@@ -1,0 +1,11 @@
+# <subject: imperative, at most 72 characters, no trailing period>
+#
+# <body: what changed and why, wrapped at 72 columns. Reference the
+# governing MDR-#### or ADR-####, the NetLogo procedure, and the ODD
+# section where relevant.>
+#
+# One logical change per commit; keep a change and its registry update
+# together; leave unrelated work in progress unstaged.
+# Every commit must pass:
+#   julia --project=. scripts/registry_check.jl --strict
+#   julia --project=. -e 'using GenderNorms'

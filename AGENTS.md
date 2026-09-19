@@ -66,6 +66,20 @@ julia --project=. -e 'using GenderNorms'
 
 Fix all validator errors and warnings; CI runs `--strict`, so warnings are blocking.
 
+## Commits
+
+- One logical change per commit; keep a change and its registry update
+  together. Do not sweep unrelated work in progress into your commit.
+- Imperative subject line, at most 72 characters, no trailing period;
+  explain what and why in the body and cite the governing `MDR-####` or
+  `ADR-####`.
+- Every commit must leave a working tree: run the validator and the
+  package load check (and the test suite once it exists) before
+  committing.
+- Stage explicit paths; never `git add -A` over unrelated edits. Start
+  from `.gitmessage` and follow `registry/code/conventions.md` and the
+  `commit` command.
+
 ## Skills
 
 - `model-registry`: model edits, ports, ODD semantics, MDRs.

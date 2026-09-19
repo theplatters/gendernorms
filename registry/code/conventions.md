@@ -72,6 +72,35 @@ unless a recorded ADR or MDR permits the deviation.
   (wire up, port, or delete under a later decision).
 - Temporary scaffolding must be removed before a change is declared done.
 
+## Commits
+
+Commits are the changelog of intent; keep them clear, isolated, and
+comprehensible.
+
+- One logical change per commit. Do not mix unrelated concerns: a model
+  port, a formatting sweep, and a dependency upgrade are separate
+  commits. Commit a change together with the registry update it needs so
+  that no commit leaves the registry stale.
+- Subject line: imperative mood, lower-case except proper nouns, no
+  trailing period, at most 72 characters, describing the change rather
+  than the activity. Example:
+  `port norm perception from calculate-utility`.
+- Body when the subject is not self-explanatory: a blank line, then what
+  changed and why, wrapped at 72 columns. Reference the governing
+  `MDR-####` or `ADR-####`, the NetLogo procedure, and the ODD section.
+- Every commit must leave a working tree. Before committing, run
+  `julia --project=. scripts/registry_check.jl --strict` and
+  `julia --project=. -e 'using GenderNorms'`, plus the test suite once
+  `test/` is wired into `Pkg.test`.
+- Stage explicit paths. Do not use `git add -A` or `git add .` when the
+  tree contains unrelated work in progress, and never commit secrets,
+  debug output, generated artifacts, or commented-out code.
+- Do not amend, force-push, or rewrite shared history unless explicitly
+  asked; correct a mistake with a new commit.
+- Start from `.gitmessage` (enable locally with
+  `git config commit.template .gitmessage`) and follow the `commit`
+  command for the step-by-step workflow.
+
 ## Enforcement
 
 - The command `julia --project=. scripts/registry_check.jl`, run by agents

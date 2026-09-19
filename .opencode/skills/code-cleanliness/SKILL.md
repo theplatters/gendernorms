@@ -51,9 +51,19 @@ code and files, when choosing architecture or module layering, or when
 - CI runs the validator with `--strict`, so treat warnings as errors too.
 - Fix or explicitly resolve every finding before finishing.
 
+## Commits
+
+- One logical change per commit; keep a change and its registry update
+  together and leave unrelated work in progress out.
+- Imperative subject at most 72 characters; the body explains what and
+  why and cites the governing `MDR-####` or `ADR-####`.
+- Run `scripts/registry_check.jl --strict` and the package load check
+  before committing. Stage explicit paths and start from `.gitmessage`.
+
 ## Checklist
 
 - [ ] Conventions and architecture consulted; layering respected.
 - [ ] New files included in the module and registered.
 - [ ] ADR created for structural choices; MDR for behavior drift.
 - [ ] Validator run; errors fixed; warnings explained.
+- [ ] Commit is isolated, comprehensible, and validated.
