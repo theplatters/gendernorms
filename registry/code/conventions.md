@@ -41,6 +41,23 @@ unless a recorded ADR or MDR permits the deviation.
 - Structural or pattern choices that affect more than one file
   require an ADR in `registry/code/decisions/`.
 
+## Decision records
+
+- Record structural or multi-file code choices as ADRs in
+  `registry/code/decisions/` and model, parameter, or porting choices as
+  MDRs in `registry/model/decisions/` (see `ADR-0004`).
+- Cite a record by its ID (`ADR-0005`), not by its filename, so renames
+  cannot break references.
+- While a record is current and no later record supersedes it, amend it in
+  place; the filename follows the title and git history keeps the earlier
+  text. Once a record is superseded or relied upon, add a successor and
+  link `supersedes` / `superseded_by` instead of rewriting it (see
+  `ADR-0008`).
+- The validator errors on citations that do not resolve and on records
+  missing from the index README of their registry.
+- `julia scripts/decisions_digest.jl` prints all records with status,
+  date, title, and the first paragraph of `## Decision`.
+
 ## Documentation
 
 - All public and all top-level functions and types must have docstrings.
@@ -107,8 +124,10 @@ comprehensible.
   before finishing and by CI on PRs, checks the mechanically-checkable
   subset of this registry: frontmatter shape, required headings, file-map
   coverage of `src/`, exclusion annotations, skill frontmatter, ASCII,
-  tabs, trailing whitespace, and final newlines. It also warns when a
-  top-level definition is absent from the whole registry; because CI runs
+  tabs, trailing whitespace, final newlines, decision-record citations
+  that resolve, and index README coverage of every record. It also warns
+  when a top-level definition is absent from the whole registry; because
+  CI runs
   with `--strict`, that warning must also be resolved (by documenting the
   symbol, normally in `registry/code/architecture.md`).
 - Checks that cannot be automated, such as naming sense, one concern per

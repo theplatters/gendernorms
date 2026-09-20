@@ -26,6 +26,8 @@ it must be implemented. Code cleanliness is enforced by review and by the
   `README.md`, `architecture.md`, `conventions.md`, then `decisions/ADR-*.md`.
 - For model semantics, consult `odd_model_description.typ` first and cite
   the ODD section. For ported logic, also check the NetLogo procedure.
+- For a compact view of all decisions, run
+  `julia scripts/decisions_digest.jl`.
 
 ## Record decisions
 

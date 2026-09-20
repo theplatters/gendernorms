@@ -37,6 +37,10 @@ which conventions it follows, and which architecture decisions were made.
 - `registry/code/decisions/ADR-0007-choose-bundles-query-extraction.md`:
   household components extracted with `Ark.Query` in `choose_bundles` and
   built into transient bundles at the solver call.
+- `registry/code/decisions/ADR-0008-decision-record-lifecycle.md`:
+  in-place amendment while a record is current, supersede once it is
+  relied upon, plus the citation and index checks and the on-demand
+  digest.
 
 ## How to add a new source file correctly
 

@@ -38,6 +38,10 @@ or warnings.
 - To supersede: create the new record, set `supersedes: [OLD-ID]` on it,
   set `superseded_by: [NEW-ID]` and `status: superseded` on the old one,
   and link both files by ID.
+- While a record is current and no later record supersedes it, amend it in
+  place and rename the file with its title; git history keeps the earlier
+  text. Supersede once other work or a release relies on the record (see
+  `ADR-0008`).
 
 ## Fixing validator errors
 

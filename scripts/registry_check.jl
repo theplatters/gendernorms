@@ -3,13 +3,15 @@
 # Registry validator for the GenderNorms repository.
 #
 # Enforces the mechanically-checkable subset of the registry contract
-# (see registry/code/conventions.md and ADR-0004): required paths exist,
-# decision records (MDR/ADR) carry valid frontmatter and headings, every
-# file under src/ is registered in registry/code/architecture.md, the
-# include list in src/GenderNorms.jl is intact, formatting is clean
-# (ASCII only, no tabs, no trailing whitespace, exactly one trailing
-# newline), and skill frontmatter is valid. Top-level definitions that
-# are never mentioned in registry/** are advisory warnings only.
+# (see registry/code/conventions.md, ADR-0004 and ADR-0008): required
+# paths exist, decision records (MDR/ADR) carry valid frontmatter and
+# headings, cited record ids resolve, every record appears in its index
+# README, every file under src/ is registered in
+# registry/code/architecture.md, the include list in src/GenderNorms.jl
+# is intact, formatting is clean (ASCII only, no tabs, no trailing
+# whitespace, exactly one trailing newline), and skill frontmatter is
+# valid. Top-level definitions that are never mentioned in registry/**
+# are advisory warnings only.
 #
 # The validator uses only the Julia standard library (Base) and runs
 # under a bare julia with no project activated. The repository root is
@@ -50,6 +52,7 @@ const DEF_PATTERNS = (
 
 const INCLUDE_PATTERN = r"include\s*\(\s*\"([^\"]+)\"\s*\)"
 const FILENAME_ID_PATTERN = r"^([A-Z]+-\d{4})-"
+const RECORD_ID_PATTERN = r"[AM]DR-\d{4}"
 const DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
 const TRAILING_WS_PATTERN = r"[ \t\r]+$"
 const EXCLUDED_MARKER = "Excluded from module:"
@@ -330,6 +333,71 @@ function check_decision_records(st::CheckState, root::String)
     return nothing
 end
 
+# Ids of every decision record on disk, used by the citation check.
+function decision_ids(root::String)::Set{String}
+    ids = Set{String}()
+    for rel in decision_files(root)
+        content = try_read_text(joinpath(root, rel))
+        content === nothing && continue
+        rec = try
+            parse_record(content)
+        catch
+            continue
+        end
+        rid = haskey(rec.front, "id") ? String(strip(rec.front["id"])) : ""
+        is_empty_value(rid) || push!(ids, rid)
+    end
+    return ids
+end
+
+# Every `ADR-####` / `MDR-####` token under `src/` or `registry/` must
+# resolve to a record. Skill files and AGENTS.md are outside this scan:
+# their examples may use placeholder ids.
+function check_decision_citations(
+    st::CheckState, root::String, jl_files::Vector{String}, md_files::Vector{String}
+)
+    known = decision_ids(root)
+    for rel in sort!(vcat(jl_files, md_files))
+        content = try_read_text(joinpath(root, rel))
+        content === nothing && continue
+        cited = Set{String}(String(m.match) for m in eachmatch(RECORD_ID_PATTERN, content))
+        isempty(cited) && continue
+        unknown = sort(collect(filter(id -> !(id in known), cited)))
+        if isempty(unknown)
+            report_ok!(st, rel * ": decision record citations resolve")
+        else
+            report_error!(st, rel * ": unknown decision record id(s) " * join(unknown, ", "))
+        end
+    end
+    return nothing
+end
+
+# Each registry index README must mention every record file of its
+# decisions directory, so renames and additions cannot leave it stale.
+function check_decision_index(st::CheckState, root::String)
+    for (dir, readme, prefix) in (
+        ("registry/code/decisions", "registry/code/README.md", "ADR"),
+        ("registry/model/decisions", "registry/model/README.md", "MDR"),
+    )
+        content = try_read_text(joinpath(root, readme))
+        if content === nothing
+            report_error!(st, readme * ": cannot read registry index")
+            continue
+        end
+        path = joinpath(root, dir)
+        isdir(path) || continue
+        for f in sort(readdir(path))
+            (startswith(f, prefix * "-") && endswith(f, ".md")) || continue
+            if occursin(f, content)
+                report_ok!(st, dir * "/" * f * ": listed in " * readme)
+            else
+                report_error!(st, dir * "/" * f * ": missing from " * readme * " index")
+            end
+        end
+    end
+    return nothing
+end
+
 function check_coverage(st::CheckState, jl_files::Vector{String}, arch_text::String)
     for rel in jl_files
         needle = "`" * rel * "`"
@@ -542,6 +610,8 @@ function main(argv::Vector{String})::Int
         check_decision_records(st, root)
         jl_files = list_files(root, "src", ".jl")
         md_files = list_files(root, "registry", ".md")
+        check_decision_citations(st, root, jl_files, md_files)
+        check_decision_index(st, root)
         arch_text = try_read_text(joinpath(root, "registry/code/architecture.md"))
         if arch_text === nothing
             report_error!(st, "registry/code/architecture.md: cannot read file")
