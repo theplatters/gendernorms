@@ -9,7 +9,6 @@ an ODD section.
 | Item | Evidence (file:line or ODD section) | Suggested resolution |
 | --- | --- | --- |
 | `MeanPreference.men` is 0.44 but the ODD default for `preference-private-mean-male` is 0.45 | `src/resources/properties.jl:19`; ODD Parameters table | Decide the intended default in an MDR and change one side to match |
-| `choose_bundles` stub references `TranferToWoman` (should be `TransferToWoman`) and would throw at runtime | `src/systems/household_bargaining.jl:52`; `src/components.jl:10` | Fix the typo and implement or remove the stub via an MDR/ADR |
 | `src/resources/shock.jl` references undefined `ShockType` and `SHOCK_NO`, so the file cannot load | `src/resources/shock.jl:2` | Define the shock-type enum (or reuse the NetLogo chooser strings) in an MDR-backed port of Shocks |
 | `src/resources/shock.jl` is not included in the module | `src/GenderNorms.jl:9-16` (no include for `shock.jl`) | Include it once it loads, at the right layer per `registry/code/architecture.md` |
 | `Theta` component is declared but never used (`set-theta` / `calculate-payoff` not ported) | `src/components.jl:36-38`; ODD Transfer bargaining | Port Transfer bargaining in a follow-up, then wire or remove `Theta` |
@@ -18,4 +17,4 @@ an ODD section.
 | ODD Known implementation quirks items 1-12 are not yet reflected as MDRs | ODD Known implementation quirks | Add one MDR per quirk that the port keeps or fixes; `MDR-0003` is the umbrella rule |
 | ODD quirk 12: BehaviorSpace experiments reference a `rho` slider absent from the Interface tab | ODD Known implementation quirks item 12; ODD Parameters, experiments, and output | Record whether `rho` is the intended `lambda` in an MDR before porting experiments |
 | Infeasibility penalty is `-Inf` in Julia but `-200` in NetLogo | `src/resources/utility_functions.jl:56-58`; ODD Material utility and conformity multiplier | Record under `MDR-0003` whether `-Inf` is an accepted deviation or must become `-200` |
-| Norm perception (`calculate_norm_perception!`, `agent_payoff_params`) is implemented but not yet scheduled in a `go` loop, and `individual_utility` still receives `AgentPayoffParams` from its caller | `src/systems/norm_perception.jl`; `src/resources/utility_functions.jl:32-41`; ODD Norm perception | Wire norm perception and `agent_payoff_params` into the model loop when `choose-bundles` / `go` are ported |
+| Norm perception (`calculate_norm_perception!`) and the labour solver (`mutual_best_response`) are implemented but not yet scheduled in a `go` loop | `src/systems/norm_perception.jl`; `src/systems/household_bargaining.jl`; ODD Process overview and scheduling | Wire both into the model loop when `go` and the transfer stage are ported |

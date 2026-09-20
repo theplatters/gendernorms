@@ -18,4 +18,3 @@ their ODD section and Julia counterpart(s) in `src/`.
 | `update-preferences` | Endogenous preference adaptation and wage growth | none (only `ShockConfig.lambda` exists, file not included) | `src/resources/shock.jl` | not ported |
 | `update-wages` | Endogenous preference adaptation and wage growth | none (only `ShockConfig.wage_growth` exists, file not included) | `src/resources/shock.jl` | not ported |
 | `update-statistics` | Statistics | `WorkingTimeStats` | `src/resources/observers.jl` | stub: struct declared, never computed or updated |
-| `choose_bundles` (Julia stub, no NetLogo namesake) | Labour best response; Transfer bargaining | `choose_bundles(world)` | `src/systems/household_bargaining.jl` | stub: empty loop body with typo `TranferToWoman` (should be `TransferToWoman`), a latent runtime error |

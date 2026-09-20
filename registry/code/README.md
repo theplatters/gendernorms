@@ -31,6 +31,9 @@ which conventions it follows, and which architecture decisions were made.
 - `registry/code/decisions/ADR-0005-parametric-model-properties.md`:
   parametric `ModelProperties` resource that carries the network
   specification in its type parameter instead of an abstract field.
+- `registry/code/decisions/ADR-0006-transient-agent-payoff-params.md`:
+  `AgentPayoffParams` as a transient input to `individual_utility` that is
+  never passed between functions.
 
 ## How to add a new source file correctly
 

@@ -29,6 +29,16 @@ material(::Multiplicative, x::Float64, Q::Float64, alpha::Float64) =
 material(::MultiplicativeWeighted, x::Float64, Q::Float64, alpha::Float64) =
     x^alpha * Q^(1 - alpha)
 
+"""
+    AgentPayoffParams
+
+Transient per-agent input bundle of `individual_utility`: own and spouse
+wage, material preference `alpha`, conformism, the perceived norms `N_h`
+(own working time), `N_theta` (transfer), and `N_h_spouse` (spouse working
+time), and the agent's sex. Construct it only immediately before the
+`individual_utility` call it feeds; never store it or pass it between
+functions (see `ADR-0006`).
+"""
 Base.@kwdef struct AgentPayoffParams
     wage_self::Float64 = 1.0
     wage_spouse::Float64 = 1.0
@@ -40,6 +50,15 @@ Base.@kwdef struct AgentPayoffParams
     is_woman::Bool = true
 end
 
+"""
+    individual_utility(h_self::Float64, h_spouse::Float64, theta::Float64, self_params::AgentPayoffParams, config::UtilityConfig)
+
+Material utility times the conformity multiplier of NetLogo
+`calculate-utility` (ODD sections Material utility and conformity multiplier
+and Norm perception) for own hours `h_self`, spouse hours `h_spouse`, and
+transfer `theta`, evaluated for the transient `AgentPayoffParams` bundle
+`self_params` (see `ADR-0006`). Returns `-Inf` for infeasible bundles.
+"""
 function individual_utility(
         h_self::Float64, h_spouse::Float64, theta::Float64,
         self_params::AgentPayoffParams, config::UtilityConfig

@@ -42,14 +42,14 @@ The module root is `src/GenderNorms.jl`.
 | `src/GenderNorms.jl` | module root | Declares module `GenderNorms`, imports, and include list | Included |
 | `src/main.jl` | entry point | Standalone entry point, currently empty | Empty standalone file |
 | `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, theta, `NormParameter`, `PerceptionNormDivisionOfLabor` | Included |
-| `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, `AgentPayoffParams`, `material`, `individual_utility`, `best_response_1d` | Included |
+| `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, the transient `AgentPayoffParams` input of `individual_utility`, `material`, `individual_utility`, `best_response_1d` | Included |
 | `src/resources/social_network.jl` | resources | Network specifications and graph construction: `NetworkSpec` subtypes, `SocialNetwork`, `generate` methods, similarity and homophily builders | Included |
 | `src/resources/observers.jl` | resources | Observer structs for aggregate working-time statistics | Included |
 | `src/resources/properties.jl` | resources | Model properties and run state: `ModelProperties`, `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple`, `GlobalStats` | Included |
 | `src/resources/shock.jl` | resources | Shock configuration struct `ShockConfig`, currently unwired | Excluded, see note below |
-| `src/systems/household_bargaining.jl` | systems | Household bargaining dynamics: `mutual_best_response` and `choose_bundles` | Included |
+| `src/systems/household_bargaining.jl` | systems | Household bargaining dynamics: `mutual_best_response`, which builds the `AgentPayoffParams` of both partners locally | Included |
 | `src/systems/initialisation.jl` | systems | Model setup: household creation, trait draws, and social network construction | Included |
-| `src/systems/norm_perception.jl` | systems | Norm perception port of `calculate-utility`: `norm_global_means`, `norm_means`, `norm_penalty`, `calculate_norm_perception!`, and the `individual_utility` bridge `agent_payoff_params` | Included |
+| `src/systems/norm_perception.jl` | systems | Norm perception port of `calculate-utility`: `norm_global_means`, `norm_means`, `norm_penalty`, `calculate_norm_perception!`, and the transient `individual_utility` builder `agent_payoff_params` | Included |
 
 ## Registration rule
 
@@ -88,4 +88,4 @@ details and are not part of the package's public surface.
 | `norm_means` | `src/systems/norm_perception.jl` | Perceived norms of one agent: same-sex neighbour means plus spouses-of-neighbours working time, with isolated fallbacks. |
 | `norm_penalty` | `src/systems/norm_perception.jl` | Norm exponent of `calculate-utility`: weighted squared deviations from the perceived norms. |
 | `calculate_norm_perception!` | `src/systems/norm_perception.jl` | Compute and store `PerceptionNormDivisionOfLabor` and `NormParameter` for every agent. |
-| `agent_payoff_params` | `src/systems/norm_perception.jl` | Build the `AgentPayoffParams` for `individual_utility` from an entity's network-based norms. |
+| `agent_payoff_params` | `src/systems/norm_perception.jl` | Build the transient `AgentPayoffParams` input for `individual_utility` from an entity's network-based norms. |
