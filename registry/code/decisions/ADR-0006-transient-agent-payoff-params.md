@@ -1,8 +1,9 @@
 ---
 id: ADR-0006
 title: Construct AgentPayoffParams only at utility calls
-status: accepted
+status: superseded
 date: 2026-09-20
+superseded_by: ADR-0007
 ---
 
 # ADR-0006: Construct AgentPayoffParams only at utility calls

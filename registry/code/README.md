@@ -33,7 +33,10 @@ which conventions it follows, and which architecture decisions were made.
   specification in its type parameter instead of an abstract field.
 - `registry/code/decisions/ADR-0006-transient-agent-payoff-params.md`:
   `AgentPayoffParams` as a transient input to `individual_utility` that is
-  never passed between functions.
+  never passed between functions (superseded by `ADR-0007`).
+- `registry/code/decisions/ADR-0007-choose-bundles-query-extraction.md`:
+  household components extracted with `Ark.Query` in `choose_bundles` and
+  built into transient bundles at the solver call.
 
 ## How to add a new source file correctly
 

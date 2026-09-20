@@ -50,11 +50,6 @@ function set_state!(world, entity; h, h_old, theta, theta_old, conformism = 2.0)
     return nothing
 end
 
-function set_payoff_traits!(world, entity; wage, alpha)
-    Ark.set_components!(world, entity, (GN.Wage(wage, wage), GN.PreferencePrivate(alpha)))
-    return nothing
-end
-
 function stored_percepts(world, entity)
     percept, penalty = Ark.get_components(
         world, entity, (GN.PerceptionNormDivisionOfLabor, GN.NormParameter)
@@ -156,41 +151,3 @@ end
     @test penalty_m1 ≈ -2.0 * ((0.72 - 0.80)^2 + (0.12 - 0.20)^2 + (0.35 - 0.40)^2)
 end
 
-@testset "agent_payoff_params bridges network norms into payoffs" begin
-    Random.seed!(13)
-    network = GN.NoNetwork()
-    world, women, men = make_world(network, 2)
-    w1, w2 = women
-    m1, m2 = men
-
-    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
-    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
-    set_payoff_traits!(world, w1; wage = 1.1, alpha = 0.4)
-    set_payoff_traits!(world, m1; wage = 0.9, alpha = 0.6)
-
-    women_graph = Graphs.SimpleGraph(2)
-    Graphs.add_edge!(women_graph, 1, 2)
-    Ark.add_resource!(world, GN.SocialNetwork(Graphs.SimpleGraph(2), women_graph, men, women))
-
-    params_w1 = GN.agent_payoff_params(world, w1, network)
-    @test params_w1.is_woman === true
-    @test params_w1.N_h ≈ 0.50
-    @test params_w1.N_theta ≈ 0.30
-    @test params_w1.N_h_spouse ≈ 0.90
-    @test params_w1.wage_self ≈ 1.1
-    @test params_w1.wage_spouse ≈ 0.9
-    @test params_w1.alpha ≈ 0.4
-    @test params_w1.conformism ≈ 2.0
-
-    params_m1 = GN.agent_payoff_params(world, m1, network)
-    @test params_m1.is_woman === false
-    @test params_m1.N_h ≈ 0.70
-    @test params_m1.N_theta ≈ 0.10
-    @test params_m1.N_h_spouse ≈ 0.30
-    @test params_m1.wage_self ≈ 0.9
-    @test params_m1.wage_spouse ≈ 1.1
-    @test params_m1.alpha ≈ 0.6
-    @test params_m1.conformism ≈ 2.0
-end

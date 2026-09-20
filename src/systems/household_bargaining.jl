@@ -1,30 +1,28 @@
-# Solver part of NetLogo `choose-bundle`, ODD section Labour best response.
-# The continuous best-response deviation from the NetLogo hill-climb is
-# recorded in `MDR-0002`; the `AgentPayoffParams` bundles are transient
-# utility-call inputs per `ADR-0006`.
+# Labour stage of the household bargaining loop. Port of NetLogo
+# `choose-bundle`, ODD section Labour best response; the continuous-solver
+# deviation from the NetLogo hill-climb is recorded in `MDR-0002`. The
+# household components are extracted in `choose_bundles` with `Ark.Query`
+# and the transient `AgentPayoffParams` are built there at the solver call
+# (see `ADR-0007`).
 
 """
-    mutual_best_response(world, woman, man, theta::Float64, config::UtilityConfig, network)
+    mutual_best_response(hw_init::Float64, hm_init::Float64, theta::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig; eps = 1.0e-3, max_sweeps = 100)
 
 Alternating continuous best responses of the two partners of one household
-for a fixed transfer `theta`, starting from their current working times.
-Port of NetLogo `choose-bundle` (ODD section Labour best response) with the
-continuous solver of `MDR-0002`. Per `ADR-0006`, the `AgentPayoffParams` of
-both partners are built locally with `agent_payoff_params` immediately
-before they are passed to `individual_utility`; `network` is the concrete
-`NetworkSpec` that selects the `ModelProperties{T}` resource (see
-`ADR-0005`). Returns the converged `(hw, hm)` working-time pair.
+for a fixed transfer `theta`, starting from the working times `hw_init` and
+`hm_init`. Port of NetLogo `choose-bundle` (ODD section Labour best
+response) with the continuous solver of `MDR-0002`. The
+`AgentPayoffParams` `pw` and `pm` are the transient bundles of the woman
+and the man, built by `choose_bundles` at the call site (see `ADR-0007`).
+Returns the converged `(hw, hm)` working-time pair.
 """
 function mutual_best_response(
-  world, woman, man, theta::Float64, config::UtilityConfig, network;
-  eps=1.0e-3, max_sweeps=100
+  hw_init::Float64, hm_init::Float64, theta::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+  eps = 1.0e-3, max_sweeps = 100
 )
-  woman_working_time, = Ark.get_components(world, woman, (WorkingTime,))
-  man_working_time, = Ark.get_components(world, man, (WorkingTime,))
-  hw = clamp(woman_working_time.current, 0.0, 1.0)
-  hm = clamp(man_working_time.current, 0.0, 1.0)
-  pw = agent_payoff_params(world, woman, network)
-  pm = agent_payoff_params(world, man, network)
+  hw = clamp(hw_init, 0.0, 1.0)
+  hm = clamp(hm_init, 0.0, 1.0)
   for _ in 1:max_sweeps
     hw_new = best_response_1d(h -> individual_utility(h, hm, theta, pw, config))
     hm_new = best_response_1d(h -> individual_utility(h, hw_new, theta, pm, config))
@@ -34,4 +32,69 @@ function mutual_best_response(
     change <= eps && break
   end
   return (hw, hm)
+end
+
+"""
+    choose_bundles(world, config::UtilityConfig, network)
+
+Household loop of the labour stage. `Ark.Query` extracts the components of
+every woman (`Wage`, `WorkingTime`, `TransferToWoman`, `Conformism`,
+`PreferencePrivate`, `Spouse`), the spouse's `Wage`, `WorkingTime`,
+`Conformism`, and `PreferencePrivate` are read, the perceived norms of both
+partners are computed with `norm_means`, and the two transient
+`AgentPayoffParams` are built at the `mutual_best_response` call (see
+`ADR-0007`). Every household is evaluated at its current transfer
+(`TransferToWoman.current`); the transfer stage (`set-theta` /
+`calculate-payoff`) is not ported yet and will reuse the bundles across
+theta evaluations. `network` is the concrete `NetworkSpec` that selects the
+`ModelProperties{T}` resource (see `ADR-0005`). Returns the `(hw, hm)`
+labour pair of every household in query order.
+"""
+function choose_bundles(world, config::UtilityConfig, network)
+  network_type = typeof(network)
+  net = Ark.get_resource(world, SocialNetwork)
+  properties = Ark.get_resource(world, ModelProperties{network_type})
+  globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
+  component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
+  results = Tuple{Float64, Float64}[]
+  for (entities, wages, times, transfers, conformisms, preferences, spouses) in
+      Ark.Query(world, component_types; with = (Female,))
+    @inbounds for f in eachindex(entities)
+      woman = entities[f]
+      man = spouses[f].entity
+      man_wage, man_time, man_conformism, man_preference =
+        Ark.get_components(world, man, (Wage, WorkingTime, Conformism, PreferencePrivate))
+      woman_vertex = findfirst(==(woman), net.women_entities)
+      woman_vertex === nothing && throw(ArgumentError("woman is not in the women entity vector"))
+      man_vertex = findfirst(==(man), net.men_entities)
+      man_vertex === nothing && throw(ArgumentError("man is not in the men entity vector"))
+      woman_norms = norm_means(world, net, woman_vertex, true, globals)
+      man_norms = norm_means(world, net, man_vertex, false, globals)
+      pw = AgentPayoffParams(
+        wage_self = wages[f].current,
+        wage_spouse = man_wage.current,
+        alpha = preferences[f].current,
+        conformism = conformisms[f].amount,
+        N_h = woman_norms.division_of_labor,
+        N_theta = woman_norms.transfer,
+        N_h_spouse = woman_norms.division_of_labor_spouse,
+        is_woman = true
+      )
+      pm = AgentPayoffParams(
+        wage_self = man_wage.current,
+        wage_spouse = wages[f].current,
+        alpha = man_preference.current,
+        conformism = man_conformism.amount,
+        N_h = man_norms.division_of_labor,
+        N_theta = man_norms.transfer,
+        N_h_spouse = man_norms.division_of_labor_spouse,
+        is_woman = false
+      )
+      hw_init = times[f].current
+      hm_init = man_time.current
+      theta = transfers[f].current
+      push!(results, mutual_best_response(hw_init, hm_init, theta, pw, pm, config))
+    end
+  end
+  return results
 end

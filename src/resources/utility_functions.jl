@@ -32,12 +32,12 @@ material(::MultiplicativeWeighted, x::Float64, Q::Float64, alpha::Float64) =
 """
     AgentPayoffParams
 
-Transient per-agent input bundle of `individual_utility`: own and spouse
-wage, material preference `alpha`, conformism, the perceived norms `N_h`
-(own working time), `N_theta` (transfer), and `N_h_spouse` (spouse working
-time), and the agent's sex. Construct it only immediately before the
-`individual_utility` call it feeds; never store it or pass it between
-functions (see `ADR-0006`).
+Transient per-agent parameter object of the household bargaining: own and
+spouse wage, material preference `alpha`, conformism, the perceived norms
+`N_h` (own working time), `N_theta` (transfer), and `N_h_spouse` (spouse
+working time), and the agent's sex. `choose_bundles` builds it at the
+`mutual_best_response` call and the solver passes it to
+`individual_utility`; it is never stored or returned (see `ADR-0007`).
 """
 Base.@kwdef struct AgentPayoffParams
     wage_self::Float64 = 1.0
@@ -57,7 +57,7 @@ Material utility times the conformity multiplier of NetLogo
 `calculate-utility` (ODD sections Material utility and conformity multiplier
 and Norm perception) for own hours `h_self`, spouse hours `h_spouse`, and
 transfer `theta`, evaluated for the transient `AgentPayoffParams` bundle
-`self_params` (see `ADR-0006`). Returns `-Inf` for infeasible bundles.
+`self_params` (see `ADR-0007`). Returns `-Inf` for infeasible bundles.
 """
 function individual_utility(
         h_self::Float64, h_spouse::Float64, theta::Float64,
