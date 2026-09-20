@@ -26,8 +26,8 @@ it must be implemented. Code cleanliness is enforced by review and by the
   `README.md`, `architecture.md`, `conventions.md`, then `decisions/ADR-*.md`.
 - For model semantics, consult `odd_model_description.typ` first and cite
   the ODD section. For ported logic, also check the NetLogo procedure.
-- For a compact view of all decisions, run
-  `julia scripts/decisions_digest.jl`.
+- For a compact view of all tasks and decisions, run
+  `julia scripts/registry_digest.jl`.
 
 ## Record decisions
 
@@ -37,6 +37,8 @@ it must be implemented. Code cleanliness is enforced by review and by the
   `registry/code/decisions/` (prefix `ADR`).
 - Start from `registry/templates/decision.md`; keep the filename, frontmatter,
   and heading contract described in the registry-maintenance skill.
+- Recorded but unimplemented work -> a task in `registry/tasks.md`
+  (prefix `TASK`).
 - Never diverge silently: record first, then implement.
 
 ## Keep the registry in sync
@@ -47,6 +49,9 @@ it must be implemented. Code cleanliness is enforced by review and by the
   `registry/model/entities.md`, `parameters.md`, or `processes.md`.
 - Known NetLogo-vs-Julia gaps go in `registry/model/discrepancies.md`;
   record them, do not silently fix or hide them.
+- New or completed work item: add or close its row in
+  `registry/tasks.md`; a `TODO`/`FIXME` comment in `src/` must cite an
+  open `TASK-####`.
 
 ## Cleanliness summary
 

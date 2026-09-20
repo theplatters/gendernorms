@@ -41,6 +41,8 @@ which conventions it follows, and which architecture decisions were made.
   in-place amendment while a record is current, supersede once it is
   relied upon, plus the citation and index checks and the on-demand
   digest.
+- `registry/code/decisions/ADR-0009-task-ledger.md`: the `TASK-NNNN`
+  ledger for recorded but unimplemented work and its validator checks.
 
 ## How to add a new source file correctly
 

@@ -38,6 +38,8 @@ instead of silent.
 5. Cite the NetLogo procedure and ODD section for every ported behavior, and
    mark anything not implementable from the evidence as `unknown` or
    `not ported` rather than guessing.
+6. Record follow-up work that is not implemented yet in
+   `registry/tasks.md`, citing the table row or decision it comes from.
 
 ## Index
 

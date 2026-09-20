@@ -55,8 +55,21 @@ unless a recorded ADR or MDR permits the deviation.
   `ADR-0008`).
 - The validator errors on citations that do not resolve and on records
   missing from the index README of their registry.
-- `julia scripts/decisions_digest.jl` prints all records with status,
-  date, title, and the first paragraph of `## Decision`.
+
+## Tasks
+
+- Recorded but unimplemented work lives in `registry/tasks.md` as
+  `TASK-NNNN` rows with status `open`, `in progress`, `blocked`, or
+  `done`; findings alone stay in `registry/model/discrepancies.md` (see
+  `ADR-0009`).
+- A `TODO` or `FIXME` comment in `src/` must carry the `TASK-####` id of
+  an open task on the same line; the validator rejects untracked and
+  closed references.
+- Close a task in the same change that implements it: set its status to
+  `done` and keep the row.
+- `julia scripts/registry_digest.jl` prints the tasks and all decision
+  records with status, date, title, and the first paragraph of
+  `## Decision`.
 
 ## Documentation
 
@@ -124,8 +137,9 @@ comprehensible.
   before finishing and by CI on PRs, checks the mechanically-checkable
   subset of this registry: frontmatter shape, required headings, file-map
   coverage of `src/`, exclusion annotations, skill frontmatter, ASCII,
-  tabs, trailing whitespace, final newlines, decision-record citations
-  that resolve, and index README coverage of every record. It also warns
+  tabs, trailing whitespace, final newlines, record and task citations
+  that resolve, task ids and statuses, `TODO`/`FIXME` comments citing
+  open tasks, and index README coverage of every record. It also warns
   when a top-level definition is absent from the whole registry; because
   CI runs
   with `--strict`, that warning must also be resolved (by documenting the

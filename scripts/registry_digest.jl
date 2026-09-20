@@ -1,14 +1,17 @@
-# scripts/decisions_digest.jl
+# scripts/registry_digest.jl
 #
-# Print a compact digest of all code (ADR) and model (MDR) decision
-# records: id, status, date, title, and the first paragraph of the
+# Print a compact digest of the registry: the task ledger
+# (registry/tasks.md) plus all code (ADR) and model (MDR) decision
+# records with id, status, date, title, and the first paragraph of their
 # Decision section. Read-only: nothing is written, so no derived file has
-# to be kept in sync (see ADR-0008).
+# to be kept in sync (see ADR-0008 and ADR-0009).
 #
 # Usage:
-#   julia scripts/decisions_digest.jl
+#   julia scripts/registry_digest.jl
 
 const ROOT = dirname(@__DIR__)
+
+const TASKS_FILE = "registry/tasks.md"
 
 const RECORD_DIRS = (
     ("ADR", "Code decisions (ADR)", "registry/code/decisions"),
@@ -46,6 +49,29 @@ function decision_paragraph(path::String)::String
         i += 1
     end
     return join(paragraph, " ")
+end
+
+# Task ledger rows as `(id, status, task)` triples.
+function task_rows(path::String)
+    rows = Tuple{String,String,String}[]
+    for line in readlines(path)
+        startswith(strip(line), "|") || continue
+        cells = strip.(split(strip(line), "|"))
+        length(cells) >= 4 || continue
+        occursin(r"^`TASK-\d{4}`$", cells[2]) || continue
+        push!(rows, (replace(cells[2], "`" => ""), cells[3], cells[4]))
+    end
+    return rows
+end
+
+tasks_path = joinpath(ROOT, TASKS_FILE)
+if isfile(tasks_path)
+    println("# Tasks (" * TASKS_FILE * ")")
+    println()
+    for (id, status, task) in task_rows(tasks_path)
+        println(rpad(id, 11) * rpad(status, 12) * task)
+    end
+    println()
 end
 
 for (prefix, heading, dir) in RECORD_DIRS

@@ -36,7 +36,7 @@ already provides.
   registry's index README.
 - Accepted decisions that constrain code structure are kept executable in
   `test/test_decision_invariants.jl`, which cites the governing record.
-- `scripts/decisions_digest.jl` prints a compact digest of all records on
+- `scripts/registry_digest.jl` prints a compact digest of all records on
   demand instead of committing a generated index.
 
 ## Consequences
@@ -53,7 +53,7 @@ already provides.
 ## References
 
 - `scripts/registry_check.jl`
-- `scripts/decisions_digest.jl`
+- `scripts/registry_digest.jl`
 - `test/test_decision_invariants.jl`
 - `registry/code/conventions.md`
 - `.opencode/skills/registry-maintenance/SKILL.md`

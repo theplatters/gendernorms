@@ -3,15 +3,16 @@
 # Registry validator for the GenderNorms repository.
 #
 # Enforces the mechanically-checkable subset of the registry contract
-# (see registry/code/conventions.md, ADR-0004 and ADR-0008): required
-# paths exist, decision records (MDR/ADR) carry valid frontmatter and
-# headings, cited record ids resolve, every record appears in its index
-# README, every file under src/ is registered in
-# registry/code/architecture.md, the include list in src/GenderNorms.jl
-# is intact, formatting is clean (ASCII only, no tabs, no trailing
-# whitespace, exactly one trailing newline), and skill frontmatter is
-# valid. Top-level definitions that are never mentioned in registry/**
-# are advisory warnings only.
+# (see registry/code/conventions.md, ADR-0004, ADR-0008 and ADR-0009):
+# required paths exist, decision records (MDR/ADR) carry valid frontmatter
+# and headings, cited record and task ids resolve, every record appears in
+# its index README, task ids are unique and their statuses valid,
+# TODO/FIXME comments in src/ cite open tasks, every file under src/ is
+# registered in registry/code/architecture.md, the include list in
+# src/GenderNorms.jl is intact, formatting is clean (ASCII only, no tabs,
+# no trailing whitespace, exactly one trailing newline), and skill
+# frontmatter is valid. Top-level definitions that are never mentioned in
+# registry/** are advisory warnings only.
 #
 # The validator uses only the Julia standard library (Base) and runs
 # under a bare julia with no project activated. The repository root is
@@ -28,6 +29,7 @@ const REQUIRED_PATHS = (
     "AGENTS.md",
     "opencode.json",
     "registry/README.md",
+    "registry/tasks.md",
     "registry/templates/decision.md",
     "registry/model/README.md",
     "registry/model/entities.md",
@@ -52,8 +54,11 @@ const DEF_PATTERNS = (
 
 const INCLUDE_PATTERN = r"include\s*\(\s*\"([^\"]+)\"\s*\)"
 const FILENAME_ID_PATTERN = r"^([A-Z]+-\d{4})-"
-const RECORD_ID_PATTERN = r"[AM]DR-\d{4}"
+const TRACKED_ID_PATTERN = r"(?:[AM]DR|TASK)-\d{4}"
 const DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+const TASK_STATUSES = ("open", "in progress", "blocked", "done")
+const TASK_ROW_PATTERN = r"^\|\s*`(TASK-\d{4})`\s*\|\s*([^|]*?)\s*\|"
+const TODO_PATTERN = r"\b(?:TODO|FIXME)\b"
 const TRAILING_WS_PATTERN = r"[ \t\r]+$"
 const EXCLUDED_MARKER = "Excluded from module:"
 
@@ -350,23 +355,89 @@ function decision_ids(root::String)::Set{String}
     return ids
 end
 
-# Every `ADR-####` / `MDR-####` token under `src/` or `registry/` must
-# resolve to a record. Skill files and AGENTS.md are outside this scan:
-# their examples may use placeholder ids.
-function check_decision_citations(
-    st::CheckState, root::String, jl_files::Vector{String}, md_files::Vector{String}
+# Every `ADR-####`, `MDR-####` or `TASK-####` token under `src/` or
+# `registry/` must resolve to a record or a task. Skill files and
+# AGENTS.md are outside this scan: their examples may use placeholder ids.
+function check_tracked_id_citations(
+    st::CheckState, root::String, jl_files::Vector{String}, md_files::Vector{String},
+    tasks::Dict{String,String},
 )
-    known = decision_ids(root)
+    known = union(decision_ids(root), Set(keys(tasks)))
     for rel in sort!(vcat(jl_files, md_files))
         content = try_read_text(joinpath(root, rel))
         content === nothing && continue
-        cited = Set{String}(String(m.match) for m in eachmatch(RECORD_ID_PATTERN, content))
+        cited = Set{String}(String(m.match) for m in eachmatch(TRACKED_ID_PATTERN, content))
         isempty(cited) && continue
         unknown = sort(collect(filter(id -> !(id in known), cited)))
         if isempty(unknown)
-            report_ok!(st, rel * ": decision record citations resolve")
+            report_ok!(st, rel * ": tracked id citations resolve")
         else
-            report_error!(st, rel * ": unknown decision record id(s) " * join(unknown, ", "))
+            report_error!(st, rel * ": unknown tracked id(s) " * join(unknown, ", "))
+        end
+    end
+    return nothing
+end
+
+# Parse the task ledger into id => status and report malformed rows.
+function check_tasks(st::CheckState, root::String)::Dict{String,String}
+    statuses = Dict{String,String}()
+    rel = "registry/tasks.md"
+    content = try_read_text(joinpath(root, rel))
+    if content === nothing
+        report_error!(st, rel * ": cannot read task ledger")
+        return statuses
+    end
+    for (i, line) in enumerate(text_lines(content))
+        m = match(TASK_ROW_PATTERN, line)
+        m === nothing && continue
+        id = String(m.captures[1])
+        status = String(strip(m.captures[2]))
+        if haskey(statuses, id)
+            report_error!(st, rel * ": duplicate task id `" * id * "` on line " * string(i))
+        end
+        if !(status in TASK_STATUSES)
+            report_error!(st, rel * ": task `" * id * "` on line " * string(i) *
+                " has invalid status `" * status * "`")
+        end
+        statuses[id] = status
+    end
+    if isempty(statuses)
+        report_error!(st, rel * ": no `TASK-NNNN` rows found")
+    else
+        report_ok!(st, rel * ": " * string(length(statuses)) *
+            " task id(s) with valid statuses")
+    end
+    return statuses
+end
+
+# A `TODO`/`FIXME` comment in src/ must cite an open task on the same line.
+function check_todos(
+    st::CheckState, root::String, jl_files::Vector{String}, tasks::Dict{String,String}
+)
+    for rel in jl_files
+        content = try_read_text(joinpath(root, rel))
+        content === nothing && continue
+        for (i, line) in enumerate(text_lines(content))
+            occursin(TODO_PATTERN, line) || continue
+            ids = String[m.match for m in eachmatch(r"TASK-\d{4}", line)]
+            location = rel * ":" * string(i)
+            if isempty(ids)
+                report_error!(st, location * ": TODO/FIXME without a `TASK-####` reference")
+                continue
+            end
+            errs = String[]
+            for id in ids
+                if !haskey(tasks, id)
+                    push!(errs, "unknown task id `" * id * "`")
+                elseif tasks[id] == "done"
+                    push!(errs, "cites closed task `" * id * "`")
+                end
+            end
+            if isempty(errs)
+                report_ok!(st, location * ": TODO tracked by " * join(ids, ", "))
+            else
+                report_error!(st, location * ": " * join(errs, "; "))
+            end
         end
     end
     return nothing
@@ -610,7 +681,9 @@ function main(argv::Vector{String})::Int
         check_decision_records(st, root)
         jl_files = list_files(root, "src", ".jl")
         md_files = list_files(root, "registry", ".md")
-        check_decision_citations(st, root, jl_files, md_files)
+        tasks = check_tasks(st, root)
+        check_tracked_id_citations(st, root, jl_files, md_files, tasks)
+        check_todos(st, root, jl_files, tasks)
         check_decision_index(st, root)
         arch_text = try_read_text(joinpath(root, "registry/code/architecture.md"))
         if arch_text === nothing

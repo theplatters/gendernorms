@@ -14,11 +14,14 @@ The registry has two halves:
 - `registry/code/` -- code truth: architecture, conventions, and code decision
   records (ADRs). See `registry/code/README.md`.
 
-Reusable scaffolding lives in `registry/templates/decision.md`.
+Recorded but unimplemented work is tracked in `registry/tasks.md`, shared
+by both halves. Reusable scaffolding lives in
+`registry/templates/decision.md`.
 
 ## Directory map
 
 - `registry/README.md` -- this index.
+- `registry/tasks.md` -- ledger of recorded but unimplemented work.
 - `registry/templates/decision.md` -- copy-ready template for MDR/ADR records.
 - `registry/model/README.md` -- purpose of the model registry and sync rules.
 - `registry/model/entities.md` -- entity and state-variable mapping table.
@@ -44,9 +47,10 @@ For agents:
 3. Record first, then implement: any intentional divergence from the ODD or
    the reference implementation needs a new MDR (model) or ADR (code) before
    the code change. Never diverge silently.
-4. Keep the registry in sync: new Julia files, entities, parameters, or
-   processes must be registered; known gaps go to
-   `registry/model/discrepancies.md`.
+4. Keep the registry in sync: new Julia files, entities, parameters,
+   processes, or work items must be registered; known gaps go to
+   `registry/model/discrepancies.md` and recorded work goes to
+   `registry/tasks.md`.
 
 For humans:
 
@@ -56,12 +60,15 @@ For humans:
 3. In review, check that behavior changes cite an MDR and structural changes
    cite an ADR, and that tables still match `src/`.
 
-## Decision-record ID scheme
+## ID schemes
 
 - `MDR-NNNN-kebab-slug.md` -- Model Decision Record: model behavior,
   parameter, or porting choices. Example: `MDR-0001`.
 - `ADR-NNNN-kebab-slug.md` -- Architecture Decision Record: structural or
   code-organization choices. Example: `ADR-0001`.
+- `TASK-NNNN` -- ledger row in `registry/tasks.md` for recorded but
+  unimplemented work. Status is `open`, `in progress`, `blocked`, or
+  `done`.
 - Numbering is zero-padded and sequential within each prefix. The `id`
   frontmatter field must equal the filename prefix.
 - Cross-reference records by backticked ID, e.g. `MDR-0001`. Reference repo

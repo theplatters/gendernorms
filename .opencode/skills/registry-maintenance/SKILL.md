@@ -55,9 +55,21 @@ or warnings.
 - Run `julia --project=. scripts/registry_check.jl` and use `--strict`
   (as CI does), where warnings become errors.
 
+## Task ledger
+
+- Recorded but unimplemented work is a `TASK-NNNN` row in
+  `registry/tasks.md` with status `open`, `in progress`, `blocked`, or
+  `done` (see `ADR-0009`).
+- Mark a task `done` in the same change that implements it and keep the
+  row; do not delete it.
+- A `TODO`/`FIXME` comment in `src/` must cite an open task on the same
+  line.
+
 ## Checklist
 
 - [ ] Correct prefix, number, slug, and matching `id`.
 - [ ] Frontmatter complete, flat, valid `status` and `date`.
 - [ ] Required headings present; supersede links bidirectional.
+- [ ] New or closed work reflected in `registry/tasks.md`; code TODOs
+      cite open tasks.
 - [ ] Validator clean (`--strict` for release).
