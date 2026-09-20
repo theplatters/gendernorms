@@ -28,9 +28,9 @@ which conventions it follows, and which architecture decisions were made.
   `UtilitySpec` subtype dispatch for utility forms.
 - `registry/code/decisions/ADR-0004-registry-system.md`: this registry,
   ADR versus MDR split, and validator plus CI enforcement.
-- `registry/code/decisions/ADR-0005-non-parametric-model-properties.md`:
-  non-parametric `ModelProperties` resource so Ark can retrieve it by its
-  declared type.
+- `registry/code/decisions/ADR-0005-parametric-model-properties.md`:
+  parametric `ModelProperties` resource that carries the network
+  specification in its type parameter instead of an abstract field.
 
 ## How to add a new source file correctly
 

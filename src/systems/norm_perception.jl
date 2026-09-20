@@ -113,7 +113,7 @@ function norm_penalty(conformism::Float64, h_self::Float64, h_spouse::Float64, t
 end
 
 """
-    calculate_norm_perception!(world, config::UtilityConfig)
+    calculate_norm_perception!(world, config::UtilityConfig, network)
 
 Loop over women then men via the entity vectors and graph vertices of the
 `SocialNetwork` resource, compute each agent's perceived norms with
@@ -121,12 +121,13 @@ Loop over women then men via the entity vectors and graph vertices of the
 from current working times and the current transfer, and store
 `PerceptionNormDivisionOfLabor` and `NormParameter` on each agent with
 `Ark.set_components!`. The global means are computed once with
-`norm_global_means` when `ModelProperties.network` is `HomogeneousMixing`.
-Returns `nothing`.
+`norm_global_means` when the `network` field of the `ModelProperties{T}`
+resource is `HomogeneousMixing`; the concrete `network` specification selects
+that resource type (see `ADR-0005`). Returns `nothing`.
 """
-function calculate_norm_perception!(world, config::UtilityConfig)
+function calculate_norm_perception!(world, config::UtilityConfig, network::T) where {T<:NetworkSpec}
     net = Ark.get_resource(world, SocialNetwork)
-    properties = Ark.get_resource(world, ModelProperties)
+    properties = Ark.get_resource(world, ModelProperties{T})
     globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
     for (entities, is_woman) in ((net.women_entities, true), (net.men_entities, false))
         for (vertex, entity) in enumerate(entities)
@@ -146,20 +147,21 @@ function calculate_norm_perception!(world, config::UtilityConfig)
 end
 
 """
-    agent_payoff_params(world, entity)
+    agent_payoff_params(world, entity, network)
 
 Build the `AgentPayoffParams` for `individual_utility` for `entity` from
 its network-based norms. Determines sex with `Ark.has_components` (via
 `Female`), locates the graph vertex in the `SocialNetwork` resource,
 computes the perceived norms with `norm_means` (using on-demand global
 means under homogenous mixing), and fills wage, preference, and
-conformism from the agent's components and its spouse's wage. Returns an
-`AgentPayoffParams` with the `N_h`, `N_theta`, `N_h_spouse`, and
-`is_woman` fields set from the percepts.
+conformism from the agent's components and its spouse's wage. The concrete
+`network` specification selects the `ModelProperties{T}` resource type
+(see `ADR-0005`). Returns an `AgentPayoffParams` with the `N_h`,
+`N_theta`, `N_h_spouse`, and `is_woman` fields set from the percepts.
 """
-function agent_payoff_params(world, entity)
+function agent_payoff_params(world, entity, network::T) where {T<:NetworkSpec}
     net = Ark.get_resource(world, SocialNetwork)
-    properties = Ark.get_resource(world, ModelProperties)
+    properties = Ark.get_resource(world, ModelProperties{T})
     is_woman = Ark.has_components(world, entity, (Female,))
     entities = is_woman ? net.women_entities : net.men_entities
     vertex = findfirst(==(entity), entities)
