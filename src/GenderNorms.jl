@@ -2,7 +2,6 @@ module GenderNorms
 
 import Ark
 import Graphs
-import Optim
 import Random
 using Distributions: Normal
 

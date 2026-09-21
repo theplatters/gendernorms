@@ -42,7 +42,7 @@ The module root is `src/GenderNorms.jl`.
 | `src/GenderNorms.jl` | module root | Declares module `GenderNorms`, imports, and include list | Included |
 | `src/main.jl` | entry point | Standalone entry point, currently empty | Empty standalone file |
 | `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, theta, `NormParameter`, `PerceptionNormDivisionOfLabor` | Included |
-| `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, the transient `AgentPayoffParams` parameter object of `mutual_best_response` and `individual_utility`, `material`, `individual_utility`, `best_response_1d` | Included |
+| `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, the transient `AgentPayoffParams` parameter object of `mutual_best_response` and `individual_utility`, `material`, `individual_utility`, the in-repo Brent search `maximize_1d` with its seeded variant and the `_brent_maximize` core, the seeded `best_response_1d`, and the solver constants `BEST_RESPONSE_TOL` and `BEST_RESPONSE_WINDOW` | Included |
 | `src/resources/social_network.jl` | resources | Network specifications and graph construction: `NetworkSpec` subtypes, `SocialNetwork`, `generate` methods, similarity and homophily builders | Included |
 | `src/resources/observers.jl` | resources | Observer structs for aggregate working-time statistics | Included |
 | `src/resources/properties.jl` | resources | Model properties and run state: `ModelProperties`, `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple`, `GlobalStats` | Included |
@@ -88,3 +88,6 @@ details and are not part of the package's public surface.
 | `norm_means` | `src/systems/norm_perception.jl` | Perceived norms of one agent: same-sex neighbour means plus spouses-of-neighbours working time, with isolated fallbacks. |
 | `norm_penalty` | `src/systems/norm_perception.jl` | Norm exponent of `calculate-utility`: weighted squared deviations from the perceived norms. |
 | `calculate_norm_perception!` | `src/systems/norm_perception.jl` | Compute and store `PerceptionNormDivisionOfLabor` and `NormParameter` for every agent. |
+| `maximize_1d` | `src/resources/utility_functions.jl` | In-repo Brent 1-D maximization with the seeded variant: the continuous solver behind `best_response_1d` and `bargain_transfer`. |
+| `_brent_maximize` | `src/resources/utility_functions.jl` | Core Brent search behind `maximize_1d`, returning the best finite sample. |
+| `best_response_1d` | `src/resources/utility_functions.jl` | Labour best response on `[0, 1]`, seeded at the current hours with `BEST_RESPONSE_TOL`/`BEST_RESPONSE_WINDOW` (`MDR-0002`). |

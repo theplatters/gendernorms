@@ -11,21 +11,31 @@
 Alternating continuous best responses of the two partners of one household
 for a fixed transfer `theta`, starting from the working times `hw_init` and
 `hm_init`. Port of NetLogo `choose-bundle` (ODD section Labour best
-response) with the continuous solver of `MDR-0002`. The
-`AgentPayoffParams` `pw` and `pm` are the transient bundles of the woman
-and the man, built by `choose_bundles` at the call site (see `ADR-0007`).
+response) with the seeded continuous solver of `MDR-0002`: each best response
+starts from the current hours and keeps them when no feasible sample exists.
+The `AgentPayoffParams` `pw` and `pm` are the transient bundles of the woman
+and the man, built by `set_theta!` at the call site (see `ADR-0007`).
 Returns the converged `(hw, hm)` working-time pair.
 """
 function mutual_best_response(
   hw_init::Float64, hm_init::Float64, theta::Float64,
   pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  eps = 1.0e-3, max_sweeps = 100
+  eps=1.0e-3, max_sweeps=100
 )
   hw = clamp(hw_init, 0.0, 1.0)
   hm = clamp(hm_init, 0.0, 1.0)
   for _ in 1:max_sweeps
-    hw_new = best_response_1d(h -> individual_utility(h, hm, theta, pw, config))
-    hm_new = best_response_1d(h -> individual_utility(h, hw_new, theta, pm, config))
+    # Each captured partner hour is bound immutably per iteration: a capture
+    # reassigned later in the loop would be boxed, turning every utility
+    # evaluation of the best-response search into an allocating dynamic call (see `MDR-0002`).
+    hw_new = let partner_h = hm
+      best_response_1d(h -> individual_utility(h, partner_h, theta, pw, config), hw)
+    end
+    isfinite(hw_new) || (hw_new = hw)
+    hm_new = let partner_h = hw_new
+      best_response_1d(h -> individual_utility(h, partner_h, theta, pm, config), hm)
+    end
+    isfinite(hm_new) || (hm_new = hm)
     change = abs(hw_new - hw) + abs(hm_new - hm)
     hw = clamp(hw_new, 0, 1)
     hm = clamp(hm_new, 0, 1)

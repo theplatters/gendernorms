@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "5bbebb2fb50706828812affd3e26e914bca6695e"
+project_hash = "197c1dc1e85ba6369525d6c1d92aadf39da912df"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -331,24 +331,6 @@ version = "3.3.0"
     [deps.FindFirstFunctions.weakdeps]
     EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
 
-[[deps.FiniteDiff]]
-deps = ["ArrayInterface", "LinearAlgebra", "Setfield"]
-git-tree-sha1 = "5031f23e040bf17082e5b52422d77b5e844eefb1"
-uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
-version = "2.33.0"
-
-    [deps.FiniteDiff.extensions]
-    FiniteDiffBandedMatricesExt = "BandedMatrices"
-    FiniteDiffBlockBandedMatricesExt = "BlockBandedMatrices"
-    FiniteDiffSparseArraysExt = "SparseArrays"
-    FiniteDiffStaticArraysExt = "StaticArrays"
-
-    [deps.FiniteDiff.weakdeps]
-    BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
-    BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
-    SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-    StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-
 [[deps.FunctionWrappers]]
 git-tree-sha1 = "d62485945ce5ae9c0c48f124a84998d755bae00e"
 uuid = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
@@ -368,11 +350,6 @@ version = "1.13.0"
     Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
     EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
     Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
-
-[[deps.Future]]
-deps = ["Random"]
-uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
-version = "1.11.0"
 
 [[deps.GPUArraysCore]]
 deps = ["Adapt"]
@@ -459,12 +436,6 @@ version = "0.3.0"
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 version = "1.11.0"
 
-[[deps.LineSearches]]
-deps = ["LinearAlgebra", "NLSolversBase", "NaNMath", "Printf"]
-git-tree-sha1 = "a09a85e94e681def2446752cddaf9401a4d82b6d"
-uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
-version = "7.8.2"
-
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -518,18 +489,6 @@ path = "."
 uuid = "4e6faa1d-2179-4b0b-bf70-01c6526450f3"
 version = "0.1.0"
 
-[[deps.NLSolversBase]]
-deps = ["ADTypes", "DifferentiationInterface", "FiniteDiff", "LinearAlgebra"]
-git-tree-sha1 = "f96d38936d92d610318dec4d3b5ef37b0373c20f"
-uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
-version = "8.0.1"
-
-[[deps.NaNMath]]
-deps = ["OpenLibm_jll"]
-git-tree-sha1 = "dbd2e8cd2c1c27f0b584f6661b4309609c5a685e"
-uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "1.1.4"
-
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
@@ -545,18 +504,6 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "1346c9208249809840c91b26703912dff463d335"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
 version = "0.5.6+0"
-
-[[deps.Optim]]
-deps = ["ADTypes", "EnumX", "FillArrays", "LineSearches", "LinearAlgebra", "NLSolversBase", "NaNMath", "PositiveFactorizations", "Printf", "SparseArrays", "Statistics"]
-git-tree-sha1 = "81f338ad984b25bc82471db4d235e7b8bf21b8d6"
-uuid = "429524aa-4258-5aef-a3af-852621145aeb"
-version = "2.3.2"
-
-    [deps.Optim.extensions]
-    OptimMOIExt = "MathOptInterface"
-
-    [deps.Optim.weakdeps]
-    MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 
 [[deps.Optimization]]
 deps = ["ADTypes", "ArrayInterface", "ConsoleProgressMonitor", "DocStringExtensions", "LinearAlgebra", "Logging", "LoggingExtras", "OptimizationBase", "Printf", "Reexport", "SciMLBase", "SparseArrays", "TerminalLoggers"]
@@ -608,12 +555,6 @@ weakdeps = ["StatsBase"]
 
     [deps.PDMats.extensions]
     StatsBaseExt = "StatsBase"
-
-[[deps.PositiveFactorizations]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "17275485f373e6673f7e7f97051f703ed5b15b20"
-uuid = "85a6dd25-e78a-55b7-8502-1745935b8125"
-version = "0.2.4"
 
 [[deps.PreallocationTools]]
 deps = ["Adapt", "ArrayInterface", "PrecompileTools", "SciMLPublic"]
@@ -868,12 +809,6 @@ version = "1.10.5"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
-
-[[deps.Setfield]]
-deps = ["ConstructionBase", "Future", "MacroTools", "StaticArraysCore"]
-git-tree-sha1 = "c5391c6ace3bc430ca630251d02ea9687169ca68"
-uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-version = "1.1.2"
 
 [[deps.SimpleTraits]]
 deps = ["InteractiveUtils", "MacroTools"]
