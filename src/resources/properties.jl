@@ -19,7 +19,7 @@ Base.@kwdef struct MeanWage
 end
 
 Base.@kwdef struct MeanPreference
-  men::Float64 = 0.44
+  men::Float64 = 0.45
   woman::Float64 = 0.48
 end
 

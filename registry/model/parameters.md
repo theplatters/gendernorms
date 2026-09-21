@@ -10,7 +10,7 @@ NetLogo defaults are Interface-tab slider values in
 | `number-agents-each-type` | 400 | `src/resources/properties.jl`: `ModelProperties.agents_per_gender` | 400 | ported |
 | `wage-female` | 0.9 | `src/resources/properties.jl`: `MeanWage.woman` | 0.9 | ported |
 | `wage-male` | 1.0 | `src/resources/properties.jl`: `MeanWage.men` | 1.0 | ported |
-| `preference-private-mean-male` | 0.45 | `src/resources/properties.jl`: `MeanPreference.men` | 0.44 | discrepancy: Julia 0.44 vs ODD 0.45, see `registry/model/discrepancies.md` |
+| `preference-private-mean-male` | 0.45 | `src/resources/properties.jl`: `MeanPreference.men` | 0.45 | ported, see `MDR-0006` |
 | `preference-private-mean-female` | 0.48 | `src/resources/properties.jl`: `MeanPreference.woman` | 0.48 | ported |
 | `conformism-female` | 10.0 | `src/resources/properties.jl`: `InitialConformism.woman` | 10.0 | ported |
 | `conformism-male` | 10.0 | `src/resources/properties.jl`: `InitialConformism.men` | 10.0 | ported |

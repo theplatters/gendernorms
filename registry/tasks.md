@@ -22,7 +22,7 @@ Statuses: `open`, `in progress`, `blocked`, `done`.
 | `TASK-0006` | open | Port the specific-couple probe override (`ProbeCouple`) or record its removal | `registry/model/discrepancies.md`; `registry/model/parameters.md`; ODD Initialization item 7 |
 | `TASK-0007` | open | Port the remaining `setup` inputs: the CSV import mode and the fixed-seed RNG path | `registry/model/processes.md` (`setup`); `registry/model/parameters.md` (`import-csv`, `fixed-rs`, `random-seed-fixed`) |
 | `TASK-0008` | open | Record the retained ODD quirks (items 1-12) as MDRs under `MDR-0003` | `registry/model/discrepancies.md`; `MDR-0003` |
-| `TASK-0009` | open | Decide the recorded open questions in MDRs: `MeanPreference.men` 0.44 vs 0.45, the infeasibility penalty `-Inf` vs `-200`, and `rho` vs `lambda` before porting experiments | `registry/model/discrepancies.md`; `registry/model/parameters.md`; ODD Parameters table |
+| `TASK-0009` | open | Decide the recorded open questions in MDRs: the infeasibility penalty `-Inf` vs `-200`, and `rho` vs `lambda` before porting experiments | `registry/model/discrepancies.md`; `registry/model/parameters.md`; ODD Parameters table |
 
 ## Code tasks
 

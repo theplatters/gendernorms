@@ -8,7 +8,6 @@ an ODD section.
 
 | Item | Evidence (file:line or ODD section) | Suggested resolution |
 | --- | --- | --- |
-| `MeanPreference.men` is 0.44 but the ODD default for `preference-private-mean-male` is 0.45 | `src/resources/properties.jl:19`; ODD Parameters table | Decide the intended default in an MDR and change one side to match |
 | `src/resources/shock.jl` references undefined `ShockType` and `SHOCK_NO`, so the file cannot load | `src/resources/shock.jl:2` | Define the shock-type enum (or reuse the NetLogo chooser strings) in an MDR-backed port of Shocks |
 | `src/resources/shock.jl` is not included in the module | `src/GenderNorms.jl:9-16` (no include for `shock.jl`) | Include it once it loads, at the right layer per `registry/code/architecture.md` |
 | `Theta` component is declared but never used (`set-theta` / `calculate-payoff` not ported) | `src/components.jl:36-38`; ODD Transfer bargaining | Port Transfer bargaining in a follow-up, then wire or remove `Theta` |
