@@ -372,7 +372,7 @@ to go
   if (ticks > shock-start) [end-shock]
   set-theta
   update-statistics
-  ;update-wages
+
   update-preferences
   tick
   if output-locations = true
@@ -785,28 +785,15 @@ end
 
 to update-statistics
   
-  ;let r (mean [current-working-time] of women) / (mean [current-working-time] of women + mean [current-working-time] of men)
 
   ask turtles
   [
     set old-working-time current-working-time ;"private activity"
     set old-transfer-to-woman current-transfer-to-woman ;"private activity"
-    ; wage increase
-    ;set wage ifelse-value (breed = women)[wage * (1 + daily-wage-growth * r)][wage * ( 1 + daily-wage-growth * (1 - r))]
   ]
   set global-mean-working-time-men mean [current-working-time] of men
   set global-mean-working-time-women mean [current-working-time] of women
 
-  ;if values oscillate around an equilibrium, increase precision
-;  if length history-mean-working-time-women > 9
-;  [
-;    if ((global-mean-working-time-women != item 0 history-mean-working-time-women and member? global-mean-working-time-women but-first history-mean-working-time-women) or (global-mean-working-time-men != item 0 history-mean-working-time-men and member? global-mean-working-time-men but-first history-mean-working-time-men))
-;    [
-;      set current-delta current-delta / 2
-;      set history-mean-working-time-women []
-;      set history-mean-working-time-men []
-;    ]
-;  ]
   set history-mean-working-time-men fput global-mean-working-time-men history-mean-working-time-men
     if length history-mean-working-time-men > 10
   [
