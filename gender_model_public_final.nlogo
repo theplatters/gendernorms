@@ -301,8 +301,6 @@ to set-theta
   ask women
   [
     let chosen-bundle choose-bundle self spouse 0
-    ;let utility_outside_option_woman calculate-utility self (precision (item 0 chosen-bundle) 3)  0
-    ;let utility_outside_option_man calculate-utility spouse (precision (item 1 chosen-bundle) 3)  0
     let utility_outside_option_woman calculate-utility self ((item 0 chosen-bundle))  0
     let utility_outside_option_man calculate-utility spouse ((item 1 chosen-bundle))  0
     let delta-theta 0.001
@@ -310,7 +308,6 @@ to set-theta
     let best-theta 0
     let best-payoff 0;calculate-payoff self spouse 0 utility_outside_option_woman utility_outside_option_man
     let change 1
-    ;upwards, then downwards
     while [tested-theta <= 1 and change > 0]
     [
       set tested-theta tested-theta + delta-theta
@@ -323,7 +320,6 @@ to set-theta
       [
         set change 0
       ]
-        ;show (word tested-theta " " calculated-payoff "  " best-theta "  " best-payoff)
 
     ]
     set change 1
@@ -344,14 +340,10 @@ to set-theta
 
     ]
     set chosen-bundle choose-bundle self spouse best-theta
-    ;set current-transfer-to-woman (precision best-theta 3)
-    ;set current-working-time (precision item 0 chosen-bundle 2 )
     set current-transfer-to-woman best-theta
     set current-working-time  item 0 chosen-bundle
     ask spouse
     [
-      ;set current-transfer-to-woman (precision best-theta 3)
-      ;set current-working-time (precision item 1 chosen-bundle 2 )
       set current-transfer-to-woman  best-theta
       set current-working-time  item 1 chosen-bundle
     ]
