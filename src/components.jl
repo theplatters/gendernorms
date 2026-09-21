@@ -33,10 +33,6 @@ struct CurrentUtility
   amount::Float64
 end
 
-struct Theta
-  amount::Float64
-end
-
 """
     NormParameter
 

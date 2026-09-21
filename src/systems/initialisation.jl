@@ -5,27 +5,27 @@
 draw_normal(mu::Float64, sigma::Float64) = sigma > 0 ? rand(Normal(mu, sigma)) : mu
 
 """
-    initialize_household(world, network)
+    initialize_household(world)
 
 Create `ModelProperties.agents_per_gender` women and men, give them their
 initial traits (drawn from the truncated normals in `set-initials-*`) and pair
-each woman with one man. `network` is the concrete `NetworkSpec` the world's
-`ModelProperties{T}` resource was created with; it selects the resource type
-(see `ADR-0005`).
+each woman with one man. Port of NetLogo `setup` (ODD section Initialization
+(`setup`, `set-initials-*`)). The network specification is read from the
+world's `ModelProperties` resource (see `ADR-0010`).
 """
-function initialize_household(world, network::T) where {T<:NetworkSpec}
-  properties = Ark.get_resource(world, ModelProperties{T})
+function initialize_household(world)
+  properties = Ark.get_resource(world, ModelProperties)
   n = properties.agents_per_gender
 
   women = Vector{Ark.Entity}(undef, n)
   men = Vector{Ark.Entity}(undef, n)
 
   for i in 1:n
-    woman = Ark.new_entity!(world, get_woman(world, network))
+    woman = Ark.new_entity!(world, get_woman(world))
     transfer, = Ark.get_components(world, woman, (TransferToWoman,))
 
     # the man inherits the initial transfer from his spouse
-    man = Ark.new_entity!(world, (get_men(world, network)..., transfer))
+    man = Ark.new_entity!(world, (get_men(world)..., transfer))
 
     Ark.set_components!(world, woman, (Spouse(man),))
     Ark.set_components!(world, man, (Spouse(woman),))
@@ -37,9 +37,9 @@ function initialize_household(world, network::T) where {T<:NetworkSpec}
   return women, men
 end
 
-function get_agent(world::Ark.World, gender::Gender, network::T) where {T<:NetworkSpec}
+function get_agent(world::Ark.World, gender::Gender)
 
-  properties = Ark.get_resource(world, ModelProperties{T})
+  properties = Ark.get_resource(world, ModelProperties)
 
   mean_working_time = for_gender(Ark.get_resource(world, PaidTime), gender)
 
@@ -87,10 +87,10 @@ function get_agent(world::Ark.World, gender::Gender, network::T) where {T<:Netwo
   )
 end
 
-function get_woman(world, network::T) where {T<:NetworkSpec}
-  components = get_agent(world, Female(), network)
+function get_woman(world)
+  components = get_agent(world, Female())
 
-  properties = Ark.get_resource(world, ModelProperties{T})
+  properties = Ark.get_resource(world, ModelProperties)
 
   transfer_draw = clamp(
     draw_normal(
@@ -103,13 +103,13 @@ function get_woman(world, network::T) where {T<:NetworkSpec}
   return (components..., transfer_to_woman)
 end
 
-get_men(world, network::T) where {T<:NetworkSpec} = get_agent(world, Male(), network)
+get_men(world) = get_agent(world, Male())
 
 # NetLogo `setup`: build the same-sex networks. Agents have to be created
 # first (similarity networks are weighted by agent traits).
-function generate_social_network(world, network::T) where {T<:NetworkSpec}
+function generate_social_network(world)
 
-  properties = Ark.get_resource(world, ModelProperties{T})
+  properties = Ark.get_resource(world, ModelProperties)
   n = properties.agents_per_gender
   rng = Random.default_rng()
 

@@ -29,13 +29,13 @@ which conventions it follows, and which architecture decisions were made.
 - `registry/code/decisions/ADR-0004-registry-system.md`: this registry,
   ADR versus MDR split, and validator plus CI enforcement.
 - `registry/code/decisions/ADR-0005-parametric-model-properties.md`:
-  parametric `ModelProperties` resource that carries the network
-  specification in its type parameter instead of an abstract field.
+  parametric `ModelProperties` resource that carried the network
+  specification in its type parameter (superseded by `ADR-0010`).
 - `registry/code/decisions/ADR-0006-transient-agent-payoff-params.md`:
   `AgentPayoffParams` as a transient input to `individual_utility` that is
   never passed between functions (superseded by `ADR-0007`).
-- `registry/code/decisions/ADR-0007-choose-bundles-query-extraction.md`:
-  household components extracted with `Ark.Query` in `choose_bundles` and
+- `registry/code/decisions/ADR-0007-set-theta-query-extraction.md`:
+  household components extracted with `Ark.Query` in `set_theta!` and
   built into transient bundles at the solver call.
 - `registry/code/decisions/ADR-0008-decision-record-lifecycle.md`:
   in-place amendment while a record is current, supersede once it is
@@ -43,6 +43,10 @@ which conventions it follows, and which architecture decisions were made.
   digest.
 - `registry/code/decisions/ADR-0009-task-ledger.md`: the `TASK-NNNN`
   ledger for recorded but unimplemented work and its validator checks.
+- `registry/code/decisions/ADR-0010-world-owned-model-properties.md`:
+  non-parametric `ModelProperties`; the world is the single carrier of the
+  network specification and systems take no specification argument
+  (supersedes `ADR-0005`).
 
 ## How to add a new source file correctly
 

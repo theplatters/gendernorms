@@ -41,14 +41,14 @@ The module root is `src/GenderNorms.jl`.
 | ---- | ----- | -------------- | ------ |
 | `src/GenderNorms.jl` | module root | Declares module `GenderNorms`, imports, and include list | Included |
 | `src/main.jl` | entry point | Standalone entry point, currently empty | Empty standalone file |
-| `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, theta, `NormParameter`, `PerceptionNormDivisionOfLabor` | Included |
+| `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, `NormParameter`, `PerceptionNormDivisionOfLabor` | Included |
 | `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, the transient `AgentPayoffParams` parameter object of `mutual_best_response` and `individual_utility`, `material`, `individual_utility`, the in-repo Brent search `maximize_1d` with its seeded variant and the `_brent_maximize` core, the seeded `best_response_1d`, and the solver constants `BEST_RESPONSE_TOL` and `BEST_RESPONSE_WINDOW` | Included |
 | `src/resources/social_network.jl` | resources | Network specifications and graph construction: `NetworkSpec` subtypes, `SocialNetwork`, `generate` methods, similarity and homophily builders | Included |
 | `src/resources/observers.jl` | resources | Observer structs for aggregate working-time statistics | Included |
-| `src/resources/properties.jl` | resources | Model properties and run state: `ModelProperties`, `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple`, `GlobalStats` | Included |
+| `src/resources/properties.jl` | resources | Model properties and run state: the non-parametric `ModelProperties` resource that carries the `NetworkSpec` (`ADR-0010`), `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple`, `GlobalStats` | Included |
 | `src/resources/shock.jl` | resources | Shock configuration struct `ShockConfig`, currently unwired | Excluded, see note below |
-| `src/systems/household_bargaining.jl` | systems | Household bargaining dynamics: the pure solver `mutual_best_response` and the household loop `choose_bundles`, which extracts the components with `Ark.Query` and builds the transient `AgentPayoffParams` locally | Included |
-| `src/systems/initialisation.jl` | systems | Model setup: household creation, trait draws, and social network construction | Included |
+| `src/systems/household_bargaining.jl` | systems | Household bargaining dynamics: the pure solvers `mutual_best_response` (labour stage, port of `choose-bundle`), `bargain_transfer` with the `TRANSFER_TOL` tolerance and the `maximize_1d` search plus the helpers `outside_options`, `equilibrium_payoff`, `nash_product`, and `payoff_params` (transfer stage, port of `set-theta` and `calculate-payoff`), and the Query-based world loop `set_theta!`, which extracts the components, builds the transient `AgentPayoffParams`, and commits the bargained hours and transfer | Included |
+| `src/systems/initialisation.jl` | systems | Model setup: household creation, trait draws, and social network construction from the world's `ModelProperties` (`ADR-0010`) | Included |
 | `src/systems/norm_perception.jl` | systems | Norm perception port of `calculate-utility`: `norm_global_means`, `norm_means`, `norm_penalty`, and `calculate_norm_perception!` | Included |
 
 ## Registration rule
@@ -85,9 +85,15 @@ details and are not part of the package's public surface.
 | `_mean_old_working_time` | `src/systems/norm_perception.jl` | Mean lagged (`old`) working time over a non-empty entity collection. |
 | `_mean_old_transfer` | `src/systems/norm_perception.jl` | Mean lagged (`old`) transfer to the woman over a non-empty entity collection. |
 | `norm_global_means` | `src/systems/norm_perception.jl` | Global lagged means over the `SocialNetwork` entity vectors (isolated agents under homogenous mixing). |
-| `norm_means` | `src/systems/norm_perception.jl` | Perceived norms of one agent: same-sex neighbour means plus spouses-of-neighbours working time, with isolated fallbacks. |
+| `norm_means` | `src/systems/norm_perception.jl` | Perceived norms of one agent: same-sex neighbour means plus spouses-of-neighbours working time, with isolated fallbacks; the neighbour branch iterates the neighbour list without materialising it and deduplicates spouses into a caller-owned scratch buffer so the per-agent computation allocates nothing. |
 | `norm_penalty` | `src/systems/norm_perception.jl` | Norm exponent of `calculate-utility`: weighted squared deviations from the perceived norms. |
 | `calculate_norm_perception!` | `src/systems/norm_perception.jl` | Compute and store `PerceptionNormDivisionOfLabor` and `NormParameter` for every agent. |
+| `outside_options` | `src/systems/household_bargaining.jl` | Zero-transfer outside options of both partners: the first lines of `set-theta`. |
 | `maximize_1d` | `src/resources/utility_functions.jl` | In-repo Brent 1-D maximization with the seeded variant: the continuous solver behind `best_response_1d` and `bargain_transfer`. |
 | `_brent_maximize` | `src/resources/utility_functions.jl` | Core Brent search behind `maximize_1d`, returning the best finite sample. |
 | `best_response_1d` | `src/resources/utility_functions.jl` | Labour best response on `[0, 1]`, seeded at the current hours with `BEST_RESPONSE_TOL`/`BEST_RESPONSE_WINDOW` (`MDR-0002`). |
+| `nash_product` | `src/systems/household_bargaining.jl` | Nash product of the two utility gains over the outside options; `-Inf` when a gain is negative (port of `calculate-payoff`). |
+| `equilibrium_payoff` | `src/systems/household_bargaining.jl` | Labour equilibrium at one transfer plus its Nash product. |
+| `bargain_transfer` | `src/systems/household_bargaining.jl` | Continuous transfer search: `maximize_1d` Brent maximization of the Nash product over `[-1, 1]` with the `TRANSFER_TOL` tolerance and the status quo as the fallback. |
+| `payoff_params` | `src/systems/household_bargaining.jl` | Build one transient `AgentPayoffParams` from an agent's traits and perceived norms. |
+| `set_theta!` | `src/systems/household_bargaining.jl` | World loop: extract the household components with `Ark.Query`, run the transfer stage, and commit the bargained hours and transfer. |

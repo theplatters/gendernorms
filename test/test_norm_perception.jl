@@ -33,7 +33,7 @@ function make_world(network::GN.NetworkSpec, n::Int)
     Ark.add_resource!(world, GN.MeanWage())
     Ark.add_resource!(world, GN.MeanPreference())
     Ark.add_resource!(world, GN.InitialConformism())
-    women, men = GN.initialize_household(world, network)
+    women, men = GN.initialize_household(world)
     return world, women, men
 end
 
@@ -74,7 +74,7 @@ end
     men_graph = Graphs.SimpleGraph(2)
     Ark.add_resource!(world, GN.SocialNetwork(men_graph, women_graph, men, women))
 
-    GN.calculate_norm_perception!(world, GN.UtilityConfig(), network)
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
 
     percept_w1, penalty_w1 = stored_percepts(world, w1)
     @test percept_w1 ≈ 0.50
@@ -104,7 +104,7 @@ end
         world, GN.SocialNetwork(Graphs.SimpleGraph(1), Graphs.SimpleGraph(1), men, women)
     )
 
-    GN.calculate_norm_perception!(world, GN.UtilityConfig(), network)
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
 
     percept_w1, penalty_w1 = stored_percepts(world, w1)
     @test percept_w1 ≈ 0.36
@@ -136,7 +136,7 @@ end
     @test globals.men_h ≈ 0.80
     @test globals.transfer ≈ 0.20
 
-    GN.calculate_norm_perception!(world, GN.UtilityConfig(), network)
+    GN.calculate_norm_perception!(world, GN.UtilityConfig())
 
     # Women see the women hours mean, the women transfer mean, and the men
     # hours mean for the spouse percept.
@@ -149,5 +149,36 @@ end
     percept_m1, penalty_m1 = stored_percepts(world, m1)
     @test percept_m1 ≈ 0.80
     @test penalty_m1 ≈ -2.0 * ((0.72 - 0.80)^2 + (0.12 - 0.20)^2 + (0.35 - 0.40)^2)
+end
+
+@testset "norm_means allocates nothing on the neighbour branch" begin
+    # Allocation pin for the neighbour branch: `norm_means` iterates the
+    # neighbour list without materialising it and deduplicates spouses into
+    # the caller-owned scratch buffer (see `MDR-0004`), so the per-agent
+    # norm computation allocates nothing.
+    Random.seed!(10)
+    network = GN.NoNetwork()
+    world, women, men = make_world(network, 3)
+    w1, w2, w3 = women
+    m1, m2, m3 = men
+
+    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_state!(world, w3; h = 0.45, h_old = 0.40, theta = 0.22, theta_old = 0.20, conformism = 2.0)
+    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_state!(world, m3; h = 0.82, h_old = 0.80, theta = 0.22, theta_old = 0.20, conformism = 2.0)
+
+    women_graph = Graphs.SimpleGraph(3)
+    Graphs.add_edge!(women_graph, 1, 2)
+    Graphs.add_edge!(women_graph, 1, 3)
+    men_graph = Graphs.SimpleGraph(3)
+    Ark.add_resource!(world, GN.SocialNetwork(men_graph, women_graph, men, women))
+
+    net = Ark.get_resource(world, GN.SocialNetwork)
+    spouse_seen = Ark.Entity[]
+    GN.norm_means(world, net, 1, true, nothing, spouse_seen)
+
+    @test @allocated(GN.norm_means(world, net, 1, true, nothing, spouse_seen)) == 0
 end
 

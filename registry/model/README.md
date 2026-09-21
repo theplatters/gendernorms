@@ -59,5 +59,8 @@ instead of silent.
   quirks are reference behavior until an MDR fixes one.
 - `registry/model/decisions/MDR-0004-norm-perception-port.md` -- norm
   perception (`calculate-utility`) ported into `src/systems/norm_perception.jl`.
+- `registry/model/decisions/MDR-0005-continuous-transfer-bargaining.md` --
+  the port solves `set-theta` / `calculate-payoff` by continuous transfer
+  bargaining.
 - `registry/model/decisions/MDR-0006-align-male-preference-mean.md` -- the
   male mean private preference is 0.45, matching the ODD.

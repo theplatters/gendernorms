@@ -1,8 +1,9 @@
 ---
 id: ADR-0005
 title: Parametric ModelProperties resource
-status: accepted
+status: superseded
 date: 2026-09-20
+superseded_by: ADR-0010
 ---
 
 # ADR-0005: Parametric ModelProperties resource

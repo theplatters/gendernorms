@@ -15,7 +15,7 @@ Statuses: `open`, `in progress`, `blocked`, `done`.
 | Id | Status | Task | Evidence |
 | --- | --- | --- | --- |
 | `TASK-0001` | open | Port Statistics: compute and update `WorkingTimeStats` and the ODD observer sets (shock propagation, employment types, median-split subgroups) | `registry/model/processes.md` (`update-statistics`); `registry/model/entities.md`; ODD Statistics |
-| `TASK-0002` | open | Port Transfer bargaining (`set-theta`, `calculate-payoff`) and use or remove the `Theta` component | `registry/model/processes.md`; `registry/model/discrepancies.md`; `src/components.jl`; ODD Transfer bargaining |
+| `TASK-0002` | done | Port Transfer bargaining (`set-theta`, `calculate-payoff`) and use or remove the `Theta` component | `registry/model/processes.md`; `registry/model/discrepancies.md`; `src/components.jl`; ODD Transfer bargaining; `MDR-0005` |
 | `TASK-0003` | open | Port Shocks (`start-shock`, `end-shock`): define `ShockType`, make `src/resources/shock.jl` load, and include it in the module | `registry/model/processes.md`; `registry/model/parameters.md`; `registry/model/discrepancies.md` |
 | `TASK-0004` | open | Port endogenous preference adaptation (`update-preferences`) | `registry/model/processes.md`; `registry/model/parameters.md` (`lambda`) |
 | `TASK-0005` | open | Port wage growth (`update-wages`) | `registry/model/processes.md`; `registry/model/parameters.md` (`wage-growth-rate`) |
@@ -28,4 +28,4 @@ Statuses: `open`, `in progress`, `blocked`, `done`.
 
 | Id | Status | Task | Evidence |
 | --- | --- | --- | --- |
-| `TASK-0010` | open | Wire the model loop: schedule `calculate_norm_perception!` and `choose_bundles`, apply the labour results, restore the deferred ODD quirk 11 overwriting, and implement `src/main.jl` | `registry/model/discrepancies.md`; `MDR-0004`; `ADR-0007`; `registry/code/architecture.md`; ODD Process overview and scheduling |
+| `TASK-0010` | open | Wire the model loop: schedule `calculate_norm_perception!` and `set_theta!` in the tick order, restore the deferred ODD quirk 11 overwriting, and implement `src/main.jl` | `registry/model/discrepancies.md`; `MDR-0004`; `ADR-0007`; `registry/code/architecture.md`; ODD Process overview and scheduling |

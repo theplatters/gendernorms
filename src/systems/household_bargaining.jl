@@ -1,9 +1,11 @@
-# Labour stage of the household bargaining loop. Port of NetLogo
-# `choose-bundle`, ODD section Labour best response; the continuous-solver
-# deviation from the NetLogo hill-climb is recorded in `MDR-0002`. The
-# household components are extracted in `choose_bundles` with `Ark.Query`
-# and the transient `AgentPayoffParams` are built there at the solver call
-# (see `ADR-0007`).
+# Household bargaining loop, both stages. Labour stage: `mutual_best_response`
+# (port of NetLogo `choose-bundle`, ODD section Labour best response, see
+# `MDR-0002`). Transfer stage: `set_theta!` (world loop, port of NetLogo
+# `set-theta`) plus the pure helpers `bargain_transfer`, `equilibrium_payoff`,
+# `outside_options`, and `nash_product` (ports of NetLogo `set-theta` and
+# `calculate-payoff`, ODD section Transfer bargaining); household components
+# are extracted with `Ark.Query` (see `ADR-0007`); deviations are recorded in
+# `MDR-0005`.
 
 """
     mutual_best_response(hw_init::Float64, hm_init::Float64, theta::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig; eps = 1.0e-3, max_sweeps = 100)
@@ -45,66 +47,179 @@ function mutual_best_response(
 end
 
 """
-    choose_bundles(world, config::UtilityConfig, network)
+    outside_options(hw_init::Float64, hm_init::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig)
 
-Household loop of the labour stage. `Ark.Query` extracts the components of
-every woman (`Wage`, `WorkingTime`, `TransferToWoman`, `Conformism`,
-`PreferencePrivate`, `Spouse`), the spouse's `Wage`, `WorkingTime`,
-`Conformism`, and `PreferencePrivate` are read, the perceived norms of both
-partners are computed with `norm_means`, and the two transient
-`AgentPayoffParams` are built at the `mutual_best_response` call (see
-`ADR-0007`). Every household is evaluated at its current transfer
-(`TransferToWoman.current`); the transfer stage (`set-theta` /
-`calculate-payoff`) is not ported yet and will reuse the bundles across
-theta evaluations. `network` is the concrete `NetworkSpec` that selects the
-`ModelProperties{T}` resource (see `ADR-0005`). Returns the `(hw, hm)`
-labour pair of every household in query order.
+Outside options of one household: the utilities of both partners at the
+labour equilibrium with zero transfer. Port of the first lines of NetLogo
+`set-theta` (ODD section Transfer bargaining (`set-theta`,
+`calculate-payoff`)); the continuous transfer search is recorded in
+`MDR-0005`. Returns `(uw_out, um_out)`.
 """
-function choose_bundles(world, config::UtilityConfig, network)
-  network_type = typeof(network)
-  net = Ark.get_resource(world, SocialNetwork)
-  properties = Ark.get_resource(world, ModelProperties{network_type})
-  globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
-  component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
-  results = Tuple{Float64, Float64}[]
-  for (entities, wages, times, transfers, conformisms, preferences, spouses) in
-      Ark.Query(world, component_types; with = (Female,))
-    @inbounds for f in eachindex(entities)
-      woman = entities[f]
-      man = spouses[f].entity
-      man_wage, man_time, man_conformism, man_preference =
-        Ark.get_components(world, man, (Wage, WorkingTime, Conformism, PreferencePrivate))
-      woman_vertex = findfirst(==(woman), net.women_entities)
-      woman_vertex === nothing && throw(ArgumentError("woman is not in the women entity vector"))
-      man_vertex = findfirst(==(man), net.men_entities)
-      man_vertex === nothing && throw(ArgumentError("man is not in the men entity vector"))
-      woman_norms = norm_means(world, net, woman_vertex, true, globals)
-      man_norms = norm_means(world, net, man_vertex, false, globals)
-      pw = AgentPayoffParams(
-        wage_self = wages[f].current,
-        wage_spouse = man_wage.current,
-        alpha = preferences[f].current,
-        conformism = conformisms[f].amount,
-        N_h = woman_norms.division_of_labor,
-        N_theta = woman_norms.transfer,
-        N_h_spouse = woman_norms.division_of_labor_spouse,
-        is_woman = true
-      )
-      pm = AgentPayoffParams(
-        wage_self = man_wage.current,
-        wage_spouse = wages[f].current,
-        alpha = man_preference.current,
-        conformism = man_conformism.amount,
-        N_h = man_norms.division_of_labor,
-        N_theta = man_norms.transfer,
-        N_h_spouse = man_norms.division_of_labor_spouse,
-        is_woman = false
-      )
-      hw_init = times[f].current
-      hm_init = man_time.current
-      theta = transfers[f].current
-      push!(results, mutual_best_response(hw_init, hm_init, theta, pw, pm, config))
+function outside_options(
+  hw_init::Float64, hm_init::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+)
+  hw_out, hm_out = mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
+  uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
+  um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
+  return uw_out, um_out
+end
+
+"""
+    nash_product(theta::Float64, hw::Float64, hm::Float64, uw_out::Float64, um_out::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig)
+
+Nash product of NetLogo `calculate-payoff` (ODD section Transfer bargaining
+(`set-theta`, `calculate-payoff`)) at transfer `theta` and working times `hw`
+and `hm`: the two utility gains over the outside options `uw_out` and
+`um_out`, multiplied when both gains are finite and non-negative, otherwise
+`-Inf` (replacing the `-1` sentinel); see `MDR-0005`. Returns a `Float64`.
+"""
+function nash_product(
+  theta::Float64, hw::Float64, hm::Float64,
+  uw_out::Float64, um_out::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+)::Float64
+  gain_w = individual_utility(hw, hm, theta, pw, config) - uw_out
+  gain_m = individual_utility(hm, hw, theta, pm, config) - um_out
+  if isfinite(gain_w) && isfinite(gain_m) && gain_w >= 0.0 && gain_m >= 0.0
+    return gain_w * gain_m
+  end
+  return -Inf
+end
+
+"""
+    equilibrium_payoff(theta::Float64, hw_start::Float64, hm_start::Float64, uw_out::Float64, um_out::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig)
+
+Labour equilibrium and Nash product at transfer `theta`, warm-started from
+`hw_start` and `hm_start`. One evaluation of NetLogo `set-theta` with
+`calculate-payoff` (ODD section Transfer bargaining (`set-theta`,
+`calculate-payoff`)); the explicit warm-start arguments carry no closure
+state (see `MDR-0005`). Returns `(payoff, hw, hm)`.
+"""
+function equilibrium_payoff(
+  theta::Float64, hw_start::Float64, hm_start::Float64,
+  uw_out::Float64, um_out::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+)
+  hw, hm = mutual_best_response(hw_start, hm_start, theta, pw, pm, config)
+  return nash_product(theta, hw, hm, uw_out, um_out, pw, pm, config), hw, hm
+end
+
+# Absolute argument tolerance of the transfer search: the resolution of the
+# reference `delta-theta` grid (see `MDR-0005`).
+const TRANSFER_TOL = 1.0e-3
+
+"""
+    bargain_transfer(hw_init::Float64, hm_init::Float64, theta_init::Float64, pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig; tol::Float64 = TRANSFER_TOL)
+
+Transfer bargain of one household: continuous 1-D maximization of the
+`calculate-payoff` Nash product over `[-1, 1]` with the in-repo Brent search
+`maximize_1d`. Port of NetLogo `set-theta` with NetLogo `calculate-payoff`
+(ODD section Transfer bargaining (`set-theta`, `calculate-payoff`)); see
+`MDR-0005`. There is no scan, fixed grid or pocket refinement; the status quo
+is evaluated first and kept unless a feasible maximizer beats it (fixes ODD
+quirk 3, fallback per `MDR-0005`); every inner solve starts from the
+status-quo labour equilibrium; `tol` is the absolute argument tolerance
+recorded in `MDR-0005`. Returns `(theta, hw, hm)`.
+"""
+function bargain_transfer(
+  hw_init::Float64, hm_init::Float64, theta_init::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+  tol::Float64=TRANSFER_TOL
+)
+  theta0 = clamp(theta_init, -1.0, 1.0)
+  uw_out, um_out = outside_options(hw_init, hm_init, pw, pm, config)
+  hw_status, hm_status = mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
+  status_payoff = nash_product(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+  objective(theta) = first(equilibrium_payoff(theta, hw_status, hm_status, uw_out, um_out, pw, pm, config))
+  theta_best = maximize_1d(objective, -1.0, 1.0, tol)
+  if isfinite(theta_best)
+    payoff_best, hw_best, hm_best = equilibrium_payoff(theta_best, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+    if isfinite(payoff_best) && payoff_best > status_payoff
+      return theta_best, hw_best, hm_best
     end
   end
-  return results
+  return theta0, hw_status, hm_status
+end
+
+"""
+    payoff_params(wage_self::Float64, wage_spouse::Float64, alpha::Float64, conformism::Float64, means, is_woman::Bool)
+
+Transient per-agent parameter bundle of NetLogo `set-theta` (ODD section
+Transfer bargaining (`set-theta`, `calculate-payoff`)); the perceived norms
+`means` supply `N_h` (own working time), `N_theta` (transfer), and
+`N_h_spouse` (spouse working time) (see `MDR-0005` and `ADR-0007`). Returns
+an `AgentPayoffParams`.
+"""
+function payoff_params(
+  wage_self::Float64, wage_spouse::Float64, alpha::Float64,
+  conformism::Float64, means, is_woman::Bool
+)
+  return AgentPayoffParams(
+    wage_self=wage_self,
+    wage_spouse=wage_spouse,
+    alpha=alpha,
+    conformism=conformism,
+    N_h=means.division_of_labor,
+    N_theta=means.transfer,
+    N_h_spouse=means.division_of_labor_spouse,
+    is_woman=is_woman
+  )
+end
+
+"""
+    set_theta!(world, config::UtilityConfig)
+
+Household loop of the household bargaining: ports NetLogo `set-theta` for
+every household (ODD section Transfer bargaining (`set-theta`,
+`calculate-payoff`)); the labour stage runs inside `bargain_transfer` (see
+`MDR-0005`). Household components are extracted with `Ark.Query` (see
+`ADR-0007`); the transfer component mirrors the wife's value on the man (see
+`registry/model/entities.md`). The world is mutated and nothing is returned.
+"""
+function set_theta!(world, config::UtilityConfig)
+  net = Ark.get_resource(world, SocialNetwork)
+  properties = Ark.get_resource(world, ModelProperties)
+  globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
+  women_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.women_entities))
+  men_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.men_entities))
+  component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
+  spouse_seen = Ark.Entity[]
+  for (entities, wages, times, transfers, conformisms, preferences, spouses) in
+      Ark.Query(world, component_types; with=(Female,))
+    for f in eachindex(entities)
+      woman = entities[f]
+      man = spouses[f].entity
+      man_wage, man_time, man_transfer, man_conformism, man_preference =
+        Ark.get_components(world, man, (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate))
+      woman_vertex = get(women_index, woman, 0)
+      woman_vertex == 0 && throw(ArgumentError("woman is not in the women entity vector"))
+      man_vertex = get(men_index, man, 0)
+      man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
+
+      woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
+      man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
+
+      pw = payoff_params(
+        wages[f].current, man_wage.current, preferences[f].current,
+        conformisms[f].amount, woman_norms, true
+      )
+      pm = payoff_params(
+        man_wage.current, wages[f].current, man_preference.current,
+        man_conformism.amount, man_norms, false
+      )
+
+      theta, hw, hm = bargain_transfer(
+        times[f].current, man_time.current, transfers[f].current, pw, pm, config
+      )
+      # the woman is in the query, so the views write in place
+      times[f] = WorkingTime(hw, times[f].old)
+      transfers[f] = TransferToWoman(theta, transfers[f].old)
+      # the man is not in the women's query, so only the entity API exists
+      Ark.set_components!(
+        world, man, (WorkingTime(hm, man_time.old), TransferToWoman(theta, man_transfer.old))
+      )
+    end
+  end
+  return nothing
 end

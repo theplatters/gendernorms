@@ -1,11 +1,13 @@
-# Parametric in the concrete network specification so no field is abstractly
-# typed; Ark keys resources by exact type, so access points take the same
-# specification and fetch `ModelProperties{T}` (see `ADR-0005`).
-Base.@kwdef struct ModelProperties{T<:NetworkSpec}
+# Ark 0.5.1 keys resources by exact concrete type, so `ModelProperties` is
+# a non-parametric resource; the world is the single carrier of the network
+# specification and access points fetch it with
+# `Ark.get_resource(world, ModelProperties)` without a specification argument
+# (see `ADR-0010`).
+Base.@kwdef struct ModelProperties
   agents_per_gender::Int64 = 400
   std_dev::Float64 = 0.2
   initial_transfer::Float64 = 0.0
-  network::T = WattsStrogatz()
+  network::NetworkSpec = WattsStrogatz()
 end
 
 Base.@kwdef struct PaidTime

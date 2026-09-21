@@ -51,11 +51,11 @@ bit-comparable to NetLogo: committed hours can differ at the scale of the
 old grid and stopping tolerance. The seeded window reintroduces the path
 anchoring of the NetLogo climb for the labour stage: a household whose
 current hours are locally optimal stops there, and the global fallback is
-what keeps a maximum outside the window reachable. This is deliberate.
-The ODD section Labour best response still describes the discrete
-climber and is therefore stale for the port; it should be updated to
-document the continuous solver. The solver parameters are
-`BEST_RESPONSE_TOL`,
+what keeps a maximum outside the window reachable. This is deliberate;
+the transfer stage keeps its unanchored search (`MDR-0005`). The ODD
+section Labour best response still describes the discrete climber and is
+therefore stale for the port; it should be updated to document the
+continuous solver. The solver parameters are `BEST_RESPONSE_TOL`,
 `BEST_RESPONSE_WINDOW`, the `eps`/`max_sweeps` pair, and the
 non-finite-sample fallback; further tuning must come back here as
 follow-up MDRs, not as silent edits.

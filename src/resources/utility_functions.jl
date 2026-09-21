@@ -35,7 +35,7 @@ material(::MultiplicativeWeighted, x::Float64, Q::Float64, alpha::Float64) =
 Transient per-agent parameter object of the household bargaining: own and
 spouse wage, material preference `alpha`, conformism, the perceived norms
 `N_h` (own working time), `N_theta` (transfer), and `N_h_spouse` (spouse
-working time), and the agent's sex. `choose_bundles` builds it at the
+working time), and the agent's sex. `set_theta!` builds it at the
 `mutual_best_response` call and the solver passes it to
 `individual_utility`; it is never stored or returned (see `ADR-0007`).
 """
