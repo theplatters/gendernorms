@@ -39,8 +39,8 @@ const GN = GenderNorms
     properties = GN.ModelProperties(network = GN.NoNetwork())
     Ark.add_resource!(world, properties)
     @test Ark.get_resource(world, GN.ModelProperties) === properties
-    @test hasmethod(GN.initialize_household, Tuple{Any})
-    @test hasmethod(GN.generate_social_network, Tuple{Any})
+    @test hasmethod(GN.initialize_household, Tuple{Any,Any})
+    @test hasmethod(GN.generate_social_network, Tuple{Any,Any})
     @test hasmethod(GN.calculate_norm_perception!, Tuple{Any,GN.UtilityConfig})
     @test hasmethod(GN.set_theta!, Tuple{Any,GN.UtilityConfig})
 end

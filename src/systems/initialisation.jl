@@ -2,18 +2,32 @@
 # `generate-network` and `generate-homophilic-network` in the NetLogo model).
 
 # Normal draw with zero variance handled as a point mass (`Normal` requires sigma > 0).
-draw_normal(mu::Float64, sigma::Float64) = sigma > 0 ? rand(Normal(mu, sigma)) : mu
+"""
+    draw_normal(mu::Float64, sigma::Float64, rng)
+
+Draw one sample from `Normal(mu, sigma)` with `rng`, returning `mu` unchanged
+when `sigma <= 0` because `Normal` requires a positive scale. Helper of the
+`set-initials-*` trait draws in the NetLogo model (NetLogo
+`set-initials-women` and `set-initials-men`, ODD section Initialization
+(`setup`, `set-initials-*`)). The `rng` argument drives the stochastic setup
+draws, corresponding to the `random-seed random-seed-fixed` seeding under
+`fixed-rs` in ODD section Initialization. Returns the drawn value.
+"""
+draw_normal(mu::Float64, sigma::Float64, rng) = sigma > 0 ? rand(rng, Normal(mu, sigma)) : mu
 
 """
-    initialize_household(world)
+    initialize_household(world, rng)
 
 Create `ModelProperties.agents_per_gender` women and men, give them their
 initial traits (drawn from the truncated normals in `set-initials-*`) and pair
 each woman with one man. Port of NetLogo `setup` (ODD section Initialization
 (`setup`, `set-initials-*`)). The network specification is read from the
-world's `ModelProperties` resource (see `ADR-0010`).
+world's `ModelProperties` resource (see `ADR-0010`). The `rng` argument drives
+the stochastic setup draws (trait draws and network generation),
+corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
+in ODD section Initialization. Returns the `(women, men)` entity vectors.
 """
-function initialize_household(world)
+function initialize_household(world, rng)
   properties = Ark.get_resource(world, ModelProperties)
   n = properties.agents_per_gender
 
@@ -21,11 +35,11 @@ function initialize_household(world)
   men = Vector{Ark.Entity}(undef, n)
 
   for i in 1:n
-    woman = Ark.new_entity!(world, get_woman(world))
+    woman = Ark.new_entity!(world, get_woman(world, rng))
     transfer, = Ark.get_components(world, woman, (TransferToWoman,))
 
     # the man inherits the initial transfer from his spouse
-    man = Ark.new_entity!(world, (get_men(world)..., transfer))
+    man = Ark.new_entity!(world, (get_men(world, rng)..., transfer))
 
     Ark.set_components!(world, woman, (Spouse(man),))
     Ark.set_components!(world, man, (Spouse(woman),))
@@ -37,7 +51,18 @@ function initialize_household(world)
   return women, men
 end
 
-function get_agent(world::Ark.World, gender::Gender)
+"""
+    get_agent(world, gender, rng)
+
+Build the initial component tuple for one agent of `gender`: working time at
+the gender mean plus wage, conformism, and private preference drawn from the
+truncated normals in `set-initials-*`. Port of NetLogo `set-initials-women`
+and `set-initials-men` (ODD section Initialization (`setup`,
+`set-initials-*`)). The `rng` argument drives the stochastic setup draws,
+corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
+in ODD section Initialization. Returns the component tuple.
+"""
+function get_agent(world::Ark.World, gender::Gender, rng)
 
   properties = Ark.get_resource(world, ModelProperties)
 
@@ -54,6 +79,7 @@ function get_agent(world::Ark.World, gender::Gender)
     draw_normal(
       for_gender(mean_wage, gender),
       gender_mean(mean_wage) * properties.std_dev,
+      rng,
     ),
   )
   wage = Wage(wage_draw, wage_draw)
@@ -63,6 +89,7 @@ function get_agent(world::Ark.World, gender::Gender)
     draw_normal(
       for_gender(mean_conformism, gender),
       properties.std_dev * gender_mean(mean_conformism),
+      rng,
     ),
   ) |> Conformism
 
@@ -70,6 +97,7 @@ function get_agent(world::Ark.World, gender::Gender)
     draw_normal(
       for_gender(mean_preference, gender),
       properties.std_dev * gender_mean(mean_preference),
+      rng,
     ),
     0.01, 0.99,
   )
@@ -89,8 +117,18 @@ function get_agent(world::Ark.World, gender::Gender)
   )
 end
 
-function get_woman(world)
-  components = get_agent(world, Female())
+"""
+    get_woman(world, rng)
+
+Build the initial component tuple for one woman: the `get_agent` components
+for `Female()` plus the initial transfer to the woman. Port of NetLogo
+`set-initials-women` (ODD section Initialization (`setup`,
+`set-initials-*`)). The `rng` argument drives the stochastic setup draws,
+corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
+in ODD section Initialization. Returns the component tuple.
+"""
+function get_woman(world, rng)
+  components = get_agent(world, Female(), rng)
 
   properties = Ark.get_resource(world, ModelProperties)
 
@@ -98,6 +136,7 @@ function get_woman(world)
     draw_normal(
       properties.initial_transfer,
       properties.initial_transfer * properties.std_dev,
+      rng,
     ),
     0.0, 1.0,
   )
@@ -105,15 +144,33 @@ function get_woman(world)
   return (components..., transfer_to_woman)
 end
 
-get_men(world) = get_agent(world, Male())
+"""
+    get_men(world, rng)
 
-# NetLogo `setup`: build the same-sex networks. Agents have to be created
-# first (similarity networks are weighted by agent traits).
-function generate_social_network(world)
+Build the initial component tuple for one man via `get_agent` with `Male()`.
+Port of NetLogo `set-initials-men` (ODD section Initialization (`setup`,
+`set-initials-*`)). The `rng` argument drives the stochastic setup draws,
+corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
+in ODD section Initialization. Returns the component tuple.
+"""
+get_men(world, rng) = get_agent(world, Male(), rng)
+
+"""
+    generate_social_network(world, rng)
+
+Build the same-sex networks with `network_graph`: agents have to be created
+first (similarity networks are weighted by agent traits). Port of NetLogo
+`setup` with `generate-network` and `generate-homophilic-network` (ODD section
+Initialization). The `rng` argument drives the stochastic setup draws
+(network generation), corresponding to the `random-seed random-seed-fixed`
+seeding under `fixed-rs` in ODD section Initialization. Adds the
+`SocialNetwork` resource to the world and returns it. Throws `ArgumentError`
+when either sex misses its expected agents: run `initialize_household` first.
+"""
+function generate_social_network(world, rng)
 
   properties = Ark.get_resource(world, ModelProperties)
   n = properties.agents_per_gender
-  rng = Random.default_rng()
 
   women = entities_with(world, Female)
   men = entities_with(world, Male)

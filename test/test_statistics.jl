@@ -34,7 +34,7 @@ function make_world(network::GN.NetworkSpec, n::Int)
     Ark.add_resource!(world, GN.MeanPreference())
     Ark.add_resource!(world, GN.InitialConformism())
     Ark.add_resource!(world, GN.WorkingTimeStats(0.0, 0.0, 0.0))
-    women, men = GN.initialize_household(world)
+    women, men = GN.initialize_household(world, Random.default_rng())
     return world, women, men
 end
 

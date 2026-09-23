@@ -37,7 +37,7 @@ function make_shock_world(n::Int; seed::Int = 11)
     Ark.add_resource!(world, GN.MeanWage())
     Ark.add_resource!(world, GN.MeanPreference())
     Ark.add_resource!(world, GN.InitialConformism())
-    women, men = GN.initialize_household(world)
+    women, men = GN.initialize_household(world, Random.default_rng())
     return world, women, men
 end
 
