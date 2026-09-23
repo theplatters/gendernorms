@@ -64,3 +64,11 @@ instead of silent.
   bargaining.
 - `registry/model/decisions/MDR-0006-align-male-preference-mean.md` -- the
   male mean private preference is 0.45, matching the ODD.
+- `registry/model/decisions/MDR-0007-port-statistics-core.md` -- the
+  lightweight `update-statistics` core (lag copy plus men/women/gap means)
+  in `src/systems/statistics.jl`.
+- `registry/model/decisions/MDR-0008-remove-unused-global-stats.md` --
+  the unused `GlobalStats` carrier is removed; histories, the stored
+  transfer mean, run time, and the wage gap have no Julia carrier.
+- `registry/model/decisions/MDR-0009-typed-shocks.md` -- typed shock
+  resources with a component tag and quirk-preserving start and recovery.

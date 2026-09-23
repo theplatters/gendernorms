@@ -47,6 +47,10 @@ which conventions it follows, and which architecture decisions were made.
   non-parametric `ModelProperties`; the world is the single carrier of the
   network specification and systems take no specification argument
   (supersedes `ADR-0005`).
+- `registry/code/decisions/ADR-0011-typed-shock-resources.md`:
+  enum-free shock dispatch over concrete resources with a
+  `DirectlyAffected` component tag and a `resources`/`systems` file split
+  (see `MDR-0009`).
 
 ## How to add a new source file correctly
 

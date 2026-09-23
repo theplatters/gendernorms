@@ -66,13 +66,14 @@ function get_agent(world::Ark.World, gender::Gender)
     ),
   ) |> Conformism
 
-  private_preference = clamp(
+  private_preference_draw = clamp(
     draw_normal(
       for_gender(mean_preference, gender),
       properties.std_dev * gender_mean(mean_preference),
     ),
     0.01, 0.99,
-  ) |> PreferencePrivate
+  )
+  private_preference = PreferencePrivate(private_preference_draw, private_preference_draw)
 
   return (
     gender,
@@ -83,6 +84,7 @@ function get_agent(world::Ark.World, gender::Gender)
     CurrentUtility(0.0),
     NormParameter(0.0),
     PerceptionNormDivisionOfLabor(0.0),
+    Lambda(properties.initial_lambda),
     Spouse(Ark.zero_entity),
   )
 end

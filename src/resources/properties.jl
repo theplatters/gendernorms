@@ -8,6 +8,7 @@ Base.@kwdef struct ModelProperties
   std_dev::Float64 = 0.2
   initial_transfer::Float64 = 0.0
   network::NetworkSpec = WattsStrogatz()
+  initial_lambda::Float64 = 0.5
 end
 
 Base.@kwdef struct PaidTime
@@ -38,15 +39,4 @@ Base.@kwdef struct ProbeCouple # *-in-question, specific-couple override
   pref_male::Float64 = 0.5
   conformism_male::Float64 = 1.0
   conformism_female::Float64 = 1.0
-end
-
-# -- mutable run state (replaces globals) --
-mutable struct GlobalStats
-  mean_men::Float64
-  mean_women::Float64
-  mean_transfer::Float64
-  hist_men::Vector{Float64}
-  hist_women::Vector{Float64}
-  wage_gap::Float64
-  run_time::Float64
 end

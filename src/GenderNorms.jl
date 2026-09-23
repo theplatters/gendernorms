@@ -11,8 +11,12 @@ include("systems/household_bargaining.jl")
 include("resources/social_network.jl")
 include("resources/observers.jl")
 include("resources/properties.jl")
+include("resources/shock.jl")
 
 include("systems/initialisation.jl")
+include("systems/statistics.jl")
+include("systems/shocks.jl")
+include("systems/preferences.jl")
 include("systems/norm_perception.jl")
 
 for_gender(x, ::Male)::Float64 = x.men

@@ -32,6 +32,7 @@ function make_bargaining_world(network::GN.NetworkSpec, n::Int)
         GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
+        GN.Lambda,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
     Ark.add_resource!(world, GN.PaidTime())
@@ -252,7 +253,7 @@ end
                 GN.TransferToWoman(state.theta, state.theta_old),
                 GN.Conformism(state.c_w),
                 GN.Wage(state.wage_w, state.wage_w),
-                GN.PreferencePrivate(state.pref_w),
+                GN.PreferencePrivate(state.pref_w, state.pref_w),
             ),
         )
         Ark.set_components!(
@@ -263,7 +264,7 @@ end
                 GN.TransferToWoman(state.theta, state.theta_old),
                 GN.Conformism(state.c_m),
                 GN.Wage(state.wage_m, state.wage_m),
-                GN.PreferencePrivate(state.pref_m),
+                GN.PreferencePrivate(state.pref_m, state.pref_m),
             ),
         )
     end

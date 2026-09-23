@@ -13,8 +13,8 @@ their ODD section and Julia counterpart(s) in `src/`.
 | `calculate-utility` (norm perception system) | Norm perception (`calculate-utility`) | `norm_global_means`, `norm_means`, `norm_penalty`, `calculate_norm_perception!` | `src/systems/norm_perception.jl` | ported, see `MDR-0004` |
 | `calculate-payoff` | Transfer bargaining | `nash_product`, `equilibrium_payoff` plus `individual_utility`, `mutual_best_response` | `src/systems/household_bargaining.jl` | ported with documented deviation, see `MDR-0005` |
 | `set-theta` | Transfer bargaining | `set_theta!`, `bargain_transfer`, `outside_options`, `payoff_params` | `src/systems/household_bargaining.jl` | ported with documented deviation, see `MDR-0005` |
-| `start-shock` | Shocks | none (only `ShockConfig` fields exist, file not included) | `src/resources/shock.jl` | unwired |
-| `end-shock` | Shocks | none (only `ShockConfig` fields exist, file not included) | `src/resources/shock.jl` | unwired |
-| `update-preferences` | Endogenous preference adaptation and wage growth | none (only `ShockConfig.lambda` exists, file not included) | `src/resources/shock.jl` | not ported |
-| `update-wages` | Endogenous preference adaptation and wage growth | none (only `ShockConfig.wage_growth` exists, file not included) | `src/resources/shock.jl` | not ported |
-| `update-statistics` | Statistics | `WorkingTimeStats` | `src/resources/observers.jl` | stub: struct declared, never computed or updated |
+| `start-shock` | Shocks | `start_shock!`, `recover_shock!`, `update_shocks!` | `src/systems/shocks.jl` (`src/resources/shock.jl` resources) | ported, see `MDR-0009` |
+| `end-shock` | Shocks | `start_shock!`, `recover_shock!`, `update_shocks!` | `src/systems/shocks.jl` (`src/resources/shock.jl` resources) | ported, see `MDR-0009` |
+| `update-preferences` | Endogenous preference adaptation and wage growth | `update_preferences` | `src/systems/preferences.jl` | partial: adaptation ported and preserving the `pre` shock baseline; the `lambda` default is still 0.5 instead of the NetLogo 0.002 (see `registry/model/discrepancies.md`), `TASK-0004` |
+| `update-wages` | Endogenous preference adaptation and wage growth | `update_wages!` | `src/systems/shocks.jl` | ported-but-unscheduled: NetLogo `go` never calls `update-wages`, see `MDR-0009` |
+| `update-statistics` | Statistics | `update_old_working_time_and_transfer!`, `update_global_working_times!` | `src/systems/statistics.jl` | partial-core-ported: lag copy plus contemporaneous men/women/gap means, see `MDR-0007`; histories, subgroup means, and `run-time` deferred under `TASK-0001` |

@@ -27,6 +27,7 @@ function make_world(network::GN.NetworkSpec, n::Int)
         GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
+        GN.Lambda,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
     Ark.add_resource!(world, GN.PaidTime())

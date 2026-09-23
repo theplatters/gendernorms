@@ -34,6 +34,7 @@ const GN = GenderNorms
         GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
+        GN.Lambda,
     )
     properties = GN.ModelProperties(network = GN.NoNetwork())
     Ark.add_resource!(world, properties)

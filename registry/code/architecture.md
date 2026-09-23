@@ -30,8 +30,12 @@ It currently reads, in this exact order:
 4. `src/resources/social_network.jl`
 5. `src/resources/observers.jl`
 6. `src/resources/properties.jl`
-7. `src/systems/initialisation.jl`
-8. `src/systems/norm_perception.jl`
+7. `src/resources/shock.jl`
+8. `src/systems/initialisation.jl`
+9. `src/systems/statistics.jl`
+10. `src/systems/shocks.jl`
+11. `src/systems/preferences.jl`
+12. `src/systems/norm_perception.jl`
 
 The module root is `src/GenderNorms.jl`.
 
@@ -41,14 +45,17 @@ The module root is `src/GenderNorms.jl`.
 | ---- | ----- | -------------- | ------ |
 | `src/GenderNorms.jl` | module root | Declares module `GenderNorms`, imports, and include list | Included |
 | `src/main.jl` | entry point | Standalone entry point, currently empty | Empty standalone file |
-| `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, `NormParameter`, `PerceptionNormDivisionOfLabor` | Included |
+| `src/components.jl` | components | Ark ECS components as plain structs: gender, working time, transfers, spouse, wage, preferences, conformism, utility, `NormParameter`, `PerceptionNormDivisionOfLabor`, `Lambda`, `DirectlyAffected` | Included |
 | `src/resources/utility_functions.jl` | resources | Utility specifications and payoff functions: `UtilitySpec` subtypes, `UtilityConfig`, the transient `AgentPayoffParams` parameter object of `mutual_best_response` and `individual_utility`, `material`, `individual_utility`, the in-repo Brent search `maximize_1d` with its seeded variant and the `_brent_maximize` core, the seeded `best_response_1d`, and the solver constants `BEST_RESPONSE_TOL` and `BEST_RESPONSE_WINDOW` | Included |
 | `src/resources/social_network.jl` | resources | Network specifications and graph construction: `NetworkSpec` subtypes, `SocialNetwork`, `generate` methods, similarity and homophily builders | Included |
 | `src/resources/observers.jl` | resources | Observer structs for aggregate working-time statistics | Included |
-| `src/resources/properties.jl` | resources | Model properties and run state: the non-parametric `ModelProperties` resource that carries the `NetworkSpec` (`ADR-0010`), `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple`, `GlobalStats` | Included |
-| `src/resources/shock.jl` | resources | Shock configuration struct `ShockConfig`, currently unwired | Excluded, see note below |
+| `src/resources/properties.jl` | resources | Model properties and run state: the non-parametric `ModelProperties` resource that carries the `NetworkSpec` (`ADR-0010`), `PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, `ProbeCouple` | Included |
+| `src/resources/shock.jl` | resources | Shock-mode resources: the abstract dispatch root `Shock` plus the concrete `WageShock`, `PreferenceShock`, and `WageGrowth` resources (see `MDR-0009`, `ADR-0011`) | Included |
 | `src/systems/household_bargaining.jl` | systems | Household bargaining dynamics: the pure solvers `mutual_best_response` (labour stage, port of `choose-bundle`), `bargain_transfer` with the `TRANSFER_TOL` tolerance and the `maximize_1d` search plus the helpers `outside_options`, `equilibrium_payoff`, `nash_product`, and `payoff_params` (transfer stage, port of `set-theta` and `calculate-payoff`), and the Query-based world loop `set_theta!`, which extracts the components, builds the transient `AgentPayoffParams`, and commits the bargained hours and transfer | Included |
 | `src/systems/initialisation.jl` | systems | Model setup: household creation, trait draws, and social network construction from the world's `ModelProperties` (`ADR-0010`) | Included |
+| `src/systems/statistics.jl` | systems | Statistics core (port of `update-statistics`, see `MDR-0007`): the lag copy `update_old_working_time_and_transfer!` and the contemporaneous men/women/gap means `update_global_working_times!` into `WorkingTimeStats` | Included |
+| `src/systems/shocks.jl` | systems | Shock dynamics (port of `start-shock` and `end-shock`, see `MDR-0009`): the `WAGE_CUT` factor, `select_affected!`, `start_shock!`, `recover_shock!`, the `update_shocks!` tick scheduler, and the ported-but-unscheduled `update_wages!` | Included |
+| `src/systems/preferences.jl` | systems | Preference dynamics: `update_preferences`, the clipped adaptation of `PreferencePrivate` toward own working time | Included |
 | `src/systems/norm_perception.jl` | systems | Norm perception port of `calculate-utility`: `norm_global_means`, `norm_means`, `norm_penalty`, and `calculate_norm_perception!` | Included |
 
 ## Registration rule
@@ -60,8 +67,6 @@ added as a row to the file-map table above. The only exception is
 not included by the module.
 
 ## Excluded files
-
-Excluded from module: `src/resources/shock.jl` is not included by `src/GenderNorms.jl` because it references undefined `ShockType` and `SHOCK_NO` and is therefore unwired dead code until a shock-model decision wires it up.
 
 Note: `src/main.jl` is the standalone entry point. It is currently empty
 and is exempt by rule from the module include list, but it is documented
@@ -97,3 +102,18 @@ details and are not part of the package's public surface.
 | `bargain_transfer` | `src/systems/household_bargaining.jl` | Continuous transfer search: `maximize_1d` Brent maximization of the Nash product over `[-1, 1]` with the `TRANSFER_TOL` tolerance and the status quo as the fallback. |
 | `payoff_params` | `src/systems/household_bargaining.jl` | Build one transient `AgentPayoffParams` from an agent's traits and perceived norms. |
 | `set_theta!` | `src/systems/household_bargaining.jl` | World loop: extract the household components with `Ark.Query`, run the transfer stage, and commit the bargained hours and transfer. |
+| `update_old_working_time_and_transfer!` | `src/systems/statistics.jl` | Lag copy of `update-statistics`: copy `current` to `old` for `WorkingTime` and `TransferToWoman` on every agent carrying both `WorkingTime` and `TransferToWoman` (`MDR-0007`). |
+| `update_global_working_times!` | `src/systems/statistics.jl` | Contemporaneous men/women/gap working-time means of `update-statistics` into `WorkingTimeStats` (`MDR-0007`). |
+| `update_preferences` | `src/systems/preferences.jl` | Clipped adaptation of `PreferencePrivate` toward own working time. |
+| `Shock` | `src/resources/shock.jl` | Abstract dispatch root of the shock-mode resources; never a field or resource type (`MDR-0009`, `ADR-0011`). |
+| `WageShock` | `src/resources/shock.jl` | Wage-shock mode resource with `start` and `depreciation` (`MDR-0009`, `ADR-0011`). |
+| `PreferenceShock` | `src/resources/shock.jl` | Preference-shock mode resource with `start`, `depreciation`, `delta_men`, and `delta_woman` (`MDR-0009`, `ADR-0011`). |
+| `WageGrowth` | `src/resources/shock.jl` | Gap-closing wage-growth resource with `rate`; ported but unscheduled (`MDR-0009`, `ADR-0011`). |
+| `DirectlyAffected` | `src/components.jl` | Empty tag marking the wage-shock target sets drawn at setup (`MDR-0009`, `ADR-0011`). |
+| `WAGE_CUT` | `src/systems/shocks.jl` | Kept wage fraction (0.6) for directly-affected agents at shock start (`MDR-0009`). |
+| `select_affected!` | `src/systems/shocks.jl` | Setup-only draw of the `DirectlyAffected` sets per sex with a partial Fisher-Yates shuffle (`MDR-0009`). |
+| `_tag_affected!` | `src/systems/shocks.jl` | Partial Fisher-Yates helper of `select_affected!` that tags the drawn agents (`MDR-0009`). |
+| `start_shock!` | `src/systems/shocks.jl` | One-off shock start: save baselines for all turtles, then cut or shift (`MDR-0009`). |
+| `recover_shock!` | `src/systems/shocks.jl` | Per-tick exponential recovery toward baselines with the no-overshoot guard (`MDR-0009`). |
+| `update_shocks!` | `src/systems/shocks.jl` | Tick scheduler dispatching `tick == start` to `start_shock!` and `tick > start` to `recover_shock!` per present resource (`MDR-0009`). |
+| `update_wages!` | `src/systems/shocks.jl` | Gap-closing wage growth for women; ported but unscheduled (`MDR-0009`). |

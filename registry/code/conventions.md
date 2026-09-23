@@ -11,7 +11,7 @@ unless a recorded ADR or MDR permits the deviation.
 - Types use `PascalCase`, for example `UtilityConfig` or `SocialNetwork`.
 - Functions and variables use `snake_case`, for example
   `individual_utility` or `working_time`.
-- Constants use `UPPER_SNAKE_CASE`, for example `SHOCK_NO`.
+- Constants use `UPPER_SNAKE_CASE`, for example `WAGE_CUT`.
 - Test files, when added, use `test_snake_case.jl` under `test/`.
 
 ## Structure
