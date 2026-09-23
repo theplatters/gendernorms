@@ -72,3 +72,5 @@ instead of silent.
   transfer mean, run time, and the wage gap have no Julia carrier.
 - `registry/model/decisions/MDR-0009-typed-shocks.md` -- typed shock
   resources with a component tag and quirk-preserving start and recovery.
+- `registry/model/decisions/MDR-0010-go-tick-loop-scheduling.md` -- the
+  `go` tick loop scheduled as the `step_model!` port (see `ADR-0012`).

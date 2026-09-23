@@ -51,6 +51,10 @@ which conventions it follows, and which architecture decisions were made.
   enum-free shock dispatch over concrete resources with a
   `DirectlyAffected` component tag and a `resources`/`systems` file split
   (see `MDR-0009`).
+- `registry/code/decisions/ADR-0012-run-execution-pipeline.md`:
+  run execution pipeline (TOML run specification, world creation,
+  execution, and logging) on the new `src/runtime/` layer above
+  `src/systems/` (see `MDR-0010`).
 
 ## How to add a new source file correctly
 
