@@ -1,0 +1,17 @@
+[run]
+name = "minimal-example"
+seed = 42
+
+[model]
+name = "gender_norms"
+agents_per_gender = 20
+
+[runtime]
+ticks = 5
+
+[logging]
+metrics = ["working_time_men", "working_time_women", "working_time_gap"]
+
+[[logging.outputs]]
+type = "toml"
+directory = "runs"

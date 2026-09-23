@@ -45,6 +45,7 @@ It currently reads, in this exact order:
 16. `src/runtime/logging.jl`
 17. `src/runtime/run_context.jl`
 18. `src/runtime/runner.jl`
+19. `src/runtime/gender_norms_model.jl`
 
 The module root is `src/GenderNorms.jl`.
 
@@ -72,6 +73,7 @@ The module root is `src/GenderNorms.jl`.
 | `src/runtime/logging.jl` | runtime | Logging sinks: the `RunLogger` interface with the no-op `run_started!`, `metrics_recorded!`, and `run_finished!` hooks, the `LOG_OUTPUT_TYPES` backend registry with `validate_output_spec` and `build_logger` dispatch, and the `TomlLogger` file backend with its `_write_run_record` writer (see `ADR-0012`) | Included |
 | `src/runtime/run_context.jl` | runtime | Per-run mutable state: the non-parametric `RunContext` world resource carrying run id, spec, model, config, metric functions, loggers, and the seeded RNG (see `ADR-0012`) | Included |
 | `src/runtime/runner.jl` | runtime | World creation and execution: `create_world` initialization with the seeded RNG, `add_logger!` programmatic backends, and the module-local `run` entry point with its record-or-rethrow failure semantics (see `ADR-0012`) | Included |
+| `src/runtime/gender_norms_model.jl` | runtime | Model binding for this package: `GenderNormsModel` registered as `"gender_norms"` with its `GenderNormsConfig`, the `setup_world` setup port, the `step_model!` go port (see `MDR-0010`), the working-time `model_metrics`, the `config_to_dict` echo, and the `_parse_network_table`, `_parse_utility_table`, `_parse_gender_pair`, `_network_to_dict`, and `_utility_to_dict` table helpers (see `ADR-0012`) | Included |
 
 ## Registration rule
 
@@ -170,3 +172,10 @@ details and are not part of the package's public surface.
 | `create_world` | `src/runtime/runner.jl` | Initialization from a `RunSpec` with the seeded RNG and `RunContext` (see `ADR-0012`). |
 | `add_logger!` | `src/runtime/runner.jl` | Appends a programmatic backend to the world `RunContext` (see `ADR-0012`). |
 | `run` | `src/runtime/runner.jl` | Module-local execution entry point (not `Base.run`), one run per world (see `ADR-0012`). |
+| `GenderNormsModel` | `src/runtime/gender_norms_model.jl` | `AbstractModel` binding of this package, registered as `"gender_norms"` (see `ADR-0012`). |
+| `GenderNormsConfig` | `src/runtime/gender_norms_model.jl` | Validated model-specific configuration: properties, gendered trait means, and utility config (see `ADR-0012`). |
+| `_parse_network_table` | `src/runtime/gender_norms_model.jl` | Parse one `[model.network]` table into a `NetworkSpec` with per-type keys (see `ADR-0012`). |
+| `_parse_utility_table` | `src/runtime/gender_norms_model.jl` | Parse one `[model.utility]` table into a `UtilityConfig`, with `beta` only for `ces` (see `ADR-0012`). |
+| `_parse_gender_pair` | `src/runtime/gender_norms_model.jl` | Parse one `men`/`women` specification table with range checks (see `ADR-0012`). |
+| `_network_to_dict` | `src/runtime/gender_norms_model.jl` | Echo one `NetworkSpec` as its `[model.network]` table shape (see `ADR-0012`). |
+| `_utility_to_dict` | `src/runtime/gender_norms_model.jl` | Echo one `UtilityConfig` as its `[model.utility]` table shape (see `ADR-0012`). |

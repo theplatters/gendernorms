@@ -28,6 +28,7 @@ include("runtime/run_result.jl")
 include("runtime/logging.jl")
 include("runtime/run_context.jl")
 include("runtime/runner.jl")
+include("runtime/gender_norms_model.jl")
 
 for_gender(x, ::Male)::Float64 = x.men
 for_gender(x, ::Female)::Float64 = x.woman

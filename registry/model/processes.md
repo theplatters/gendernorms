@@ -5,7 +5,7 @@ their ODD section and Julia counterpart(s) in `src/`.
 
 | NetLogo procedure | ODD section | Julia symbol(s) | File | Status |
 | --- | --- | --- | --- | --- |
-| `setup` | Initialization (`setup`, `set-initials-*`) | `initialize_household`, `get_agent`, `get_woman`, `get_men`, `generate_social_network` | `src/systems/initialisation.jl` | partial: agent creation and pairing ported, CSV import, specific-couple override, subgroup and affected sets missing |
+| `setup` | Initialization (`setup`, `set-initials-*`) | `initialize_household`, `get_agent`, `get_woman`, `get_men`, `generate_social_network`, `setup_world` | `src/systems/initialisation.jl`, `src/runtime/gender_norms_model.jl` | partial: agent creation and pairing ported, CSV import, specific-couple override, subgroup and affected sets missing |
 | `generate-network` | Network formation | `generate`, `generate_similarity`, `sample_nodes` | `src/resources/social_network.jl` | ported |
 | `generate-homophilic-network` | Network formation | `generate_homophily`, `sample_nodes` | `src/resources/social_network.jl` | ported |
 | `choose-bundle` | Labour best response | `mutual_best_response` plus `best_response_1d` and `maximize_1d` | `src/systems/household_bargaining.jl`, `src/resources/utility_functions.jl` | ported with documented deviation, see `MDR-0002` |
@@ -18,3 +18,4 @@ their ODD section and Julia counterpart(s) in `src/`.
 | `update-preferences` | Endogenous preference adaptation and wage growth | `update_preferences` | `src/systems/preferences.jl` | partial: adaptation ported and preserving the `pre` shock baseline; the `lambda` default is still 0.5 instead of the NetLogo 0.002 (see `registry/model/discrepancies.md`), `TASK-0004` |
 | `update-wages` | Endogenous preference adaptation and wage growth | `update_wages!` | `src/systems/shocks.jl` | ported-but-unscheduled: NetLogo `go` never calls `update-wages`, see `MDR-0009` |
 | `update-statistics` | Statistics | `update_old_working_time_and_transfer!`, `update_global_working_times!` | `src/systems/statistics.jl` | partial-core-ported: lag copy plus contemporaneous men/women/gap means, see `MDR-0007`; histories, subgroup means, and `run-time` deferred under `TASK-0001` |
+| `go` | Process overview and scheduling | `step_model!` (scheduling `update_shocks!`, `calculate_norm_perception!`, `set_theta!`, `update_old_working_time_and_transfer!`, `update_global_working_times!`, `update_preferences`) | `src/runtime/gender_norms_model.jl` | ported, see `MDR-0010`; `update-wages` stays unscheduled (see `MDR-0009`) and quirk 11 stays deferred under `TASK-0010` |
