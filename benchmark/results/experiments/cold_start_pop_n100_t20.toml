@@ -1,0 +1,41 @@
+[run]
+name = "benchmark-pop_n100_t20"
+seed = 42
+
+[model]
+agents_per_gender = 100
+std_dev = 0.2
+initial_transfer = 0.0
+name = "gender_norms"
+initial_lambda = 0.002
+
+    [model.initial_conformism]
+    women = 10.0
+    men = 10.0
+
+    [model.utility]
+    beta = 0.5
+    w_transfer = 1.0
+    w_self = 1.0
+    type = "ces"
+    w_partner = 1.0
+
+    [model.network]
+    rewiring = 0.1
+    neighbors_per_side = 2
+    type = "watts_strogatz"
+
+    [model.mean_preference]
+    women = 0.48
+    men = 0.45
+
+    [model.mean_wage]
+    women = 0.9
+    men = 1.0
+
+    [model.paid_time]
+    women = 0.36
+    men = 0.77
+
+[runtime]
+ticks = 20

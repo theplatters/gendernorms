@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<experiments>
+  <experiment name="pop_n200_t5" repetitions="9" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="5">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>timer</metric>
+      <metric>run-time</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="number-agents-each-type">
+        <value value="200"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="network-structure">
+        <value value="&quot;watts-strogatz&quot;"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="random-network-prob">
+        <value value="0.01"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="watts-strogatz-neighbors">
+        <value value="2"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="watts-strogatz-rewiring">
+        <value value="0.1"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preferential-attachment-min-degree">
+        <value value="2"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="utility-function">
+        <value value="&quot;CES&quot;"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="CES_beta">
+        <value value="0.5"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="weight-working-time-self">
+        <value value="1"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="weight-working-time-partner">
+        <value value="1"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="weight-transfer">
+        <value value="1"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="conformism-male">
+        <value value="10"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="conformism-female">
+        <value value="10"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="wage-male">
+        <value value="1.0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="wage-female">
+        <value value="0.9"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="norm-paid-time-male">
+        <value value="77"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="norm-paid-time-female">
+        <value value="36"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-mean-male">
+        <value value="0.45"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-mean-female">
+        <value value="0.48"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="std-dev-values">
+        <value value="0.2"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="initial-transfer">
+        <value value="0.0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="lambda">
+        <value value="0.002"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="convergence_epsilon">
+        <value value="0.001"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="fixed-rs">
+        <value value="true"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="random-seed-fixed">
+        <value value="1"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="shock">
+        <value value="&quot;no&quot;"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="perc-affected-male">
+        <value value="0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="perc-affected-female">
+        <value value="0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="shock-start">
+        <value value="60"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="wage-growth-rate">
+        <value value="0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-shock-male">
+        <value value="0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-shock-female">
+        <value value="0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="shock-depreciation">
+        <value value="0.005"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="import-csv">
+        <value value="false"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="specific-couple">
+        <value value="false"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="output-locations">
+        <value value="false"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="wage-female-in-question">
+        <value value="2.0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="wage-male-in-question">
+        <value value="2.0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-female-in-question">
+        <value value="0.5"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="preference-private-male-in-question">
+        <value value="0.5"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="conformism-male-in-question">
+        <value value="1.0"></value>
+      </enumeratedValueSet>
+      <enumeratedValueSet variable="conformism-female-in-question">
+        <value value="1.0"></value>
+      </enumeratedValueSet>
+    </constants>
+  </experiment>
+</experiments>

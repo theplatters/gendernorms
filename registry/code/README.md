@@ -55,6 +55,10 @@ which conventions it follows, and which architecture decisions were made.
   run execution pipeline (TOML run specification, world creation,
   execution, and logging) on the new `src/runtime/` layer above
   `src/systems/` (see `MDR-0010`).
+- `registry/code/decisions/ADR-0013-benchmark-harness.md`:
+  benchmark tooling in `benchmark/` outside the package, with a
+  driver-defined config matrix, results layout, and resumability
+  (see `MDR-0011`).
 
 ## How to add a new source file correctly
 

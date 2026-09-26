@@ -74,3 +74,6 @@ instead of silent.
   resources with a component tag and quirk-preserving start and recovery.
 - `registry/model/decisions/MDR-0010-go-tick-loop-scheduling.md` -- the
   `go` tick loop scheduled as the `step_model!` port (see `ADR-0012`).
+- `registry/model/decisions/MDR-0011-benchmark-methodology.md` --
+  matched-configuration runtime comparison of the NetLogo and Julia
+  implementations (see `ADR-0013`).
