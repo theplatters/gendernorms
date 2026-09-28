@@ -167,6 +167,14 @@ function payoff_params(
   )
 end
 
+# Chunk size of the per-household `Threads.@threads :greedy` loop below:
+# the greedy scheduler pulls whole chunks instead of one item per unbuffered
+# channel pull, amortizing the per-item pull overhead over
+# `HOUSEHOLD_BARGAIN_CHUNK` households while keeping the load-balance
+# granularity fine for the uneven Brent iterations of `bargain_transfer`
+# (see `ADR-0014`).
+const HOUSEHOLD_BARGAIN_CHUNK = 4
+
 """
     set_theta!(world, config::UtilityConfig)
 
@@ -176,10 +184,12 @@ every household (ODD section Transfer bargaining (`set-theta`,
 `MDR-0005`). Household components are extracted with `Ark.Query` (see
 `ADR-0007`); the transfer component mirrors the wife's value on the man (see
 `registry/model/entities.md`). The per-household loop runs with
-`Threads.@threads :greedy` over the disjoint households, each iteration
-with its own `spouse_seen` scratch vector for `norm_means`, so the results
-are independent of scheduling and thread count (see `ADR-0014`). The world
-is mutated and nothing is returned.
+`Threads.@threads :greedy` over the disjoint households in chunks of
+`HOUSEHOLD_BARGAIN_CHUNK` items (the greedy scheduler pulls whole chunks) to
+amortize its per-item channel pull, each iteration with its own `spouse_seen`
+scratch vector for `norm_means`, so the results are independent of
+scheduling and thread count (see `ADR-0014`). The world is mutated and
+nothing is returned.
 """
 function set_theta!(world, config::UtilityConfig)
   net = Ark.get_resource(world, SocialNetwork)
@@ -190,39 +200,41 @@ function set_theta!(world, config::UtilityConfig)
   component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
   for (entities, wages, times, transfers, conformisms, preferences, spouses) in
       Ark.Query(world, component_types; with=(Female,))
-    Threads.@threads :greedy for f in eachindex(entities)
-      woman = entities[f]
-      man = spouses[f].entity
-      man_wage, man_time, man_transfer, man_conformism, man_preference =
-        Ark.get_components(world, man, (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate))
-      woman_vertex = get(women_index, woman, 0)
-      woman_vertex == 0 && throw(ArgumentError("woman is not in the women entity vector"))
-      man_vertex = get(men_index, man, 0)
-      man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
+    Threads.@threads :greedy for chunk in Iterators.partition(eachindex(entities), HOUSEHOLD_BARGAIN_CHUNK)
+      for f in chunk
+        woman = entities[f]
+        man = spouses[f].entity
+        man_wage, man_time, man_transfer, man_conformism, man_preference =
+          Ark.get_components(world, man, (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate))
+        woman_vertex = get(women_index, woman, 0)
+        woman_vertex == 0 && throw(ArgumentError("woman is not in the women entity vector"))
+        man_vertex = get(men_index, man, 0)
+        man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
 
-      spouse_seen = Ark.Entity[]
-      woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
-      man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
+        spouse_seen = Ark.Entity[]
+        woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
+        man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
 
-      pw = payoff_params(
-        wages[f].current, man_wage.current, preferences[f].current,
-        conformisms[f].amount, woman_norms, true
-      )
-      pm = payoff_params(
-        man_wage.current, wages[f].current, man_preference.current,
-        man_conformism.amount, man_norms, false
-      )
+        pw = payoff_params(
+          wages[f].current, man_wage.current, preferences[f].current,
+          conformisms[f].amount, woman_norms, true
+        )
+        pm = payoff_params(
+          man_wage.current, wages[f].current, man_preference.current,
+          man_conformism.amount, man_norms, false
+        )
 
-      theta, hw, hm = bargain_transfer(
-        times[f].current, man_time.current, transfers[f].current, pw, pm, config
-      )
-      # the woman is in the query, so the views write in place
-      times[f] = WorkingTime(hw, times[f].old)
-      transfers[f] = TransferToWoman(theta, transfers[f].old)
-      # the man is not in the women's query, so only the entity API exists
-      Ark.set_components!(
-        world, man, (WorkingTime(hm, man_time.old), TransferToWoman(theta, man_transfer.old))
-      )
+        theta, hw, hm = bargain_transfer(
+          times[f].current, man_time.current, transfers[f].current, pw, pm, config
+        )
+        # the woman is in the query, so the views write in place
+        times[f] = WorkingTime(hw, times[f].old)
+        transfers[f] = TransferToWoman(theta, transfers[f].old)
+        # the man is not in the women's query, so only the entity API exists
+        Ark.set_components!(
+          world, man, (WorkingTime(hm, man_time.old), TransferToWoman(theta, man_transfer.old))
+        )
+      end
     end
   end
   return nothing

@@ -139,6 +139,13 @@ function norm_penalty(conformism::Float64, h_self::Float64, h_spouse::Float64, t
     )
 end
 
+# Chunk size of the per-agent `Threads.@threads :greedy` loop below: the
+# greedy scheduler pulls whole chunks instead of one item per unbuffered
+# channel pull, amortizing the per-item pull overhead over
+# `NORM_PERCEPTION_CHUNK` cheap agent iterations while keeping the
+# load-balance granularity fine (see `ADR-0014`).
+const NORM_PERCEPTION_CHUNK = 16
+
 """
     calculate_norm_perception!(world, config::UtilityConfig)
 
@@ -152,28 +159,32 @@ from current working times and the current transfer, and store
 `norm_global_means` when the `network` field of the world's `ModelProperties`
 resource is `HomogeneousMixing`; the specification is read from that resource
 (see `ADR-0010`). The per-agent loop runs with `Threads.@threads :greedy`
-over the disjoint agents, each iteration with its own `spouse_seen` scratch
-vector for `norm_means`, so the results are independent of scheduling and
-thread count (see `ADR-0014`). Returns `nothing`.
+over the disjoint agents in chunks of `NORM_PERCEPTION_CHUNK` items (the
+greedy scheduler pulls whole chunks) to amortize its per-item channel pull,
+each iteration with its own `spouse_seen` scratch vector for `norm_means`, so
+the results are independent of scheduling and thread count (see
+`ADR-0014`). Returns `nothing`.
 """
 function calculate_norm_perception!(world, config::UtilityConfig)
     net = Ark.get_resource(world, SocialNetwork)
     properties = Ark.get_resource(world, ModelProperties)
     globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
     for (entities, is_woman) in ((net.women_entities, true), (net.men_entities, false))
-        Threads.@threads :greedy for vertex in eachindex(entities)
-            entity = entities[vertex]
-            spouse_seen = Ark.Entity[]
-            means = norm_means(world, net, vertex, is_woman, globals, spouse_seen)
-            working_time, transfer, conformism, spouse =
-                Ark.get_components(world, entity, (WorkingTime, TransferToWoman, Conformism, Spouse))
-            spouse_working_time, = Ark.get_components(world, spouse.entity, (WorkingTime,))
-            penalty = norm_penalty(
-                conformism.amount, working_time.current, spouse_working_time.current, transfer.current, means, config,
-            )
-            Ark.set_components!(
-                world, entity, (PerceptionNormDivisionOfLabor(means.division_of_labor), NormParameter(penalty)),
-            )
+        Threads.@threads :greedy for chunk in Iterators.partition(eachindex(entities), NORM_PERCEPTION_CHUNK)
+            for vertex in chunk
+                entity = entities[vertex]
+                spouse_seen = Ark.Entity[]
+                means = norm_means(world, net, vertex, is_woman, globals, spouse_seen)
+                working_time, transfer, conformism, spouse =
+                    Ark.get_components(world, entity, (WorkingTime, TransferToWoman, Conformism, Spouse))
+                spouse_working_time, = Ark.get_components(world, spouse.entity, (WorkingTime,))
+                penalty = norm_penalty(
+                    conformism.amount, working_time.current, spouse_working_time.current, transfer.current, means, config,
+                )
+                Ark.set_components!(
+                    world, entity, (PerceptionNormDivisionOfLabor(means.division_of_labor), NormParameter(penalty)),
+                )
+            end
         end
     end
     return nothing

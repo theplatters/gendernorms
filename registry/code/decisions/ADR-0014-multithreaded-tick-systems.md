@@ -42,10 +42,24 @@ frees first.
 
 1. The inner per-agent loop of `calculate_norm_perception!` and the
    inner per-household loop of `set_theta!` run multithreaded with
-   `Threads.@threads :greedy`.
-2. Each `norm_means` iteration allocates its own `spouse_seen` scratch
+   `Threads.@threads :greedy` over chunks of work items via
+   `Iterators.partition`: chunks of `NORM_PERCEPTION_CHUNK` (16)
+   agents in `calculate_norm_perception!` (`src/systems/norm_perception.jl`)
+   and chunks of `HOUSEHOLD_BARGAIN_CHUNK` (4) households in
+   `set_theta!` (`src/systems/household_bargaining.jl`).
+2. The loops pull whole chunks instead of single items because Julia's
+   `:greedy` scheduler pulls every iteration through an unbuffered
+   `Channel` (one producer-consumer rendezvous per item,
+   `base/threadingconstructs.jl` `greedy_func`), so the per-item pull
+   overhead dominates cheap iterations (measured: per-item scheduling
+   made `calculate_norm_perception!` 1.5x slower at 8 threads than
+   serial at about 3 us per item). The chunk size trades scheduling
+   overhead against load-balance granularity (worst-case imbalance is
+   one chunk of items): 16 for the cheap uniform per-agent loop, 4
+   for the expensive uneven per-household loop.
+3. Each `norm_means` iteration allocates its own `spouse_seen` scratch
    vector, so the buffer is never shared across threads.
-3. Everything else is unchanged: component extraction stays Query-based
+4. Everything else is unchanged: component extraction stays Query-based
    per `ADR-0007`, and tick order stays as decided in `MDR-0010`.
 
 ## Consequences
@@ -59,7 +73,13 @@ frees first.
   loops).
 - `benchmark/threading_speedup.jl` measures the threading speedup; the
   `MDR-0011` NetLogo comparison benchmark keeps running Julia with
-  `JULIA_NUM_THREADS=1` (see `ADR-0013`).
+  `JULIA_NUM_THREADS=1` (see `ADR-0013`). Whole-run
+  `benchmark/threading_speedup.jl 500 20` (median of 3, 500
+  agents/gender x 20 ticks): 388.6 ms at 1 thread, 204.8 ms at 2,
+  118.2 ms at 4, 79.4 ms at 8 (4.9x speedup), 120.2 ms at 16.
+  Per loop: `calculate_norm_perception!` 4.2 ms serial vs 5.3 ms at 8
+  threads, `set_theta!` 372.5 ms serial vs 69.5 ms at 8 threads. At 16
+  threads the unbuffered-channel pull remains the scaling limit.
 - No model-behavior change and no ODD change, so no MDR is needed.
 
 ## References
