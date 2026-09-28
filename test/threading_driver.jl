@@ -16,7 +16,7 @@ function main()
         "run" => Dict{String,Any}("name" => "threading-driver", "seed" => 1),
         "model" => Dict{String,Any}(
             "name" => "gender_norms",
-            "agents_per_gender" => 8,
+            "agents_per_gender" => 64,
             "network" => Dict{String,Any}(
                 "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1
             ),

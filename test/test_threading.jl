@@ -195,7 +195,7 @@ function run_threading_driver(nthreads::Int)
 end
 
 @testset "parallel world loops match the sequential reference" begin
-    n = 32
+    n = 64
     config = GN.UtilityConfig()
     scenarios = (
         (:connected, GN.NoNetwork()),
@@ -210,6 +210,42 @@ end
             set_threading_state!(world_b, women_b, men_b, 8)
             women_graph_a, men_graph_a = threading_graphs(kind, n)
             women_graph_b, men_graph_b = threading_graphs(kind, n)
+            Ark.add_resource!(world_a, GN.SocialNetwork(men_graph_a, women_graph_a, men_a, women_a))
+            Ark.add_resource!(world_b, GN.SocialNetwork(men_graph_b, women_graph_b, men_b, women_b))
+
+            serial_calculate_norm_perception!(world_a, config)
+            GN.calculate_norm_perception!(world_b, config)
+            for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
+                snap_a = threading_snapshot(world_a, entities_a)
+                snap_b = threading_snapshot(world_b, entities_b)
+                @test snap_a == snap_b
+                @test threading_means(snap_a) == threading_means(snap_b)
+            end
+
+            serial_set_theta!(world_a, config)
+            GN.set_theta!(world_b, config)
+            for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
+                snap_a = threading_snapshot(world_a, entities_a)
+                snap_b = threading_snapshot(world_b, entities_b)
+                @test snap_a == snap_b
+                @test threading_means(snap_a) == threading_means(snap_b)
+            end
+        end
+    end
+end
+
+@testset "serial reference matches at chunk boundaries and single item" begin
+    # `n = 17` leaves a short final chunk (one household for the
+    # bargaining loop) and `n = 1` is a single work item.
+    config = GN.UtilityConfig()
+    for n in (17, 1)
+        @testset "n = $n" begin
+            world_a, women_a, men_a = make_threading_world(GN.NoNetwork(), n, 7)
+            world_b, women_b, men_b = make_threading_world(GN.NoNetwork(), n, 7)
+            set_threading_state!(world_a, women_a, men_a, 8)
+            set_threading_state!(world_b, women_b, men_b, 8)
+            women_graph_a, men_graph_a = threading_graphs(:connected, n)
+            women_graph_b, men_graph_b = threading_graphs(:connected, n)
             Ark.add_resource!(world_a, GN.SocialNetwork(men_graph_a, women_graph_a, men_a, women_a))
             Ark.add_resource!(world_b, GN.SocialNetwork(men_graph_b, women_graph_b, men_b, women_b))
 
