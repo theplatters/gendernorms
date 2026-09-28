@@ -151,15 +151,19 @@ from current working times and the current transfer, and store
 (ODD section Norm perception). The global means are computed once with
 `norm_global_means` when the `network` field of the world's `ModelProperties`
 resource is `HomogeneousMixing`; the specification is read from that resource
-(see `ADR-0010`). Returns `nothing`.
+(see `ADR-0010`). The per-agent loop runs with `Threads.@threads :greedy`
+over the disjoint agents, each iteration with its own `spouse_seen` scratch
+vector for `norm_means`, so the results are independent of scheduling and
+thread count (see `ADR-0014`). Returns `nothing`.
 """
 function calculate_norm_perception!(world, config::UtilityConfig)
     net = Ark.get_resource(world, SocialNetwork)
     properties = Ark.get_resource(world, ModelProperties)
     globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
-    spouse_seen = Ark.Entity[]
     for (entities, is_woman) in ((net.women_entities, true), (net.men_entities, false))
-        for (vertex, entity) in enumerate(entities)
+        Threads.@threads :greedy for vertex in eachindex(entities)
+            entity = entities[vertex]
+            spouse_seen = Ark.Entity[]
             means = norm_means(world, net, vertex, is_woman, globals, spouse_seen)
             working_time, transfer, conformism, spouse =
                 Ark.get_components(world, entity, (WorkingTime, TransferToWoman, Conformism, Spouse))

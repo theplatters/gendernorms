@@ -175,7 +175,11 @@ every household (ODD section Transfer bargaining (`set-theta`,
 `calculate-payoff`)); the labour stage runs inside `bargain_transfer` (see
 `MDR-0005`). Household components are extracted with `Ark.Query` (see
 `ADR-0007`); the transfer component mirrors the wife's value on the man (see
-`registry/model/entities.md`). The world is mutated and nothing is returned.
+`registry/model/entities.md`). The per-household loop runs with
+`Threads.@threads :greedy` over the disjoint households, each iteration
+with its own `spouse_seen` scratch vector for `norm_means`, so the results
+are independent of scheduling and thread count (see `ADR-0014`). The world
+is mutated and nothing is returned.
 """
 function set_theta!(world, config::UtilityConfig)
   net = Ark.get_resource(world, SocialNetwork)
@@ -184,10 +188,9 @@ function set_theta!(world, config::UtilityConfig)
   women_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.women_entities))
   men_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.men_entities))
   component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
-  spouse_seen = Ark.Entity[]
   for (entities, wages, times, transfers, conformisms, preferences, spouses) in
       Ark.Query(world, component_types; with=(Female,))
-    for f in eachindex(entities)
+    Threads.@threads :greedy for f in eachindex(entities)
       woman = entities[f]
       man = spouses[f].entity
       man_wage, man_time, man_transfer, man_conformism, man_preference =
@@ -197,6 +200,7 @@ function set_theta!(world, config::UtilityConfig)
       man_vertex = get(men_index, man, 0)
       man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
 
+      spouse_seen = Ark.Entity[]
       woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
       man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
 

@@ -59,6 +59,10 @@ which conventions it follows, and which architecture decisions were made.
   benchmark tooling in `benchmark/` outside the package, with a
   driver-defined config matrix, results layout, and resumability
   (see `MDR-0011`).
+- `registry/code/decisions/ADR-0014-multithreaded-tick-systems.md`:
+  multithreaded per-tick world loops (`calculate_norm_perception!`
+  and `set_theta!`) with `Threads.@threads :greedy` over disjoint
+  agents and households.
 
 ## How to add a new source file correctly
 

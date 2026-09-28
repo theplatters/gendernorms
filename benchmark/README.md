@@ -45,6 +45,24 @@ Runs are resumable: a config is skipped when its raw output files carry
 the expected number of rows. Results are written under
 `benchmark/results/` (created on demand).
 
+## Threading speedup
+
+`benchmark/threading_speedup.jl` measures the speedup from the
+multithreaded tick loops (`calculate_norm_perception!` and `set_theta!`,
+see `ADR-0014`). It is separate from the NetLogo-vs-Julia comparison of
+`MDR-0011` / `ADR-0013`, which stays single-threaded
+(`JULIA_NUM_THREADS=1`).
+
+```
+JULIA_NUM_THREADS=N julia --project=. benchmark/threading_speedup.jl [agents_per_gender] [ticks]
+```
+
+- `agents_per_gender` defaults to 100, `ticks` defaults to 10.
+- Output: elapsed seconds, ticks/s, and the thread count.
+- To read the speedup, compare a `-t 1` (or unset
+  `JULIA_NUM_THREADS`) run against a `-t N` run on the same arguments;
+  the ratio of ticks/s is the threading speedup.
+
 ## Results layout
 
 - `results/experiments/<config_id>.xml` - generated BehaviorSpace
