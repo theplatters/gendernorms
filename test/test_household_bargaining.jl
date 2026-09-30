@@ -4,7 +4,7 @@
 # response), the pure transfer helpers `outside_options`, `nash_product` and
 # `equilibrium_payoff` plus the transfer solver `bargain_transfer` (NetLogo
 # `set-theta` and `calculate-payoff`, ODD section Transfer bargaining,
-# `MDR-0005`), and the `Ark.Query`-based household extraction in `set_theta!`.
+# `MDR-0016`), and the `Ark.Query`-based household extraction in `set_theta!`.
 # Each world testset builds a small world with `initialize_household`,
 # overwrites the traits with known values, installs a controlled
 # `SocialNetwork` resource directly, and checks the solvers against
@@ -116,10 +116,14 @@ end
     @test gain_m >= 0.0
 end
 
-@testset "bargain_transfer keeps the status quo when it is the optimum" begin
+@testset "bargain_transfer stays near a sharply peaked status quo" begin
     config = GN.UtilityConfig()
-    # Huge conformism with the transfer norm at the status quo: the status
-    # quo is a feasible and valuable candidate.
+    # Huge conformism with the transfer norm at the status quo: the
+    # status quo sits on the objective's sharp peak, so the sparse
+    # search of `MDR-0016` keeps it as its best candidate and the
+    # committed hours match the labour equilibrium there (the
+    # exact case where no candidate beats the status quo is constructed
+    # in `test/test_transfer_search.jl`).
     pw = GN.AgentPayoffParams(
         wage_self = 0.9, wage_spouse = 1.0, alpha = 0.48, conformism = 1.0e4,
         N_h = 0.36, N_theta = 0.3, N_h_spouse = 0.77, is_woman = true,
@@ -140,6 +144,7 @@ end
     equilibrium_w, equilibrium_m = GN.mutual_best_response(0.36, 0.77, theta, pw, pm, config)
     @test hw ≈ equilibrium_w atol = 1.0e-3
     @test hm ≈ equilibrium_m atol = 1.0e-3
+    @test GN.nash_product(theta, hw, hm, uw, um, pw, pm, config) >= status_payoff
 end
 
 @testset "bargain_transfer falls back to the status quo when nothing is feasible" begin
@@ -164,13 +169,16 @@ end
     @test hm ≈ status_m atol = 1.0e-12
 end
 
-@testset "bargain_transfer keeps the status quo for a narrow feasible band" begin
+@testset "bargain_transfer finds the narrow feasible band next to zero" begin
     config = GN.UtilityConfig()
-    # Extreme corner characterized in `MDR-0005`: a feasible transfer band
-    # next to the status quo is narrower than the probe points of the Brent
-    # maximization, so the household keeps the status quo even though a grid
-    # finds a feasible transfer with a positive payoff. The fallback keeps the
-    # outcome safe (never worse than the status quo).
+    # Extreme corner characterized in `MDR-0005` and reproduced in
+    # `benchmark/transfer_search_diagnosis.md`: a feasible transfer band
+    # next to zero is narrower than the probe points of the unseeded
+    # Brent search of `MDR-0005`, which missed the band and fell back to
+    # zero transfer. The production search of `MDR-0016` evaluates the
+    # anchor neighbourhood of the status quo and commits inside the
+    # band; the fallback kept the old outcome safe, the current search
+    # finds what it missed.
     pw = GN.AgentPayoffParams(
         wage_self = 0.05, wage_spouse = 2.0, alpha = 0.9, conformism = 0.0,
         N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
@@ -190,10 +198,13 @@ end
     theta, hw, hm = GN.bargain_transfer(0.5, 0.5, 0.0, pw, pm, config)
 
     @test band_payoff > 0.0
-    @test theta == 0.0
-    status_w, status_m = GN.mutual_best_response(0.5, 0.5, 0.0, pw, pm, config)
-    @test hw ≈ status_w atol = 1.0e-12
-    @test hm ≈ status_m atol = 1.0e-12
+    @test 0.0 < theta < 0.1
+    payoff = GN.nash_product(theta, hw, hm, uw, um, pw, pm, config)
+    @test payoff >= band_payoff
+    gain_w = GN.individual_utility(hw, hm, theta, pw, config) - uw
+    gain_m = GN.individual_utility(hm, hw, theta, pm, config) - um
+    @test gain_w >= 0.0
+    @test gain_m >= 0.0
 end
 
 @testset "mutual_best_response rests at its fixed point" begin

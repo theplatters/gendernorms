@@ -1,5 +1,9 @@
 # Code Registry
 
+Current search decision: `registry/code/decisions/ADR-0021-seeded-guidance-transfer-driver.md`
+supersedes `ADR-0020`; the seeded Brent feasibility-guided production
+driver with separate bound-guidance storage is accepted (`TASK-0021`).
+
 This directory is the CODE half of the `registry/` system.
 It records how the Julia implementation in `src/` is organized,
 which conventions it follows, and which architecture decisions were made.
@@ -63,6 +67,45 @@ which conventions it follows, and which architecture decisions were made.
   multithreaded per-tick world loops (`calculate_norm_perception!`
   and `set_theta!`) with `Threads.@threads :greedy` over disjoint
   agents and households.
+- `registry/code/decisions/ADR-0015-bargaining-kernel-optimization.md`:
+  behavior-preserving bargaining kernel optimization: exact identical
+  solve reuse in `bargain_transfer`, chunk-task-owned `spouse_seen`
+  scratch in `set_theta!`, and the certified `-Inf` transfer-objective
+  certificate with its fail-open guards (implemented under `TASK-0015`).
+- `registry/code/decisions/ADR-0016-transfer-search-evaluation-cache-and-staged-driver.md`:
+  per-call evaluation cache `TransferObjectiveValue` and staged-search
+  driver `_transfer_search!` behind the feasibility-discovery transfer
+  search of `MDR-0012` (implemented under `TASK-0016`).
+- `registry/code/decisions/ADR-0017-interval-certificate-and-search-storage.md`:
+  sound interval-exclusion certificate `_objective_interval_prunable`
+  as a Stage A objective-call prefilter and the task-owned reusable
+  `TransferSearchScratch` search storage replacing the per-call `Dict`
+  of `ADR-0016` (implemented under `TASK-0017`).
+- `registry/code/decisions/ADR-0018-prepared-best-response-objective.md`:
+  prepared own-hours objective `BestResponseObjective` hoisting the
+  transfer- and spouse-dependent terms out of the 1-D best-response
+  evaluation, with `individual_utility` delegating to it as the single
+  objective implementation (implemented under `TASK-0019`, arithmetic
+  change governed by `MDR-0013`).
+- `registry/code/decisions/ADR-0019-tiered-search-machinery-and-specialized-ces-envelope.md`:
+  tiered sample enumeration and sampled-sequence/evaluation-cache
+  discipline of `_transfer_search!` (slab-covered samples stay out of
+  the cache) and the specialized `CES` `beta == 0.5` sqrt/square
+  `_material_envelope` with its margin re-derivation (implemented
+  under `TASK-0018`, sample-set semantics governed by `MDR-0014`;
+  retires the bitwise search-identity oracle of `ADR-0017`).
+
+- `registry/code/decisions/ADR-0020-bounded-production-transfer-driver.md`:
+  bounded production driver alongside the retained discovery driver,
+  explicit local/discovery keyword, shared objective and commit path,
+  and smaller production scratch hints (see `MDR-0015`; superseded by
+  `ADR-0021`).
+
+- `registry/code/decisions/ADR-0021-seeded-guidance-transfer-driver.md`:
+  feasibility-guided production driver with the sparse adaptive schedule
+  of `MDR-0016`: explicit-seed `_brent_maximize` variant, separate
+  guidance gains on `TransferObjectiveValue`, single-lookup evaluation
+  cache, and 32-record production storage hints (see `MDR-0016`).
 
 ## How to add a new source file correctly
 

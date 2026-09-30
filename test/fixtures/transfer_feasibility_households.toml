@@ -1,0 +1,126 @@
+# transfer_feasibility_households.toml: parameter fixtures of the three
+# seed-1 benchmark households whose strictly positive near-zero transfer
+# payoffs the pre-`MDR-0012` unseeded Brent transfer search missed
+# (recorded in `benchmark/transfer_search_diagnosis.md`), plus the
+# demonstrated candidate each regression test must beat.
+#
+# Provenance: the initial state (tick 0, before the first tick) of the
+# seed-1, 500-agents-per-gender `watts_strogatz` run (neighbors_per_side
+# 2, rewiring 0.1), CES utility with beta 0.5, all other keys package
+# defaults; extracted with the same component extraction and
+# `norm_means`/`payoff_params` calls as `set_theta!` (see `MDR-0012`).
+# Generator /tmp/opencode/generate_transfer_households.jl (throwaway,
+# outside the repository), Julia 1.12.7. Regenerate with the
+# `generator_command` in [meta]; the generator re-verifies every
+# `demo_payoff` bitwise before writing.
+#
+# Value encoding: every Float64 is a quoted Julia `repr` string; read it
+# back with `parse(Float64, s)` and compare with `isequal`.
+#
+# [[household]]: `id` is the 1-based position of the woman in
+# `SocialNetwork.women_entities`. `pw_*` and `pm_*` are the
+# `AgentPayoffParams` fields of the woman (`is_woman = true`) and the man
+# (`is_woman = false`) exactly as `set_theta!` builds them; `hw_init`,
+# `hm_init`, and `theta_init` are the household's `WorkingTime.current`
+# and `TransferToWoman.current` at tick 0; `uw_out`, `um_out` are the
+# zero-transfer outside options and `hw_status`, `hm_status` the
+# status-quo labour equilibrium the solver warm-starts from. `demo_theta`
+# and `demo_payoff` are the demonstrated positive Nash payoff from
+# `benchmark/transfer_search_diagnosis.md`, re-derived bitwise by the
+# generator; `demo2_theta`/`demo2_payoff` (household 85 only) record its
+# second demonstrated point. The regression test requires
+# `bargain_transfer` to commit a nonzero transfer whose cached payoff is
+# finite and at least `demo_payoff`.
+
+[meta]
+generator = "/tmp/opencode/generate_transfer_households.jl"
+generator_command = "julia --project=. /tmp/opencode/generate_transfer_households.jl test/fixtures/transfer_feasibility_households.toml"
+julia_version = "1.12.7"
+source = "seed 1, 500 agents per gender, watts_strogatz neighbors_per_side 2 rewiring 0.1, ces beta 0.5; tick-0 initial state"
+value_encoding = "every Float64 is a quoted Julia repr string; read back with parse(Float64, s) and compare with isequal"
+
+[[household]]
+id = 85
+utility = "ces"
+beta = "0.5"
+pw_wage_self = "0.9333880652803502"
+pw_wage_spouse = "0.8968990565581904"
+pw_alpha = "0.6377755458108609"
+pw_conformism = "6.964866317461932"
+pw_N_h = "0.36000000000000004"
+pw_N_theta = "0.0"
+pw_N_h_spouse = "0.77"
+pm_wage_self = "0.8968990565581904"
+pm_wage_spouse = "0.9333880652803502"
+pm_alpha = "0.19553542690235604"
+pm_conformism = "8.400392099897676"
+pm_N_h = "0.77"
+pm_N_theta = "0.0"
+pm_N_h_spouse = "0.36000000000000004"
+hw_init = "0.36"
+hm_init = "0.77"
+theta_init = "0.0"
+uw_out = "0.5185931226856632"
+um_out = "0.7822408667016871"
+hw_status = "0.41537382738582806"
+hm_status = "0.7270213399472379"
+demo_theta = "0.0009"
+demo_payoff = "8.239360204105467e-9"
+demo2_theta = "0.001"
+demo2_payoff = "2.1406731321933553e-9"
+
+[[household]]
+id = 100
+utility = "ces"
+beta = "0.5"
+pw_wage_self = "1.076522981086081"
+pw_wage_spouse = "1.2622098937756323"
+pw_alpha = "0.6807684879583694"
+pw_conformism = "7.364448780533483"
+pw_N_h = "0.36"
+pw_N_theta = "0.0"
+pw_N_h_spouse = "0.77"
+pm_wage_self = "1.2622098937756323"
+pm_wage_spouse = "1.076522981086081"
+pm_alpha = "0.25119563157565356"
+pm_conformism = "9.829866291370688"
+pm_N_h = "0.77"
+pm_N_theta = "0.0"
+pm_N_h_spouse = "0.36"
+hw_init = "0.36"
+hm_init = "0.77"
+theta_init = "0.0"
+uw_out = "0.5447587065544779"
+um_out = "0.8152834480045269"
+hw_status = "0.4260828134491813"
+hm_status = "0.7428832411904329"
+demo_theta = "0.0007"
+demo_payoff = "1.1554486667771662e-8"
+
+[[household]]
+id = 387
+utility = "ces"
+beta = "0.5"
+pw_wage_self = "1.1306594094362565"
+pw_wage_spouse = "0.9518371190969716"
+pw_alpha = "0.5093125116956976"
+pw_conformism = "9.297711445901347"
+pw_N_h = "0.36"
+pw_N_theta = "0.0"
+pw_N_h_spouse = "0.77"
+pm_wage_self = "0.9518371190969716"
+pm_wage_spouse = "1.1306594094362565"
+pm_alpha = "0.5187369548029293"
+pm_conformism = "12.439484207220286"
+pm_N_h = "0.77"
+pm_N_theta = "0.0"
+pm_N_h_spouse = "0.36000000000000004"
+hw_init = "0.36"
+hm_init = "0.77"
+theta_init = "0.0"
+uw_out = "0.6149200075375909"
+um_out = "0.781362607087234"
+hw_status = "0.38335417960712986"
+hm_status = "0.7723661644186971"
+demo_theta = "0.0001"
+demo_payoff = "1.1575079773623812e-10"

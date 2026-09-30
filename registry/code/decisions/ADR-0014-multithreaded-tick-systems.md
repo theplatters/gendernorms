@@ -68,9 +68,11 @@ frees first.
   determinism is covered by `test/test_threading.jl`.
 - Exceptions raised inside the parallel loops surface wrapped in
   `TaskFailedException` / `CompositeException` rather than directly.
-- One scratch-vector allocation per agent and household iteration (the
-  `MDR-0004` zero-allocation pin no longer applies inside the threaded
-  loops).
+- One scratch-vector allocation per agent iteration in
+  `calculate_norm_perception!` (the `MDR-0004` zero-allocation pin no
+  longer applies inside the threaded loops); `set_theta!` no longer
+  allocates per household iteration: one `spouse_seen` scratch vector
+  per chunk task, reused across its households (see `ADR-0015`).
 - `benchmark/threading_speedup.jl` measures the threading speedup; the
   `MDR-0011` NetLogo comparison benchmark keeps running Julia with
   `JULIA_NUM_THREADS=1` (see `ADR-0013`). Whole-run

@@ -1,8 +1,10 @@
 ---
 id: MDR-0005
 title: Continuous transfer bargaining
-status: accepted
+status: superseded
 date: 2026-09-20
+supersedes: ""
+superseded_by: MDR-0012
 ---
 
 ## Context
