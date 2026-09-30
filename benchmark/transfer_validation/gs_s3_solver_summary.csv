@@ -1,0 +1,2 @@
+source,cases,prod_improvements,disc_improvements,bitwise_bundles,losses_any,infeasible_misses,deficit_max_finite,deficit_mean_positive,abs_gt_1e_12,abs_gt_1e_9,abs_gt_1e_6,rel_gt_1e_12,rel_gt_1e_9,rel_gt_1e_6,deficit_rel_max_finite,deficit_rel_mean_finite
+solver_cases,200,162,167,44,127,3,4.34403537759951e-5,Inf,94,22,14,119,48,24,0.6967758376771636,0.006031098169583729

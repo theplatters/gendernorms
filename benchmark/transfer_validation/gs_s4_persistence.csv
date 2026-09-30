@@ -1,0 +1,10 @@
+workload,variant,ever_nonzero,dropped_to_zero,nonzero_at_tick24,max_abs_theta,sum_abs_theta_total
+ws_500,production,4,4,0,0.0008494857350497692,0.002039170997989187
+ws_500,discovery,21,15,6,0.0008652475842498528,0.04242106521753666
+ws_500,reference,0,0,0,0.0,0.0
+heterogeneous,production,0,0,0,0.0,0.0
+heterogeneous,discovery,4,3,1,0.00030000000000000003,0.0003708203932499369
+heterogeneous,reference,0,0,0,0.0,0.0
+low_conformism,production,337,330,7,0.9981694858033695,77.61831983898176
+low_conformism,discovery,379,361,18,0.9981573228218186,82.26628027015819
+low_conformism,reference,118,0,118,0.9986275174207156,408.7665788673794

@@ -63,6 +63,115 @@ JULIA_NUM_THREADS=N julia --project=. benchmark/threading_speedup.jl [agents_per
   `JULIA_NUM_THREADS`) run against a `-t N` run on the same arguments;
   the ratio of ticks/s is the threading speedup.
 
+## Bargaining kernel benchmark
+
+`benchmark/bargaining_kernel.jl` benchmarks the household bargaining
+kernel `set_theta!` (`src/systems/household_bargaining.jl`, port of
+NetLogo `set-theta` and `calculate-payoff`, ODD section Transfer
+bargaining) in isolation: per repetition it builds one fresh world from
+the same specification and seed (identical initial states across
+repetitions) and drives the ticks manually in the exact `step_model!`
+order of `MDR-0010`, timing only the `set_theta!` calls with `time_ns()`
+and taking `Base.gc_num()` deltas around exactly those calls. It is a
+kernel comparison basis for `set_theta!` optimizations, separate from
+the NetLogo-vs-Julia comparison of `MDR-0011` / `ADR-0013` and from the
+threading speedup of `ADR-0014`.
+
+```
+JULIA_NUM_THREADS=1 julia --project=. benchmark/bargaining_kernel.jl [workloads] [ticks] [repetitions]
+```
+
+- `workloads` is a comma-separated list of workload names or `all`
+  (default `all`); `ticks` defaults to 20, `repetitions` to 15. Run one
+  thread count at a time and do not run other heavy jobs while timing.
+- Workloads (all seed 1, CES utility with `beta` 0.5; the population
+  column is `agents_per_gender`, so households per tick is the same
+  number): `ws_500` (REPRESENTATIVE: `watts_strogatz`
+  `neighbors_per_side` 2, `rewiring` 0.1, 500), `ws_100` (same at 100),
+  `homogeneous_mixing` (500), `no_network` (`none`, 500), `homophily`
+  (`homophily` with `m` 2, 500), `heterogeneous` (the `ws_500` network
+  and population plus `mean_wage` 2.0/0.5 men/women and
+  `initial_conformism` 50.0/50.0, the high-conformism end of the config
+  matrix below, so households differ strongly).
+- Warmup per workload: one discarded tiny pass (2 agents per gender,
+  1 tick) and one discarded full-size pass, so the report excludes all
+  compilation and world construction. No GC is forced between
+  repetitions (same policy as `MDR-0011`).
+- Reported per workload (each number printed at full `repr` precision
+  in the result block): the per-repetition `set_theta!` time summed over
+  the ticks, summarized over repetitions as `median`, `min`, `max`, and
+  `iqr` (the 75th minus the 25th percentile,
+  `Statistics.quantile` linear interpolation) plus `mean`; the median
+  total allocated bytes and allocation count of the timed `set_theta!`
+  sections, per tick and per household per tick (households =
+  `agents_per_gender`); the median `create_world` setup time; and the
+  end-to-end `GenderNorms.run` time (median over repetitions, fresh
+  world per repetition, reported separately and never mixed into the
+  kernel numbers).
+- Output ends with a machine-readable CSV table (a `csv` marker line,
+  the header, one row per workload) with the same numbers for later
+  report assembly; columns: `workload`, `threads`, `ticks`,
+  `repetitions`, `households`, `kernel_median_s`, `kernel_iqr_s`,
+  `kernel_min_s`, `kernel_max_s`, `kernel_mean_s`, `alloc_bytes`,
+  `alloc_count`, `alloc_bytes_per_tick`, `alloc_count_per_tick`,
+  `alloc_bytes_per_household_tick`, `alloc_count_per_household_tick`,
+  `setup_median_s`, `e2e_median_s`.
+- `benchmark/bargaining_kernel_report.md` assembles the A/B evidence
+  for the behavior-preserving bargaining kernel optimization of
+  `ADR-0015` (baseline commit vs final tree, both thread counts): the
+  before/after runtime, allocation, and evaluation-count tables, the
+  equivalence results, the exactness argument of the certified `-Inf`
+  transfer-objective certificate, and the deviations.
+
+## Transfer search validation
+
+`benchmark/transfer_search_validation.md` is the validation package for
+the staged transfer search of `MDR-0012` (`TASK-0014`): finer-grid
+solution-quality comparison, labour-tolerance artifact assessment,
+multi-tick old-versus-new trajectories against the frozen reference
+search, a matched-state NetLogo comparison of the transfer stage (ODD
+section Transfer bargaining), and the measured search cost. Its data
+tables live in `benchmark/transfer_validation/` (per section: fine-grid
+results, tolerance sweeps, per-tick and per-household trajectory CSVs,
+and the NetLogo probe tables); the throwaway driver scripts are
+recorded with their `/tmp/opencode/` paths at the top of the report.
+
+The staged performance recovery on top of it has one validation
+report per stage: `benchmark/solver_equivalence_validation.md`
+(Stage 2, `TASK-0019`, `MDR-0013`) records the same-state
+solver-arithmetic equivalence protocol and its deltas, and
+`benchmark/search_reduction_validation.md` (Stage 3, `TASK-0018`,
+`MDR-0014`) records the fine-grid quality on three workloads, the
+same-state and trajectory comparison against the frozen `MDR-0013`
+reference search, the constructed adversarial band table of the
+documented discovery guarantee, and the kernel metrics with the
+remaining cost anatomy (tables `benchmark/transfer_validation/st2_*.csv`
+and `st3_*.csv`).
+
+Production now defaults to the bounded anchor-local search of `MDR-0015`
+(`ADR-0020`): at most 216 distinct objective records including the status
+seed, with no full-domain scan or global discovery guarantee. The prior
+tiered discovery solver is retained explicitly through
+`bargain_transfer(...; search=:discovery)` and
+`set_theta!(world, config; search=:discovery)` for offline validation.
+No TOML configuration change is needed to use the production default.
+
+`benchmark/anchor_local_validation.jl` reproduces identical-state quality
+against discovery and a finer grid (44 households x states 0/1/5 on three
+workloads), 25-tick trajectory deltas, and sequential warmed kernel timings:
+
+```sh
+JULIA_NUM_THREADS=1 julia --project=. benchmark/anchor_local_validation.jl /tmp/opencode/anchor-validation quality
+JULIA_NUM_THREADS=1 julia --project=. benchmark/anchor_local_validation.jl /tmp/opencode/anchor-validation trajectories
+JULIA_NUM_THREADS=1 julia --project=. benchmark/anchor_local_validation.jl /tmp/opencode/anchor-validation timing
+```
+
+Run timings without concurrent heavy jobs. The default section is `all`;
+the default output directory is `/tmp/opencode/anchor-local-validation`.
+`benchmark/anchor_local_validation.md` records the evidence, including
+solution losses rather than an equivalence claim. Its tables live in
+`benchmark/transfer_validation/anchor_*.csv`.
+
 ## Results layout
 
 - `results/experiments/<config_id>.xml` - generated BehaviorSpace
