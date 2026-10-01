@@ -5,31 +5,47 @@
 # `repr` string; exact comparisons use `isequal`, so NaN matches NaN and
 # -0.0 does not match 0.0.
 #
-# What is asserted (see `MDR-0012`, which supersedes `MDR-0005`, and
+# What is asserted (see `MDR-0012`, which supersedes `MDR-0005`,
 # `MDR-0013`, which supersedes the objective-chain exactness of
-# `MDR-0012`):
+# `MDR-0012`, and `MDR-0017`, which supersedes the labour solver of
+# `MDR-0002`):
 # - Objective-level equivalence of the solver chain: `mutual_best_response`,
 #   `outside_options`, `nash_product`, `equilibrium_payoff`, and
-#   `maximize_1d`. Under `MDR-0013` the prepared best-response objective
-#   is bitwise identical to the old `individual_utility` formula for
-#   every spec except `CES` with `beta == 0.5`, where the validated-
-#   equivalent sqrt/square `material` specialization applies. Tests
-#   therefore compare exactly where the arithmetic is unchanged and
-#   through the `MDR-0013` validated-equivalence tolerances (`veq`)
-#   only for `CES` `beta == 0.5`; measured envelope over the fixture and
-#   workload samples: utility deltas <= 1.2e-15 absolute, solver-hour
-#   deltas <= 1.0e-12, payoff deltas <= 3e-15
-#   (`benchmark/solver_equivalence_validation.md`). The frozen
-#   reference stays bitwise against the fixtures (it IS the old
-#   arithmetic).
+#   `maximize_1d`. Three comparison classes apply. (1) Exact (`isequal`)
+#   where neither the `MDR-0013` arithmetic nor the `MDR-0017` solver
+#   path can have changed anything: every ineligible case keeps the
+#   bitwise seeded Brent fallback. (2) The `MDR-0013` validated-
+#   equivalence ulp envelope (`veq`) for `CES` `beta == 0.5` arithmetic
+#   alone. (3) The `MDR-0017` validated-equivalence tolerances where the
+#   specialized derivative best-response solver may have run: hours
+#   within `VE_HOURS_ATOL` per partner (two `eps = 1.0e-3` sweep
+#   budgets; measured worst case over the 200 fixture cases 9.6e-5),
+#   outside-option utilities and gains within `VE_UTIL_ATOL` (absolute)
+#   or `VE_UTIL_RTOL` (relative; measured utilities 2.4e-4, gains
+#   1.8e-4), the status Nash
+#   payoff within `VE_PAYOFF_ATOL` (measured
+#   1.8e-5), the measured two-sided own-utility envelope at the solved
+#   hours (`VE_OBJ_RTOL`; see the solver battery for the tier accuracy
+#   certificates behind it), and
+#   identical feasible/non-finite classifications and branch labels
+#   (measured 0 flips). The frozen reference stays bitwise against the
+#   fixtures (it IS the old arithmetic and the old solver).
 # - `bargain_transfer` follows the bounded local contract of
 #   `MDR-0016` / `ADR-0021`: result-validity invariants (bounds,
 #   strict-improvement commit, exact status fallback), bit-identical
 #   repeated calls, and an integration replay of the search over the
-#   same inputs (live versus live, unaffected by `MDR-0013`). The
-#   replay drives the production driver itself, so it verifies
+#   same inputs (live versus live, unaffected by `MDR-0013`/`MDR-0017`).
+#   The replay drives the production driver itself, so it verifies
 #   integration and ranking, not the search schedule; the schedule is
 #   pinned independently in `test/test_transfer_local_search.jl`.
+# - The `maximize_1d` diagnostics (the unseeded-Brent `best_theta` and
+#   `best_payoff` over the live chain) are re-derived exactly through the
+#   unchanged `maximize_1d`; against the fixture they stay exact where
+#   the objective they see is unchanged and are compared by finiteness
+#   plus the jaggedness tolerance `VE_MAXIMIZER_PAYOFF_ATOL` where the
+#   `MDR-0017` solver moved the objective (the unseeded-Brent maximizer
+#   is jagged and may move to a neighbouring noise spike; measured
+#   payoff delta 7.3e-5, theta delta 7.2e-3).
 # - Baseline comparison statistics against the frozen
 #   `bargain_transfer_reference` are collected per case; the old search
 #   can in principle find narrow peaks the sampled grid misses (the
@@ -42,8 +58,8 @@
 # the pre-`MDR-0012` unseeded Brent search and stay as baseline data;
 # they are re-derived exactly through the frozen reference and only
 # approximately through the live chain (the unseeded-Brent maximizer is
-# jagged and moved in 8 of 200 cases under `MDR-0013`, payoffs by <=
-# 2e-15). The recorded trajectories describe pre-`MDR-0012` model
+# jagged and moved in 8 of 200 cases under `MDR-0013` and further under
+# `MDR-0017`). The recorded trajectories describe pre-`MDR-0012` model
 # results and are kept as baseline data only (run-level invariants
 # below; trajectory deltas belong to the follow-up validation package,
 # `TASK-0014`).
@@ -100,6 +116,36 @@ isequal_all(a, b)::Bool =
 const VE_ATOL = 1.0e-10
 const VE_RTOL = 1.0e-9
 
+# Validated-equivalence tolerances of `MDR-0017` where the specialized
+# derivative best-response solver may have run (see the file header).
+# Measured worst-case deltas over the 200 fixture cases (the timing
+# side is in `benchmark/derivative_solver_validation.md`):
+# solver hours 9.6e-5 per partner, outside-option utilities 2.4e-4,
+# gains 1.8e-4, the status Nash payoff 1.8e-5, and the unseeded-Brent
+# maximizer payoff 7.3e-5; each tolerance below is that envelope with
+# headroom, and the hours budget of two `eps = 1.0e-3` sweeps is the
+# `mutual_best_response` contract.
+const VE_HOURS_ATOL = 2.0e-3
+const VE_UTIL_ATOL = 1.0e-3
+const VE_UTIL_RTOL = 1.0e-3
+const VE_PAYOFF_ATOL = 1.0e-4
+const VE_PAYOFF_RTOL = 1.0e-3
+const VE_MAXIMIZER_PAYOFF_ATOL = 5.0e-4
+
+# Measured two-sided own-value envelope `|U(new) - U(legacy)|` of the
+# two-tier solver against the legacy seeded search at the solved hours,
+# relative at the comparison scale (the `MDR-0017` non-degradation
+# contract: tier accuracy certificates plus this envelope instead of
+# pointwise value dominance, since both returns sit within the shared
+# `BEST_RESPONSE_TOL` quality window of the optimum and can differ
+# inside it). Measured worst case over the 200 fixture cases at their
+# frozen reference state 6.8e-7 and over the 31,855-case envelope grid
+# of `MDR-0017` 1.85e-4 (the window's value variation at sharp peaks);
+# the tolerance is that envelope with headroom, and the outlier draws
+# are reported with their parameters in `MDR-0017` and
+# `benchmark/derivative_solver_validation.md`.
+const VE_OBJ_RTOL = 5.0e-4
+
 """
     arith_changed(config)::Bool
 
@@ -123,12 +169,73 @@ veq(a::Float64, b::Float64)::Bool =
     (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol=VE_ATOL, rtol=VE_RTOL) : isequal(a, b)
 
 """
-    veq_all(a, b)::Bool
+    solver_relaxed(config, theta0::Float64, pw, pm)::Bool
 
-Elementwise `veq` over two equally long sequences of `Float64`.
+Conservative static predicate that the `MDR-0017` specialized derivative
+solver may have contributed to one fixture case: at least one partner's
+prepared objective passes `_derivative_applicable` for some transfer and
+spouse-hours combination the case's solves can use. Only when this is
+`false` for both partners do the live outputs stay bitwise against the
+frozen reference and fixture (the bitwise `MDR-0002` fallback); the
+probe points over `theta` and `h_spouse` are a superset of the solves'
+inputs, so the predicate never under-reports a changed chain.
 """
-veq_all(a, b)::Bool =
-    length(a) == length(b) && all(veq(x, y) for (x, y) in zip(a, b))
+function solver_relaxed(config, theta0::Float64, pw, pm)::Bool
+    for p in (pw, pm), theta in (theta0, 0.0, 1.0, -1.0), h_spouse in (0.0, 0.5, 1.0)
+        obj = GN.BestResponseObjective(theta, h_spouse, p, config)
+        GN._derivative_applicable(obj, 0.3) && return true
+    end
+    return false
+end
+
+"""
+    equiv(a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol = 0.0)::Bool
+
+Three-class validated-equivalence comparison of one recorded `Float64`
+(see the file header and `MDR-0017`): exact (`isequal`) when neither the
+`MDR-0013` arithmetic nor the `MDR-0017` solver path can have changed
+the value, `veq` (the `MDR-0013` ulp envelope) when only the `CES`
+`beta == 0.5` arithmetic applies, and the explicit `MDR-0017` envelope
+`abs(a - b) <= atol + rtol * max(abs(a), abs(b))` (with `isequal` on
+non-finite pairs) when the derivative solver may have run. The
+per-quantity `atol`/`rtol` values are the explicit `MDR-0017`
+tolerances above, not one blanket envelope.
+"""
+function equiv(
+    a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64=0.0
+)::Bool
+    if relaxed
+        return (isfinite(a) && isfinite(b)) ?
+            abs(a - b) <= atol + rtol * max(abs(a), abs(b)) : isequal(a, b)
+    end
+    arith_changed(config) && return veq(a, b)
+    return isequal(a, b)
+end
+
+"""
+    payoff_equiv(a::Float64, b::Float64, config, relaxed::Bool)::Bool
+
+Payoff comparison of `MDR-0017` on boundary draws: the scale-aware
+`VE_PAYOFF_ATOL` plus `VE_PAYOFF_RTOL` envelope (the Nash product is
+quadratic in gains that scale with the drawn wages, so the absolute
+delta grows with the payoff scale while the relative delta stays at the
+hours-equivalence level), extended by the documented zero-gain knife
+edge - a gain at the rounding scale of its utility difference can flip
+sign between the two chains, mapping a payoff of `0.0` or a tiny
+positive value onto the exact `-Inf` of a negative gain (and back). Such
+a pair is accepted when the finite side is within `VE_PAYOFF_ATOL` of
+zero; every other pair must satisfy the envelope. On bitwise
+(ineligible) draws the comparison is exact.
+"""
+function payoff_equiv(a::Float64, b::Float64, config, relaxed::Bool)::Bool
+    relaxed || return (arith_changed(config) ? veq(a, b) : isequal(a, b))
+    if isfinite(a) && isfinite(b)
+        return abs(a - b) <= VE_PAYOFF_ATOL + VE_PAYOFF_RTOL * max(abs(a), abs(b))
+    end
+    isequal(a, b) && return true
+    (isfinite(a) && abs(a) <= VE_PAYOFF_ATOL && b == -Inf) && return true
+    return isfinite(b) && abs(b) <= VE_PAYOFF_ATOL && a == -Inf
+end
 
 """
     fixture_config(utility::AbstractString, beta::Float64)::GN.UtilityConfig
@@ -302,22 +409,36 @@ end
             theta0, ref_mbr_hw, ref_mbr_hm, ref_uw_out, ref_um_out, pw, pm, config
         )
 
-        # Live objective-level outputs against the fixture: bitwise
-        # where the arithmetic is unchanged, `MDR-0013` validated-
-        # equivalence tolerances for `CES` `beta == 0.5` (`veq`).
+        # Live objective-level outputs against the fixture, in the
+        # three comparison classes of the file header (see `MDR-0017`):
+        # exact where nothing changed, `veq` for `MDR-0013` arithmetic,
+        # and the explicit `MDR-0017` tolerances where the derivative
+        # solver may have run.
+        relaxed = solver_relaxed(config, theta0, pw, pm)
+        eq_hours(a, b) = equiv(a, b, VE_HOURS_ATOL, config, relaxed)
+        eq_util(a, b) = equiv(a, b, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
+        eq_pay(a, b) = equiv(a, b, VE_PAYOFF_ATOL, config, relaxed)
         eq(a, b) = arith_changed(config) ? veq(a, b) : isequal(a, b)
-        @test eq(mbr_hw, f64(case["mbr_hw"]))
-        @test eq(mbr_hm, f64(case["mbr_hm"]))
-        @test eq(uw_out, f64(case["uw_out"]))
-        @test eq(um_out, f64(case["um_out"]))
-        @test eq(status_payoff, f64(case["status_payoff"]))
-        if arith_changed(config)
+        @test eq_hours(mbr_hw, f64(case["mbr_hw"]))
+        @test eq_hours(mbr_hm, f64(case["mbr_hm"]))
+        @test eq_util(uw_out, f64(case["uw_out"]))
+        @test eq_util(um_out, f64(case["um_out"]))
+        @test eq_pay(status_payoff, f64(case["status_payoff"]))
+        if arith_changed(config) || relaxed
             # The unseeded-Brent maximizer is jagged and may move to a
-            # neighbouring noise spike under `MDR-0013` (8 of 200 cases,
-            # payoff deltas <= 2e-15), so only its finiteness is a
-            # stable claim; the payoff value stays within tolerance.
+            # neighbouring noise spike (8 of 200 cases under `MDR-0013`,
+            # payoff deltas <= 2e-15; up to 7.2e-3 in theta and 7.3e-5 in
+            # payoff where `MDR-0017` moved the objective), so only its
+            # finiteness is a stable claim; the payoff value stays within
+            # the jaggedness tolerance.
             @test isfinite(best_theta) == isfinite(f64(case["best_theta"]))
-            @test eq(best_payoff, f64(case["best_payoff"]))
+            if relaxed
+                @test isequal(best_payoff, f64(case["best_payoff"])) ||
+                    (isfinite(best_payoff) && isfinite(f64(case["best_payoff"])) &&
+                        abs(best_payoff - f64(case["best_payoff"])) <= VE_MAXIMIZER_PAYOFF_ATOL)
+            else
+                @test eq(best_payoff, f64(case["best_payoff"]))
+            end
         else
             @test isequal(best_theta, f64(case["best_theta"]))
             @test isequal(best_payoff, f64(case["best_payoff"]))
@@ -334,14 +455,34 @@ end
         @test isequal(ref_um_out, f64(case["um_out"]))
         @test isequal(ref_status_payoff, f64(case["status_payoff"]))
 
-        # Live objective-level outputs against the frozen reference:
-        # bitwise where the arithmetic is unchanged, `MDR-0013`
-        # validated-equivalence tolerances for `CES` `beta == 0.5`.
-        @test eq(mbr_hw, ref_mbr_hw)
-        @test eq(mbr_hm, ref_mbr_hm)
-        @test eq(uw_out, ref_uw_out)
-        @test eq(um_out, ref_um_out)
-        @test eq(status_payoff, ref_status_payoff)
+        # Live objective-level outputs against the frozen reference, in
+        # the same three comparison classes as against the fixture.
+        @test eq_hours(mbr_hw, ref_mbr_hw)
+        @test eq_hours(mbr_hm, ref_mbr_hm)
+        @test eq_util(uw_out, ref_uw_out)
+        @test eq_util(um_out, ref_um_out)
+        @test eq_pay(status_payoff, ref_status_payoff)
+        # Own-response value equivalence at the reference's state: the
+        # specialized two-tier solve on the reference's own-hours
+        # objective and the seeded `MDR-0002` solve both return points
+        # within the shared `BEST_RESPONSE_TOL` quality window of the
+        # optimum and can differ inside it, so the check is the
+        # measured two-sided envelope `VE_OBJ_RTOL` (the tier accuracy
+        # certificates are pinned on the full regime grid in
+        # `test/test_utility_solver.jl`).
+        if relaxed && isfinite(ref_mbr_hw) && isfinite(ref_mbr_hm)
+            obj_w = GN.BestResponseObjective(theta0, ref_mbr_hm, pw, config)
+            h_new = GN.best_response_1d(obj_w, ref_mbr_hw)
+            h_old = GN.maximize_1d(
+                obj_w, 0.0, 1.0, ref_mbr_hw, GN.BEST_RESPONSE_WINDOW, GN.BEST_RESPONSE_TOL
+            )
+            v_new = obj_w(h_new)
+            v_old = obj_w(h_old)
+            if isfinite(v_new) && isfinite(v_old)
+                scale = max(abs(v_new), abs(v_old))
+                @test abs(v_new - v_old) <= VE_OBJ_RTOL * scale
+            end
+        end
 
         # Recorded branch labels re-derived from the objective-level
         # chain: these describe the frozen pre-`MDR-0012` maximizer and
@@ -353,12 +494,13 @@ end
         @test case["maximizer_finite"] == isfinite(best_theta)
         improving = isfinite(best_theta) && isfinite(best_payoff) && best_payoff > status_payoff
         @test (improving ? "improving" : "fallback") == case["branch"]
-        if arith_changed(config)
+        if arith_changed(config) || relaxed
             # The unseeded-Brent maximizer is jagged and may move to a
-            # neighbouring noise spike under `MDR-0013` (8 of 200 cases,
-            # payoff deltas <= 2e-15), so the maximizer-value relations
-            # are asserted bitwise against the frozen reference only
-            # (above); the fallback relation is exact even here.
+            # neighbouring noise spike (under `MDR-0013` ulp jitter and
+            # wherever `MDR-0017` moved the objective), so the
+            # maximizer-value relations are asserted bitwise against the
+            # frozen reference only (above); the fallback relation is
+            # exact even here.
             if !improving
                 @test isequal(f64(case["bt_theta"]), theta0)
             end
@@ -569,8 +711,10 @@ end
     # back into `[-1, 1]`, for the signed zero -0.0 (not `=== 0.0`, so
     # it keeps its own status-quo solve; the guard of `ADR-0015` is
     # bitwise), and for an off-grid status quo. Objective-level values
-    # stay bitwise against the frozen reference; the transfer result is
-    # checked by validity invariants and bit-identical repeats.
+    # stay bitwise against the frozen reference where the solver is
+    # ineligible and within the `MDR-0017` envelopes where the
+    # derivative solve may have run; the transfer result is checked by
+    # validity invariants and bit-identical repeats.
     config = GN.UtilityConfig(func=GN.CES(beta=0.5))
     pw = GN.AgentPayoffParams(
         wage_self=0.6, wage_spouse=1.2, alpha=0.5, conformism=10.0,
@@ -590,8 +734,12 @@ end
         @test isfinite(live[3]) && 0.0 <= live[3] <= 1.0
         live_mbr = GN.mutual_best_response(0.5, 0.5, theta0, pw, pm, config)
         ref_mbr = mutual_best_response_reference(0.5, 0.5, theta0, pw, pm, config)
-        # `CES` `beta == 0.5` config: `MDR-0013` validated equivalence.
-        @test veq_all(live_mbr, ref_mbr)
+        # `CES` `beta == 0.5` config: the `MDR-0017` hours envelope on
+        # top of the `MDR-0013` validated equivalence (this config is
+        # derivative-solver eligible).
+        @test solver_relaxed(config, theta0, pw, pm)
+        @test abs(live_mbr[1] - ref_mbr[1]) <= VE_HOURS_ATOL
+        @test abs(live_mbr[2] - ref_mbr[2]) <= VE_HOURS_ATOL
         uw_out, um_out = GN.outside_options(0.5, 0.5, pw, pm, config)
         status_payoff = GN.nash_product(theta0, live_mbr..., uw_out, um_out, pw, pm, config)
         if isequal(live[1], theta0)

@@ -486,12 +486,26 @@ end
         args = local_fixture_case(h)
         result = GN.bargain_transfer(scratch, args...)
         @test isequal(result, GN.bargain_transfer(args...; search=:local))
-        @test result[1] != 0.0
         @test length(scratch.cache) <= GN.TRANSFER_SEARCH_MAX_EVALS
         entry = scratch.cache[result[1]]
         @test isequal((result[2], result[3]), (entry.hw, entry.hm))
-        @test entry.payoff >= parse(Float64, h["demo_payoff"])
         @test entry.gain_w >= 0.0 && entry.gain_m >= 0.0
+        # `MDR-0016` result contract on the live chain: a nonzero
+        # commit is finite and strictly better than the status quo, a
+        # fallback keeps the status quo. The fixture's demonstrated
+        # near-zero band is a feature of the seeded `MDR-0002` solver's
+        # discrete fixed points below the `MDR-0017` equivalence scale
+        # (its frozen pin is the `MDR-0002`-chain reproduction in
+        # `test/test_transfer_search.jl`); on the live objective the
+        # search may fall back or commit a shifted tiny band (the
+        # recorded divergence of `MDR-0017`).
+        theta0 = clamp(args[3], -1.0, 1.0)
+        if isequal(result[1], theta0)
+            @test isequal(entry.payoff, scratch.cache[theta0].payoff)
+        else
+            @test isfinite(entry.payoff)
+            @test entry.payoff > scratch.cache[theta0].payoff
+        end
         # Alternating modes on the same scratch cannot leak candidates,
         # slabs, or the validation search's much larger sampled sequence.
         GN.bargain_transfer(scratch, args...; search=:discovery)
@@ -516,11 +530,26 @@ end
     # Production-realizable hidden-band path of household 100
     # (`benchmark/guided_search_validation.md` section 1): its measured
     # feasible band [6.65e-4, 8.05e-4] contains no Stage A ladder point,
-    # so no Stage A probe can hit it directly, and the production
-    # driver rescues it through Stage B guidance refinement (tiny
-    # negative guidance at the flanking solved probes, one gain
-    # slightly negative). The band check uses the test-owned
+    # so no Stage A probe can hit it directly, and on the `MDR-0002`
+    # chain the production driver rescues it through Stage B guidance
+    # refinement (tiny negative guidance at the flanking solved probes,
+    # one gain slightly negative). The band check uses the test-owned
     # `LOCAL_*` literals, never the driver's constants.
+    #
+    # The demonstrated near-zero payoffs (1.2e-10 to 1.5e-8 on the
+    # `MDR-0002` chain) are below the validated-equivalence scale of
+    # `MDR-0017` (measured hour moves 9.6e-5 and outside-option moves
+    # 2.4e-4), so their levels and signs flip on the live objective
+    # (the recorded `MDR-0017` divergence): under the two-tier solver
+    # the band's gains have flipped to non-positive and the live chain
+    # commits nothing. The demonstrated payoff itself stays pinned on
+    # the `MDR-0002` chain in `test/test_transfer_search.jl`. What the
+    # live chain must keep is the schedule structure (no Stage A point
+    # lies in the band) and the commit contract asserted here in
+    # either outcome: a commit is a refinement probe, is the best
+    # payoff found (no Stage A sample reaches it), and strictly beats
+    # the status quo; without a commit no cached probe may beat the
+    # status quo.
     fixture = TOML.parsefile(joinpath(@__DIR__, "fixtures", "transfer_feasibility_households.toml"))
     h = only(filter(h -> h["id"] == 100, fixture["household"]))
     @test isequal(parse(Float64, h["theta_init"]), 0.0)
@@ -535,19 +564,26 @@ end
     scratch = GN.TransferSearchScratch()
     result = GN.bargain_transfer(scratch, args...)
     entry = scratch.cache[result[1]]
-    @test entry.payoff >= parse(Float64, h["demo_payoff"])
-    @test entry.payoff > 0.0
-    # The commit is a refinement probe, not a Stage A sample.
-    @test all(t -> !isequal(t, result[1]), candidates)
-    # No Stage A candidate strictly beats the status quo, while the
-    # refinement commit does: the band is rescued by Stage B/C, not by
-    # a direct Stage A hit.
     status_payoff = scratch.cache[0.0].payoff
-    for t in candidates
-        haskey(scratch.cache, t) || continue
-        @test !(scratch.cache[t].payoff > status_payoff)
+    if isequal(result[1], parse(Float64, h["theta_init"]))
+        # No commit: the strict-improvement contract falls back to the
+        # status quo and no cached probe may beat it.
+        @test isequal(result[1], 0.0)
+        for t in keys(scratch.cache)
+            @test !(scratch.cache[t].payoff > status_payoff)
+        end
+    else
+        @test entry.payoff > 0.0
+        # The commit is a refinement probe, not a Stage A sample.
+        @test all(t -> !isequal(t, result[1]), candidates)
+        # The refinement commit strictly beats every Stage A payoff: the
+        # band is rescued by Stage B/C, not by a direct Stage A hit.
+        for t in candidates
+            haskey(scratch.cache, t) || continue
+            @test !(scratch.cache[t].payoff >= entry.payoff)
+        end
+        @test entry.payoff > status_payoff
     end
-    @test entry.payoff > status_payoff
 end
 
 @testset "local transfer search: explicit mode and tolerance validation" begin

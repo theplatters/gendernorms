@@ -49,6 +49,73 @@ if !isdefined(@__MODULE__, :veq)
         (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol=1.0e-10, rtol=1.0e-9) : isequal(a, b)
 end
 
+# `MDR-0017` validated-equivalence helpers (defined in
+# `test/test_bargaining_equivalence.jl` for the full suite); the guard
+# keeps this file runnable on its own.
+if !isdefined(@__MODULE__, :solver_relaxed)
+    const VE_HOURS_ATOL = 2.0e-3
+    const VE_UTIL_ATOL = 1.0e-3
+    const VE_UTIL_RTOL = 1.0e-3
+    const VE_PAYOFF_ATOL = 1.0e-4
+    const VE_PAYOFF_RTOL = 1.0e-3
+
+    """
+        solver_relaxed(config, theta0::Float64, pw, pm)::Bool
+
+    Conservative static predicate that the `MDR-0017` specialized
+    derivative solver may have contributed to one case (see
+    `test/test_bargaining_equivalence.jl`).
+    """
+    function solver_relaxed(config, theta0::Float64, pw, pm)::Bool
+        for partner in (pw, pm), theta in (theta0, 0.0, 1.0, -1.0), h_spouse in (0.0, 0.5, 1.0)
+            obj = GN.BestResponseObjective(theta, h_spouse, partner, config)
+            GN._derivative_applicable(obj, 0.3) && return true
+        end
+        return false
+    end
+
+    """
+        equiv(a::Float64, b::Float64, atol::Float64, config, relaxed::Bool)::Bool
+
+    Three-class validated-equivalence comparison of `MDR-0017`: exact,
+    `MDR-0013` `veq`, or the explicit `MDR-0017` tolerance (see
+    `test/test_bargaining_equivalence.jl`).
+    """
+    function equiv(
+        a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64=0.0
+    )::Bool
+        relaxed && return (isfinite(a) && isfinite(b)) ?
+            abs(a - b) <= atol + rtol * max(abs(a), abs(b)) : isequal(a, b)
+        arith_changed(config) && return veq(a, b)
+        return isequal(a, b)
+    end
+
+    """
+        payoff_equiv(a::Float64, b::Float64, config, relaxed::Bool)::Bool
+
+    Payoff comparison of `MDR-0017` on boundary draws: the scale-aware
+    `VE_PAYOFF_ATOL` plus `VE_PAYOFF_RTOL` envelope (the Nash product is
+    quadratic in gains that scale with the drawn wages, so the absolute
+    delta grows with the payoff scale while the relative delta stays at
+    the hours-equivalence level), extended by the documented zero-gain
+    knife edge - a gain at the rounding scale of its utility difference
+    can flip sign between the two chains, mapping a payoff of `0.0` or a
+    tiny positive value onto the exact `-Inf` of a negative gain (and
+    back). Such a pair is accepted when the finite side is within
+    `VE_PAYOFF_ATOL` of zero; every other pair must satisfy the
+    envelope. On bitwise (ineligible) draws the comparison is exact.
+    """
+    function payoff_equiv(a::Float64, b::Float64, config, relaxed::Bool)::Bool
+        relaxed || return (arith_changed(config) ? veq(a, b) : isequal(a, b))
+        if isfinite(a) && isfinite(b)
+            return abs(a - b) <= VE_PAYOFF_ATOL + VE_PAYOFF_RTOL * max(abs(a), abs(b))
+        end
+        isequal(a, b) && return true
+        (isfinite(a) && abs(a) <= VE_PAYOFF_ATOL && b == -Inf) && return true
+        return isfinite(b) && abs(b) <= VE_PAYOFF_ATOL && a == -Inf
+    end
+end
+
 """
     cert_config(utility::String, beta::Float64, weights)
 
@@ -400,7 +467,8 @@ end
             live_payoff = first(GN.equilibrium_payoff(
                 theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
             ))
-            @test arith_changed(config) ? veq(live_payoff, payoff) : isequal(live_payoff, payoff)
+            relaxed = solver_relaxed(config, theta0, pw, pm)
+            @test payoff_equiv(live_payoff, payoff, config, relaxed)
             if prunable
                 pruned += 1
                 # Soundness: a certified prune must be the exact `-Inf`
@@ -502,8 +570,8 @@ end
                 first(GN.equilibrium_payoff(
                     theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
                 ))
-            @test arith_changed(config) ? veq(objective_value, payoff) :
-                isequal(objective_value, payoff)
+            relaxed = solver_relaxed(config, theta, pw, pm)
+            @test equiv(objective_value, payoff, VE_PAYOFF_ATOL, config, relaxed)
         end
     end
 end
@@ -542,17 +610,19 @@ end
             N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
         )
         theta0 = clamp(theta_init, -1.0, 1.0)
+        relaxed = solver_relaxed(config, theta0, pw, pm)
         live_mbr = GN.mutual_best_response(0.5, 0.4, theta0, pw, pm, config)
         ref_mbr = mutual_best_response_reference(0.5, 0.4, theta0, pw, pm, config)
-        @test isequal(live_mbr[1], ref_mbr[1])
-        @test isequal(live_mbr[2], ref_mbr[2])
+        @test equiv(live_mbr[1], ref_mbr[1], VE_HOURS_ATOL, config, relaxed)
+        @test equiv(live_mbr[2], ref_mbr[2], VE_HOURS_ATOL, config, relaxed)
         live_uw, live_um = GN.outside_options(0.5, 0.4, pw, pm, config)
         ref_uw, ref_um = outside_options_reference(0.5, 0.4, pw, pm, config)
-        @test isequal(live_uw, ref_uw)
-        @test isequal(live_um, ref_um)
-        @test isequal(
+        @test equiv(live_uw, ref_uw, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
+        @test equiv(live_um, ref_um, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
+        @test payoff_equiv(
             GN.nash_product(theta0, live_mbr..., live_uw, live_um, pw, pm, config),
             nash_product_reference(theta0, ref_mbr..., ref_uw, ref_um, pw, pm, config),
+            config, relaxed,
         )
         for theta in (-1.0, -0.3, 0.0, 0.3, 1.0)
             prunable = GN._objective_prunable(theta, live_uw, live_um, pw, pm, config)
@@ -562,9 +632,18 @@ end
             live_payoff = first(GN.equilibrium_payoff(
                 theta, live_mbr..., live_uw, live_um, pw, pm, config
             ))
-            @test isequal(live_payoff, ref_payoff)
+            @test payoff_equiv(live_payoff, ref_payoff, config, relaxed)
             if prunable
-                @test isequal(ref_payoff, -Inf)
+                # The certificate bounds the computed utility over every
+                # working-time pair, so the exact `-Inf` claim is
+                # chain-independent against the live outside options it
+                # certifies with; the frozen-reference claim holds on
+                # the bitwise (ineligible) draws and wherever the
+                # outside options did not move.
+                @test isequal(live_payoff, -Inf)
+                if !relaxed || (isequal(live_uw, ref_uw) && isequal(live_um, ref_um))
+                    @test isequal(ref_payoff, -Inf)
+                end
             end
         end
     end

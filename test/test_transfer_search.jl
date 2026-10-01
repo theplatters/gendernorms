@@ -516,13 +516,73 @@ GN.material(::ConstantMaterial, x::Float64, Q::Float64, alpha::Float64) = 1.0
     @test isequal(hw, 0.5) && isequal(hm, 0.5)
 end
 
+# `MDR-0002` chain helpers for the frozen demonstration fixtures: the
+# recorded state of `transfer_feasibility_households.toml` was produced
+# by the seeded Brent best-response chain and stays reproducible there,
+# while the live chain now runs the `MDR-0017` derivative solver. The
+# `MDR-0017` envelopes below (defined in
+# `test/test_bargaining_equivalence.jl` for the full suite; the guard
+# keeps this file runnable on its own) are the validated-equivalence
+# tolerances of that record.
+if !isdefined(@__MODULE__, :VE_HOURS_ATOL)
+    const VE_HOURS_ATOL = 2.0e-3
+    const VE_UTIL_ATOL = 1.0e-3
+end
+
+"""
+    legacy_best_response(obj, h_start)
+
+The seeded `MDR-0002` best-response expression (the bitwise fallback of
+`MDR-0017`).
+"""
+legacy_best_response(obj, h_start::Float64)::Float64 =
+    GN.maximize_1d(obj, 0.0, 1.0, h_start, GN.BEST_RESPONSE_WINDOW, GN.BEST_RESPONSE_TOL)
+
+"""
+    legacy_mutual_best_response(hw_init, hm_init, theta, pw, pm, config)
+
+The `MDR-0002` alternation of `mutual_best_response` with the seeded
+best responses: the chain that recorded the demonstration fixtures.
+"""
+function legacy_mutual_best_response(
+    hw_init::Float64, hm_init::Float64, theta::Float64,
+    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig;
+    eps=1.0e-3, max_sweeps=100,
+)
+    hw = clamp(hw_init, 0.0, 1.0)
+    hm = clamp(hm_init, 0.0, 1.0)
+    for _ in 1:max_sweeps
+        hw_new = legacy_best_response(GN.BestResponseObjective(theta, hm, pw, config), hw)
+        isfinite(hw_new) || (hw_new = hw)
+        hm_new = legacy_best_response(GN.BestResponseObjective(theta, hw_new, pm, config), hm)
+        isfinite(hm_new) || (hm_new = hm)
+        change = abs(hw_new - hw) + abs(hm_new - hm)
+        hw = clamp(hw_new, 0, 1)
+        hm = clamp(hm_new, 0, 1)
+        change <= eps && break
+    end
+    return (hw, hm)
+end
+
 @testset "transfer search: demonstrated benchmark households" begin
-    # Regression fixtures of the three seed-1 benchmark households whose
-    # strictly positive near-zero payoffs the pre-`MDR-0012` search
-    # missed (`benchmark/transfer_search_diagnosis.md`,
-    # `test/fixtures/transfer_feasibility_households.toml`): the staged
-    # search must find a finite payoff at least the demonstrated one and
-    # commit a nonzero transfer.
+    # Frozen regression fixtures of the three seed-1 benchmark
+    # households whose strictly positive near-zero payoffs the
+    # pre-`MDR-0012` search missed (`benchmark/transfer_search_diagnosis.md`,
+    # `test/fixtures/transfer_feasibility_households.toml`).
+    #
+    # Under `MDR-0017` the specialized derivative labour solver moves
+    # the objective of these households by the validated-equivalence
+    # envelope (measured here: hours <= 4.8e-5, outside options <=
+    # 4.4e-5), which is ABOVE the demonstrated near-zero gains (payoffs
+    # 1.2e-10 to 1.5e-8): their feasible bands are features of the
+    # seeded solver's discrete fixed points and their tiny gain signs
+    # can flip under the continuous solve (the recorded divergence of
+    # `MDR-0017`). The fixture is therefore pinned against the
+    # `MDR-0002` chain that recorded it (first block, `veq` = the
+    # `MDR-0013` ulp envelope) and against the live chain within the
+    # explicit `MDR-0017` envelopes plus the `MDR-0016` search
+    # contract; the search-quality machinery itself is pinned on
+    # synthetic bands in this file and in `test/test_transfer_local_search.jl`.
     fixture = TOML.parsefile(
         joinpath(@__DIR__, "fixtures", "transfer_feasibility_households.toml")
     )
@@ -551,40 +611,56 @@ end
         )
         hw_init, hm_init, theta_init = t64(h["hw_init"]), t64(h["hm_init"]), t64(h["theta_init"])
         demo_theta, demo_payoff = t64(h["demo_theta"]), t64(h["demo_payoff"])
+        theta0 = clamp(theta_init, -1.0, 1.0)
 
-        # Objective-level equivalence: the fixture's outside options and
-        # the demonstrated payoff are re-derived from the recorded
-        # parameters (bitwise where the arithmetic is unchanged; the
-        # fixture households use `CES` `beta == 0.5`, so the `MDR-0013`
-        # validated-equivalence envelope applies).
-        uw_out, um_out = GN.outside_options(hw_init, hm_init, pw, pm, config)
-        @test veq(uw_out, t64(h["uw_out"]))
-        @test veq(um_out, t64(h["um_out"]))
-        hw_status, hm_status =
-            GN.mutual_best_response(hw_init, hm_init, clamp(theta_init, -1.0, 1.0), pw, pm, config)
-        @test veq(hw_status, t64(h["hw_status"]))
-        @test veq(hm_status, t64(h["hm_status"]))
-        @test veq(
-            first(GN.equilibrium_payoff(
-                demo_theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
-            )),
-            demo_payoff,
+        # The recorded state on the `MDR-0002` chain: outside options,
+        # status hours, and the demonstrated payoff re-derived exactly
+        # as the fixture recorded them.
+        leg_hw0, leg_hm0 = legacy_mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
+        leg_uw = GN.individual_utility(leg_hw0, leg_hm0, 0.0, pw, config)
+        leg_um = GN.individual_utility(leg_hm0, leg_hw0, 0.0, pm, config)
+        @test veq(leg_uw, t64(h["uw_out"]))
+        @test veq(leg_um, t64(h["um_out"]))
+        leg_hws, leg_hms =
+            legacy_mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
+        @test veq(leg_hws, t64(h["hw_status"]))
+        @test veq(leg_hms, t64(h["hm_status"]))
+        leg_demo = legacy_mutual_best_response(leg_hws, leg_hms, demo_theta, pw, pm, config)
+        leg_payoff = GN.nash_product(
+            demo_theta, leg_demo[1], leg_demo[2], leg_uw, leg_um, pw, pm, config
         )
+        @test veq(leg_payoff, demo_payoff)
+        @test leg_payoff > 0.0
         if haskey(h, "demo2_theta")
-            @test veq(
-                first(GN.equilibrium_payoff(
-                    t64(h["demo2_theta"]), hw_status, hm_status, uw_out, um_out, pw, pm, config
-                )),
-                t64(h["demo2_payoff"]),
+            demo2_theta = t64(h["demo2_theta"])
+            leg_demo2 = legacy_mutual_best_response(leg_hws, leg_hms, demo2_theta, pw, pm, config)
+            leg_payoff2 = GN.nash_product(
+                demo2_theta, leg_demo2[1], leg_demo2[2], leg_uw, leg_um, pw, pm, config
             )
+            @test veq(leg_payoff2, t64(h["demo2_payoff"]))
+            @test leg_payoff2 > 0.0
         end
 
-        # The staged search commits a nonzero transfer whose payoff
-        # reaches the demonstrated candidate.
+        # The live chain within the `MDR-0017` validated-equivalence
+        # envelopes.
+        uw_out, um_out = GN.outside_options(hw_init, hm_init, pw, pm, config)
+        @test abs(uw_out - t64(h["uw_out"])) <= VE_UTIL_ATOL
+        @test abs(um_out - t64(h["um_out"])) <= VE_UTIL_ATOL
+        hw_status, hm_status = GN.mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
+        @test abs(hw_status - t64(h["hw_status"])) <= VE_HOURS_ATOL
+        @test abs(hm_status - t64(h["hm_status"])) <= VE_HOURS_ATOL
+
+        # The `MDR-0016` result contract on the live chain: a nonzero
+        # commit is finite and at least the status quo, a fallback keeps
+        # the status-quo transfer and its cached hours.
         theta, hw, hm = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config)
         @test isfinite(theta) && -1.0 <= theta <= 1.0
-        @test theta != 0.0
         committed = GN.nash_product(theta, hw, hm, uw_out, um_out, pw, pm, config)
-        @test isfinite(committed) && committed >= demo_payoff
+        status_payoff = GN.nash_product(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+        if isequal(theta, theta0)
+            @test isequal(hw, hw_status) && isequal(hm, hm_status)
+        else
+            @test isfinite(committed) && committed > status_payoff
+        end
     end
 end

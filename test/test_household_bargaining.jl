@@ -207,42 +207,134 @@ end
     @test gain_m >= 0.0
 end
 
-@testset "mutual_best_response rests at its fixed point" begin
-    # A converged household is returned unchanged: once both partners sit
-    # within the probe resolution of their conditional peak, the seeded best
-    # responses return the seeds, so the restart is exactly idempotent (see
-    # `MDR-0002`); the evaluation-count pin lives in
-    # `test/test_utility_solver.jl`.
+@testset "mutual_best_response settles on a bitwise fixed point" begin
+    # Under `MDR-0017` each eligible best response solves the continuous
+    # first-order condition instead of sticking to the seeded discrete
+    # local maximum of `MDR-0002`, so a restart at the `eps`-converged
+    # output takes one more contraction step rather than returning it
+    # unchanged (the exact legacy restart was a probe-quantum artifact
+    # of the seeded search). Iterating the restart converges to a
+    # bitwise fixed point of the alternation - both partners inside the
+    # derivative solve's certification band - at which
+    # `mutual_best_response` returns its input exactly. That fixed-point
+    # property is what the transfer chain relies on when it re-solves a
+    # cached labour equilibrium (see `MDR-0017`).
     pw = GN.AgentPayoffParams(
-        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
+        wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=0.0, is_woman=true
     )
     pm = GN.AgentPayoffParams(
-        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
+        wage_self=0.8, wage_spouse=1.2, alpha=0.5, conformism=0.0, is_woman=false
     )
     config = GN.UtilityConfig()
 
     hw, hm = GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
-    hw2, hm2 = GN.mutual_best_response(hw, hm, 0.0, pw, pm, config)
-    hw3, hm3 = GN.mutual_best_response(hw2, hm2, 0.0, pw, pm, config)
-
-    @test hw3 == hw2
-    @test hm3 == hm2
+    settled = false
+    for _ in 1:40
+        hw_next, hm_next = GN.mutual_best_response(hw, hm, 0.0, pw, pm, config)
+        if hw_next == hw && hm_next == hm
+            settled = true
+            break
+        end
+        hw, hm = hw_next, hm_next
+    end
+    @test settled
+    hw3, hm3 = GN.mutual_best_response(hw, hm, 0.0, pw, pm, config)
+    @test hw3 == hw
+    @test hm3 == hm
 end
 
+@testset "mutual_best_response hours satisfy the own-response condition" begin
+    # The hours of the settled fixed point satisfy each partner's
+    # own-response condition at the tier that settled them
+    # (`MDR-0017`): either they sit inside the tier-1 seed enclosure
+    # (within `BEST_RESPONSE_TOL` of the optimum, which is where the
+    # alternation stops when both partners' seeds certify), or they
+    # satisfy the tier-2 first-order condition tightly (`|g|` tiny at
+    # interior hours; hours exactly at a boundary carry the boundary
+    # derivative sign selecting them and are checked in the solver
+    # battery).
+    tol = GN.BEST_RESPONSE_TOL
+    for spec in (
+        GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+        GN.CES(beta=0.9),
+    )
+        config = GN.UtilityConfig(func=spec)
+        pw = GN.AgentPayoffParams(
+            wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=2.0, is_woman=true
+        )
+        pm = GN.AgentPayoffParams(
+            wage_self=0.8, wage_spouse=1.2, alpha=0.45, conformism=2.0, is_woman=false
+        )
+        hw, hm = GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
+        for _ in 1:40
+            hw_next, hm_next = GN.mutual_best_response(hw, hm, 0.0, pw, pm, config)
+            (hw_next == hw && hm_next == hm) && break
+            hw, hm = hw_next, hm_next
+        end
+        obj_w = GN.BestResponseObjective(0.0, hm, pw, config)
+        obj_m = GN.BestResponseObjective(0.0, hw, pm, config)
+        for (obj, h) in ((obj_w, hw), (obj_m, hm))
+            if GN._derivative_applicable(obj, h) && h != 0.0 && h != 1.0
+                gl = GN._best_response_gradient_sign(obj, h - tol)
+                gr = GN._best_response_gradient_sign(obj, h + tol)
+                enclosed =
+                    (isfinite(gl) && isfinite(gr) && gl >= 0.0 && gr <= 0.0) ||
+                    (isfinite(gr) && !isfinite(gl) && h <= tol && gr <= 0.0) ||
+                    (isfinite(gl) && !isfinite(gr) && h >= 1.0 - tol && gl >= 0.0)
+                if enclosed
+                    @test GN._derivative_seed_certificate(obj, h)
+                else
+                    g, _, _ = GN._best_response_derivatives(obj, h)
+                    @test abs(g) <= 1.0e-6
+                end
+            end
+        end
+    end
+end
+
+# Allocation probe of the labour loop: measured through a top-level
+# helper so the testset scope cannot box the solver arguments.
+mbr_allocs(
+    hw::Float64, hm::Float64, theta::Float64,
+    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig,
+)::Int = @allocated GN.mutual_best_response(hw, hm, theta, pw, pm, config)
+
 @testset "mutual_best_response allocates nothing" begin
-    # Allocation pin for the labour loop: each captured partner hour is
-    # bound immutably per iteration (see `MDR-0002`), so the best-response
-    # closures stay type-specialized and the solve allocates nothing.
+    # Allocation pin for the labour loop across all four utility specs
+    # (the `MDR-0017` derivative route), one unsupported `CES` `beta`
+    # (the bitwise `MDR-0002` fallback route), and the all-infeasible
+    # payer (whose solve falls back to the legacy `NaN` contract): each
+    # captured partner hour is bound immutably per iteration (see
+    # `MDR-0002`), and the specialized solve keeps the chain
+    # allocation-free (`ADR-0022`).
+    for spec in (
+        GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+        GN.CES(beta=1.5),
+    )
+        config = GN.UtilityConfig(func=spec)
+        pw = GN.AgentPayoffParams(
+            wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=0.0, is_woman=true
+        )
+        pm = GN.AgentPayoffParams(
+            wage_self=0.8, wage_spouse=1.2, alpha=0.5, conformism=0.0, is_woman=false
+        )
+        GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
+        @test mbr_allocs(0.2, 0.8, 0.0, pw, pm, config) == 0
+    end
+    # The all-infeasible payer: zero own wage and a payer transfer make
+    # `A == B == 0`, so his solve is inapplicable and keeps the current
+    # hours through the legacy `NaN` path.
+    config = GN.UtilityConfig()
     pw = GN.AgentPayoffParams(
-        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
+        wage_self=0.9, wage_spouse=0.0, alpha=0.48, conformism=10.0,
+        N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
+        wage_self=0.0, wage_spouse=0.9, alpha=0.45, conformism=10.0,
+        N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
     )
-    config = GN.UtilityConfig()
-    GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
-
-    @test @allocated(GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)) == 0
+    GN.mutual_best_response(0.36, 0.77, 0.4, pw, pm, config)
+    @test mbr_allocs(0.36, 0.77, 0.4, pw, pm, config) == 0
 end
 
 @testset "set_theta! runs both stages and commits the bargain" begin
