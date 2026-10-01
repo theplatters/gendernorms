@@ -475,6 +475,19 @@ Changed:
   invariant of the regime grid (`test/test_utility_solver.jl`), the
   non-degradation envelope by the measured sweep and the widened
   quality checks over the eligible beta range.
+- Kernel-level before/after (`benchmark/bargaining_kernel.jl`; full
+  evidence in `benchmark/derivative_solver_validation.md`): `set_theta!`
+  measures 0.0562 s to 0.0470 s on `ws_500` at one thread (1.20x) and
+  1.04x to 1.17x across the workload/thread cells (no regression
+  anywhere; the `ws_500` one-thread target of 1.15x is exceeded), and
+  the production solver chain is 21.7 ms to 12.2 ms (1.78x). Because
+  the chain is only about a third of this kernel after the `TASK-0021`
+  transfer-search recovery, the kernel gain is Amdahl-bounded near
+  1.2x, so the closing-phase `>= 1.5x` kernel aspiration is NOT
+  reachable: the premise that labour solves dominate the bargaining
+  kernel predates `TASK-0021`/`TASK-0022`. The justification of this
+  record is therefore solution quality (the de-anchoring above) and
+  worst-case solve cost, with a modest kernel win on top.
 
 ## References
 
@@ -484,5 +497,7 @@ Changed:
   `choose-bundle`
 - `src/resources/utility_functions.jl`
 - `src/systems/household_bargaining.jl`
+- `benchmark/derivative_solver_benchmark.jl`,
+  `benchmark/derivative_solver_validation.md`
 - `MDR-0002`, `MDR-0003`, `MDR-0013`, `MDR-0014`, `ADR-0018`,
   `ADR-0022`, `TASK-0023`
