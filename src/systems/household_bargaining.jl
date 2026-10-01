@@ -1,6 +1,8 @@
 # Household bargaining loop, both stages. Labour stage: `mutual_best_response`
 # (port of NetLogo `choose-bundle`, ODD section Labour best response, see
-# `MDR-0002`). Transfer stage: `set_theta!` (world loop, port of NetLogo
+# `MDR-0002` and its successor `MDR-0017`, whose safeguarded derivative
+# solve replaces the seeded Brent best response on eligible utility
+# regimes and falls back to it verbatim otherwise). Transfer stage: `set_theta!` (world loop, port of NetLogo
 # `set-theta`) plus the pure helpers `bargain_transfer`, `equilibrium_payoff`,
 # `outside_options`, and `nash_product` (ports of NetLogo `set-theta` and
 # `calculate-payoff`, ODD section Transfer bargaining); household components
@@ -22,8 +24,14 @@
 Alternating continuous best responses of the two partners of one household
 for a fixed transfer `theta`, starting from the working times `hw_init` and
 `hm_init`. Port of NetLogo `choose-bundle` (ODD section Labour best
-response) with the seeded continuous solver of `MDR-0002`: each best response
-starts from the current hours and keeps them when no feasible sample exists.
+response): each best response starts from the current hours and keeps them
+when no feasible sample exists. Eligible utility regimes solve each best
+response with the safeguarded derivative root solve of `MDR-0017` (the
+tier-1 seed certificate at the `current-delta` resolution keeps certified
+hours, the tier-2 solve is global on `[0, 1]`); ineligible or failed
+cases run the seeded continuous solver
+of `MDR-0002` verbatim, whose window and probe semantics are documented
+there (see `ADR-0022`).
 The `AgentPayoffParams` `pw` and `pm` are the transient bundles of the woman
 and the man, built by `set_theta!` at the call site (see `ADR-0007`). Each
 best response runs over a prepared own-hours objective

@@ -1,8 +1,10 @@
 ---
 id: MDR-0002
 title: Continuous best-response solver
-status: accepted
+status: superseded
 date: 2026-09-19
+supersedes: ""
+superseded_by: MDR-0017
 ---
 
 ## Context
@@ -45,6 +47,15 @@ evaluated (seed, probes, window, full bracket). A best response with no feasible
 in `mutual_best_response`.
 
 ## Consequences
+
+Superseded by `MDR-0017` (`MDR-0017` supersedes `MDR-0002`): eligible
+utility regimes now solve the best response by the safeguarded
+derivative root solve of `MDR-0017`, and the seeded window path of this
+record remains in force verbatim as their fallback and as the solver of
+every ineligible case (the `eps`/`max_sweeps` loop, the NaN-keeps-hours
+rule, and the `BEST_RESPONSE_TOL`/`BEST_RESPONSE_WINDOW` semantics below
+stay in force for that path). The historical consequences below describe
+the fallback solver.
 
 Convergence is smoother and typically faster, but results are not
 bit-comparable to NetLogo: committed hours can differ at the scale of the

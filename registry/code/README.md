@@ -107,6 +107,14 @@ which conventions it follows, and which architecture decisions were made.
   guidance gains on `TransferObjectiveValue`, single-lookup evaluation
   cache, and 32-record production storage hints (see `MDR-0016`).
 
+- `registry/code/decisions/ADR-0022-specialized-derivative-best-response.md`:
+  specialized `best_response_1d(::BestResponseObjective, ::Float64)`
+  dispatch with the two-tier safeguarded derivative solve of
+  `MDR-0017` (the `BEST_RESPONSE_TOL` seed certificate, then the
+  `DERIVATIVE_RESPONSE_TOL` full solve), the unchanged bitwise generic
+  Brent fallback, the allocation-free derivative helpers, and the
+  fail-open-to-legacy policy (extends `ADR-0018`).
+
 ## How to add a new source file correctly
 
 1. Decide the layer for the file: `components`, `resources`, or `systems`.

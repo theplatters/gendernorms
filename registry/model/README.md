@@ -58,7 +58,8 @@ instead of silent.
 - `registry/model/decisions/MDR-0001-normative-model-specification.md` --
   the ODD is normative, the `.nlogox` is the reference, `src/` is the port.
 - `registry/model/decisions/MDR-0002-continuous-best-response-solver.md` --
-  the port solves `choose-bundle` by continuous maximization.
+  the port solves `choose-bundle` by continuous maximization (superseded
+  by `MDR-0017`; its seeded Brent path is the fallback solver there).
 - `registry/model/decisions/MDR-0003-preserve-netlogo-quirks.md` -- NetLogo
   quirks are reference behavior until an MDR fixes one.
 - `registry/model/decisions/MDR-0004-norm-perception-port.md` -- norm
@@ -107,3 +108,9 @@ instead of silent.
   `max(abs(outside option), 1.0)`), the guidance branch-discontinuity
   finding, the 44-record budget, and the "best candidate found, not
   global optimum" claim (see `ADR-0021`).
+- `registry/model/decisions/MDR-0017-safeguarded-derivative-best-responses.md` --
+  safeguarded derivative labour best responses for eligible utility
+  regimes with the seeded Brent fallback of `MDR-0002` (superseded by
+  this record): the log-utility derivative formulas per spec, the
+  applicability regime with its fail-open numerical gate, the solver
+  algorithm, and the validated-equivalence protocol (see `ADR-0022`).
