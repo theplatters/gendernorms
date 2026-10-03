@@ -7,7 +7,11 @@
 # repetitions), and reports the sum over ticks per repetition as
 # median/min/max/IQR over repetitions plus the allocation totals of the
 # timed section. End-to-end `GenderNorms.run` timings are reported
-# separately. Methodology: `MDR-0011` and `ADR-0013`; the benchmark
+# separately. Every result block also carries the raw per-repetition
+# table (one line per measured repetition: kernel sum over ticks, timed
+# allocation totals, setup, end-to-end), and a combined raw CSV is
+# printed after the summary CSV, so medians and IQRs can be recomputed
+# offline. Methodology: `MDR-0011` and `ADR-0013`; the benchmark
 # measures a kernel of this package and does not change model behavior.
 # The prints below are the script's intended program output, not debug
 # output (same policy as `benchmark/threading_speedup.jl`).
@@ -161,8 +165,11 @@ report excludes all compilation and world construction), then `reps`
 timed passes, each from a fresh `create_world` on the same specification
 and seed (identical initial states across repetitions; no GC is forced
 between repetitions, mirroring `MDR-0011`). Prints one result block for
-the workload with full-precision `repr` numbers and returns the CSV row
-fields of the workload as a `NamedTuple`.
+the workload with full-precision `repr` numbers, including the raw
+per-repetition table of the measured passes, and returns the CSV row
+fields of the workload as a `NamedTuple` plus `raw`, the per-repetition
+`NamedTuple` vector (`rep`, `kernel_s`, `alloc_bytes`, `alloc_count`,
+`setup_s`, `e2e_s`) of the measured passes.
 """
 function benchmark_workload(name::String, ticks::Int, reps::Int)
     spec_dict = workload_spec(name, ticks)
@@ -171,6 +178,16 @@ function benchmark_workload(name::String, ticks::Int, reps::Int)
     measure_pass(tiny_dict, 1)          # discarded JIT warmup, tiny workload
     measure_pass(spec_dict, ticks)      # discarded JIT warmup, full-size workload
     passes = [measure_pass(spec_dict, ticks) for _ in 1:reps]
+    raw = [
+        (;
+            rep = i,
+            kernel_s = pass.kernel_s,
+            alloc_bytes = pass.alloc_bytes,
+            alloc_count = pass.alloc_count,
+            setup_s = pass.setup_s,
+            e2e_s = pass.e2e_s,
+        ) for (i, pass) in enumerate(passes)
+    ]
     kernel = [pass.kernel_s for pass in passes]
     e2e = [pass.e2e_s for pass in passes]
     setup = [pass.setup_s for pass in passes]
@@ -196,6 +213,7 @@ function benchmark_workload(name::String, ticks::Int, reps::Int)
         alloc_count_per_household_tick = alloc_count_median / ticks / households,
         setup_median_s = median(setup),
         e2e_median_s = median(e2e),
+        raw = raw,
     )
     println("workload ", repr(name))
     println("  agents_per_gender ", repr(households))
@@ -216,6 +234,11 @@ function benchmark_workload(name::String, ticks::Int, reps::Int)
     println("  kernel_alloc_count_per_household_tick ", repr(row.alloc_count_per_household_tick))
     println("  setup_s_median ", repr(row.setup_median_s))
     println("  e2e_run_s_median ", repr(row.e2e_median_s))
+    println("  raw_repetitions")
+    println("  ", raw_csv_header())
+    for entry in row.raw
+        println("  ", raw_csv_row(row, entry))
+    end
     return row
 end
 
@@ -262,6 +285,41 @@ function csv_row(row)
 end
 
 """
+    raw_csv_header()
+
+Column names of the machine-readable raw per-repetition table, one line
+per measured repetition of every workload and run (thread count):
+workload identity, run shape, repetition index, then the raw measured
+values of that repetition (kernel sum over ticks, timed allocation
+totals, setup, end-to-end). Returns the header string.
+"""
+raw_csv_header() = "workload,threads,ticks,households,rep," *
+    "kernel_s,alloc_bytes,alloc_count,setup_s,e2e_s"
+
+"""
+    raw_csv_row(row, entry)
+
+Machine-readable CSV line of one measured repetition `entry` (the `raw`
+vector of a `benchmark_workload` result row) under the identity fields
+of that row. The floats use `repr` for full precision. Returns the line
+without trailing newline.
+"""
+function raw_csv_row(row, entry)
+    return join((
+        row.workload,
+        repr(row.threads),
+        repr(row.ticks),
+        repr(row.households),
+        repr(entry.rep),
+        repr(entry.kernel_s),
+        repr(entry.alloc_bytes),
+        repr(entry.alloc_count),
+        repr(entry.setup_s),
+        repr(entry.e2e_s),
+    ), ",")
+end
+
+"""
     main(args::Vector{String})
 
 Run the kernel benchmark. Takes the positional arguments
@@ -269,8 +327,10 @@ Run the kernel benchmark. Takes the positional arguments
 list of workload names or `all` (default `all`), `ticks` defaults to 20,
 and `repetitions` to 15. Prints the environment (CPU, hardware threads,
 Julia threads, Julia version), one result block per workload with
-full-precision numbers, and finally the machine-readable CSV table
-(header plus one row per workload). Returns nothing.
+full-precision numbers and its raw per-repetition table, the
+machine-readable CSV table (header plus one row per workload), and the
+machine-readable raw per-repetition table (`raw_csv`, header plus one
+line per measured repetition). Returns nothing.
 """
 function main(args::Vector{String})
     selection = length(args) >= 1 ? split(args[1], ",") : collect(WORKLOAD_NAMES)
@@ -296,6 +356,13 @@ function main(args::Vector{String})
     println(csv_header())
     for row in rows
         println(csv_row(row))
+    end
+    println("raw_csv")
+    println(raw_csv_header())
+    for row in rows
+        for entry in row.raw
+            println(raw_csv_row(row, entry))
+        end
     end
     return nothing
 end

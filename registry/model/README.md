@@ -114,3 +114,6 @@ instead of silent.
   this record): the log-utility derivative formulas per spec, the
   applicability regime with its fail-open numerical gate, the solver
   algorithm, and the validated-equivalence protocol (see `ADR-0022`).
+- `registry/model/decisions/MDR-0018-remove-unused-current-utility.md` --
+  remove the unused stored utility component without changing the pure
+  utility evaluation or bargaining solvers.

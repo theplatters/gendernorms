@@ -109,7 +109,6 @@ function get_agent(world::Ark.World, gender::Gender, rng)
     wage,
     conformism,
     private_preference,
-    CurrentUtility(0.0),
     NormParameter(0.0),
     PerceptionNormDivisionOfLabor(0.0),
     Lambda(properties.initial_lambda),

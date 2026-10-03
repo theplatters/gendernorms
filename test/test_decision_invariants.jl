@@ -1,7 +1,7 @@
 # Executable invariants of accepted decisions under
-# `registry/code/decisions/`. Each testset cites the record it keeps
-# honest; when a decision changes, this file changes with it (see
-# `ADR-0008`).
+# `registry/code/decisions/` and `registry/model/decisions/`.
+# Each testset cites the record it keeps honest; when a decision changes,
+# this file changes with it (see `ADR-0008`).
 
 using Ark
 using GenderNorms
@@ -31,7 +31,6 @@ const GN = GenderNorms
         GN.Wage,
         GN.PreferencePrivate,
         GN.Conformism,
-        GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
@@ -59,6 +58,14 @@ end
     @test hasmethod(
         GN.bargain_transfer,
         Tuple{Float64,Float64,Float64,GN.AgentPayoffParams,GN.AgentPayoffParams,GN.UtilityConfig},
+    )
+end
+
+@testset "MDR-0018: utility stays transient without a stored component" begin
+    @test !isdefined(GN, :CurrentUtility)
+    @test hasmethod(
+        GN.individual_utility,
+        Tuple{Float64,Float64,Float64,GN.AgentPayoffParams,GN.UtilityConfig},
     )
 end
 

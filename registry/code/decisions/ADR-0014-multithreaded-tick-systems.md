@@ -1,10 +1,10 @@
 ---
 id: ADR-0014
 title: Multithreaded tick loops with greedy scheduling
-status: accepted
+status: superseded
 date: 2026-09-26
 supersedes: ""
-superseded_by: ""
+superseded_by: ADR-0023
 ---
 
 # ADR-0014: Multithreaded tick loops with greedy scheduling

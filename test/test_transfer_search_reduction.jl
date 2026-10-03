@@ -442,3 +442,68 @@ end
         @test isequal(results[i], results[i + 2])
     end
 end
+
+# Fill one `TransferSearchScratch` back to the sample and cache sizes of
+# a previous (grown) search; the buffer growth of `push!` and `setindex!`
+# is what `scratch_refill_allocs!` measures.
+function scratch_refill!(scratch::GN.TransferSearchScratch, nsamples::Int, ncache::Int)
+    for i in 1:nsamples
+        push!(scratch.samples, (Float64(i), 0.0))
+    end
+    for i in 1:ncache
+        scratch.cache[Float64(i)] = GN.TransferObjectiveValue(0.0, 0.0, 0.0, 0.0, 0.0)
+    end
+    return nothing
+end
+
+scratch_refill_allocs!(scratch::GN.TransferSearchScratch, nsamples::Int, ncache::Int)::Int =
+    @allocated scratch_refill!(scratch, nsamples, ncache)
+
+@testset "transfer search reduction: scratch growth keeps reusable capacity" begin
+    # A `:discovery` search grows `samples` (the full `_transfer_sample!`
+    # enumeration) and `cache` far beyond the fresh-scratch capacity
+    # hints; `_reset_scratch!` must keep the grown buffers reusable:
+    # refilling the previously reached sizes after a reset allocates
+    # nothing (no vector growth and no dict rehash), and further
+    # households on the grown scratch commit bitwise-identical results
+    # to fresh-scratch runs (TASK-0025 item 9).
+    config = GN.UtilityConfig(func=GN.CES(beta=0.5))
+    pw = GN.AgentPayoffParams(
+        wage_self=1.0, wage_spouse=1.5, alpha=0.5, conformism=10.0,
+        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=true,
+    )
+    pm = GN.AgentPayoffParams(
+        wage_self=1.5, wage_spouse=1.0, alpha=0.5, conformism=10.0,
+        N_h=0.5, N_theta=-0.5, N_h_spouse=0.5, is_woman=false,
+    )
+    scratch = GN.TransferSearchScratch()
+    GN.bargain_transfer(scratch, 0.5, 0.5, 0.123456789, pw, pm, config; search=:discovery)
+    grown_samples = length(scratch.samples)
+    grown_cache = length(scratch.cache)
+    @test grown_samples > GN.TRANSFER_SAMPLE_CAPACITY
+    @test grown_cache > GN.TRANSFER_CACHE_CAPACITY
+    GN._reset_scratch!(scratch)
+    @test isempty(scratch.samples)
+    @test isempty(scratch.cache)
+    # Compile the probe before measuring it.
+    scratch_refill_allocs!(scratch, 2, 1)
+    GN._reset_scratch!(scratch)
+    @test scratch_refill_allocs!(scratch, grown_samples, grown_cache) == 0
+    # A second full reset cycle keeps the grown capacity reusable.
+    GN._reset_scratch!(scratch)
+    @test scratch_refill_allocs!(scratch, grown_samples, grown_cache) == 0
+    GN._reset_scratch!(scratch)
+    for (hw_init, hm_init, theta_init) in (
+        (0.3, 0.7, 0.123456789), (0.0, 1.0, -0.0), (0.5, 0.5, 0.25),
+    )
+        shared = GN.bargain_transfer(
+            scratch, hw_init, hm_init, theta_init, pw, pm, config; search=:discovery
+        )
+        shared_again = GN.bargain_transfer(
+            scratch, hw_init, hm_init, theta_init, pw, pm, config; search=:discovery
+        )
+        fresh = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search=:discovery)
+        @test isequal(shared, fresh)
+        @test isequal(shared_again, fresh)
+    end
+end

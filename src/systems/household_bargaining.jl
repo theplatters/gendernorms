@@ -700,14 +700,18 @@ payoff)` pairs in enumeration order (every Stage A transfer, pruned or
 not, including the exact `-Inf` payoffs of slab-covered samples), the
 weak-local-maximum index vector `maxima` of Stage B, and the certified
 `-Inf` slab list `slabs` of the interval prefilter. One scratch is
-constructed per `Threads.@threads :greedy` chunk body of `set_theta!`
-(the `spouse_seen` precedent of `ADR-0015`) and reused across the
-households of that chunk through `_reset_scratch!`; it is never indexed
-by `Threads.threadid()` and never shared across tasks, so results stay
-independent of scheduling and thread count. A scratch never retains a
-household's parameters or evaluation closure. The standalone
-`bargain_transfer` entry point constructs one per call. Production uses
-small capacity hints; the explicit discovery mode grows them as needed.
+constructed per active worker task of `set_theta!` (the `spouse_seen`
+precedent of `ADR-0015`) and reused across every chunk that task
+processes; `set_theta!` resets it per household through
+`_reset_scratch!` (`ADR-0023`, which amends the per-chunk construction
+wording of `ADR-0015` item C1 and `ADR-0017` item 4 to per worker
+task). Ownership stays with the worker task even if it migrates between
+threads: the scratch is never indexed by `Threads.threadid()` and never
+shared across tasks, so results stay independent of scheduling and
+thread count. A scratch never retains a household's parameters or
+evaluation closure. The standalone `bargain_transfer` entry point
+constructs one per call. Production uses small capacity hints; the
+explicit discovery mode grows them as needed.
 """
 struct TransferSearchScratch
     cache::Dict{Float64,TransferObjectiveValue}
@@ -1307,8 +1311,9 @@ NetLogo's two +/-0.001 hill-climbs. `search=:discovery` explicitly selects
 the retained full-domain staged validation search of `MDR-0014`; no automatic
 global fallback occurs in production. Other modes are rejected. The `scratch` is
 reset by this call (`_reset_scratch!`) and never retains anything of
-the household; `set_theta!` reuses one scratch per `Threads.@threads
-:greedy` chunk body (see `ADR-0017`). The status quo is evaluated
+the household; `set_theta!` reuses one scratch per active worker task
+(see `ADR-0017`, amended to per-worker-task ownership by `ADR-0023`).
+The status quo is evaluated
 first and kept unless a candidate beats it strictly (fixes ODD quirk
 3, fallback per `MDR-0014`); every candidate labour solve starts from
 the status-quo labour equilibrium; `tol` is the absolute argument
@@ -1458,16 +1463,28 @@ function payoff_params(
   )
 end
 
-# Chunk size of the per-household `Threads.@threads :greedy` loop below:
-# the greedy scheduler pulls whole chunks instead of one item per unbuffered
-# channel pull, amortizing the per-item pull overhead over
-# `HOUSEHOLD_BARGAIN_CHUNK` households while keeping the load-balance
-# granularity fine for the uneven Brent iterations of `bargain_transfer`
-# (see `ADR-0014`).
+# Chunk size of the household loop of `set_theta!` below: the serial
+# path and the bounded worker tasks of `ADR-0023` both pull whole chunks
+# of `HOUSEHOLD_BARGAIN_CHUNK` households, amortizing scheduling
+# overhead while keeping the load-balance granularity fine for the
+# uneven Brent iterations of `bargain_transfer` (chunking origin
+# `ADR-0014`; the value 4 was re-confirmed by the chunk-size sweep over
+# {4, 8, 16, 32} on ws_500/heterogeneous/ws_100, see
+# `benchmark/scheduling_tuning.md` and `ADR-0023`).
 const HOUSEHOLD_BARGAIN_CHUNK = 4
 
+# Serial crossover of the `:auto` schedule of `set_theta!`
+# (`ADR-0023`): on multithreaded runs a household group of at most
+# `HOUSEHOLD_BARGAIN_SERIAL_CUTOFF` households runs the direct serial
+# path, where worker-task scheduling costs more than it saves below
+# this size. The value 8 is selected from the 8-thread
+# small-population crossover measurements (parallel wins from about 10
+# households up, serial wins at 4 and below, tie at 6-8; see
+# `benchmark/scheduling_tuning.md` and `ADR-0023`).
+const HOUSEHOLD_BARGAIN_SERIAL_CUTOFF = 8
+
 """
-    set_theta!(world, config::UtilityConfig; search::Symbol = :local)
+    set_theta!(world, config::UtilityConfig; search::Symbol = :local, chunk::Int = HOUSEHOLD_BARGAIN_CHUNK, schedule::Symbol = :auto)
 
 Household loop of the household bargaining: ports NetLogo `set-theta` for
 every household (ODD section Transfer bargaining (`set-theta`,
@@ -1476,19 +1493,37 @@ every household (ODD section Transfer bargaining (`set-theta`,
 `search=:discovery` only for explicit validation trajectories (`ADR-0021`).
 Household components are extracted with `Ark.Query` (see
 `ADR-0007`); the transfer component mirrors the wife's value on the man (see
-`registry/model/entities.md`). The per-household loop runs with
-`Threads.@threads :greedy` over the disjoint households in chunks of
-`HOUSEHOLD_BARGAIN_CHUNK` items (the greedy scheduler pulls whole chunks) to
-amortize its per-item channel pull, each chunk task with its own
-`spouse_seen` scratch vector for `norm_means` and its own
-`TransferSearchScratch` for the transfer search, reused across the
-households of that chunk and never shared across tasks, so the results
-are independent of scheduling and thread count (see `ADR-0014`,
-`ADR-0015`, and `ADR-0017`). The world is
-mutated and nothing is returned.
+`registry/model/entities.md`). The disjoint households run in chunks of
+`chunk` items (`HOUSEHOLD_BARGAIN_CHUNK` by default, at least 1).
+`schedule` selects the execution path (`ADR-0023`): `:serial` runs one
+direct loop, `:parallel` runs at most `min(Threads.nthreads(), nchunks)`
+worker tasks that pull chunk indices dynamically from a shared atomic
+chunk cursor, and `:auto` (the default) picks the serial path at one
+thread and whenever a group holds at most
+`HOUSEHOLD_BARGAIN_SERIAL_CUTOFF` households, the parallel path
+otherwise; forcing `:serial` or `:parallel` exists for tests and
+benchmark sweeps and works at any thread count. Both paths run the same
+per-chunk closure over `(chunk_range, spouse_seen, scratch)`, so results
+are bit-identical across paths and thread counts: each worker task owns
+one `spouse_seen` scratch vector for `norm_means` (capacity-hinted to
+the maximum vertex degree) and one `TransferSearchScratch` for the
+transfer search, reused across every chunk the task processes, reset per
+household by `bargain_transfer`, and never shared across tasks
+(`ADR-0015`, `ADR-0017`, and `ADR-0023`, which amends the per-chunk
+ownership wording of the earlier two records to per worker task). The
+`@sync` join of the worker tasks is the completion barrier before the
+next tick system runs, and worker failures propagate as
+`TaskFailedException`/`CompositeException` (as under `ADR-0014`). The
+world is mutated and nothing is returned.
 """
-function set_theta!(world, config::UtilityConfig; search::Symbol=:local)
+function set_theta!(
+  world, config::UtilityConfig;
+  search::Symbol=:local, chunk::Int=HOUSEHOLD_BARGAIN_CHUNK, schedule::Symbol=:auto
+)
   search in (:local, :discovery) || throw(ArgumentError("search must be :local or :discovery"))
+  chunk >= 1 || throw(ArgumentError("chunk must be at least 1"))
+  schedule in (:auto, :serial, :parallel) ||
+    throw(ArgumentError("schedule must be :auto, :serial, or :parallel"))
   net = Ark.get_resource(world, SocialNetwork)
   properties = Ark.get_resource(world, ModelProperties)
   globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
@@ -1504,19 +1539,21 @@ function set_theta!(world, config::UtilityConfig; search::Symbol=:local)
   component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
   for (entities, wages, times, transfers, conformisms, preferences, spouses) in
       Ark.Query(world, component_types; with=(Female,))
-    Threads.@threads :greedy for chunk in Iterators.partition(eachindex(entities), HOUSEHOLD_BARGAIN_CHUNK)
-      # One scratch buffer per chunk task (one greedy iteration): `norm_means`
-      # empties it at the start of its neighbour branch, so reuse across the
-      # households of the chunk is exact and the buffer stays task-local (see
-      # `ADR-0015`). The capacity hint matches the largest neighbour list it
-      # will hold, so no call grows it. The `TransferSearchScratch` is the
-      # task-owned transfer-search storage of `ADR-0017`, reused across the
-      # households of the chunk the same way and reset by every
-      # `bargain_transfer` call.
-      spouse_seen = Ark.Entity[]
-      sizehint!(spouse_seen, spouse_capacity)
-      search_scratch = TransferSearchScratch()
-      for f in chunk
+    # The single per-chunk processing implementation shared by the
+    # serial path and the bounded worker tasks below (`ADR-0023`):
+    # parameterized by the chunk's households and the caller-owned
+    # scratch pair, so the two paths cannot drift and the results stay
+    # bit-identical across paths and thread counts. One scratch buffer
+    # pair per caller: `norm_means` empties `spouse_seen` at the start
+    # of its neighbour branch, so reuse across households is exact and
+    # the buffers stay task-local (see `ADR-0015`). The capacity hint
+    # matches the largest neighbour list it will hold, so no call grows
+    # it. The `TransferSearchScratch` is the task-owned transfer-search
+    # storage of `ADR-0017`, reset by every `bargain_transfer` call.
+    function process_chunk!(
+      chunk_range, spouse_seen::Vector{Ark.Entity}, scratch::TransferSearchScratch
+    )
+      for f in chunk_range
         woman = entities[f]
         man = spouses[f].entity
         man_wage, man_time, man_transfer, man_conformism, man_preference =
@@ -1539,7 +1576,7 @@ function set_theta!(world, config::UtilityConfig; search::Symbol=:local)
         )
 
         theta, hw, hm = bargain_transfer(
-          search_scratch, times[f].current, man_time.current, transfers[f].current, pw, pm, config;
+          scratch, times[f].current, man_time.current, transfers[f].current, pw, pm, config;
           search=search
         )
         # the woman is in the query, so the views write in place
@@ -1549,6 +1586,47 @@ function set_theta!(world, config::UtilityConfig; search::Symbol=:local)
         Ark.set_components!(
           world, man, (WorkingTime(hm, man_time.old), TransferToWoman(theta, man_transfer.old))
         )
+      end
+      return nothing
+    end
+    chunks = collect(Iterators.partition(eachindex(entities), chunk))
+    use_parallel = schedule === :parallel ||
+      (schedule === :auto && Threads.nthreads() > 1 &&
+        length(entities) > HOUSEHOLD_BARGAIN_SERIAL_CUTOFF)
+    if use_parallel
+      # Bounded worker scheduling (`ADR-0023`): at most
+      # `min(Threads.nthreads(), nchunks)` worker tasks replace the
+      # `Threads.@threads :greedy` loop of `ADR-0014`; each worker
+      # claims the next chunk index from the shared atomic cursor until
+      # the chunks are exhausted, keeping dynamic scheduling without a
+      # task per chunk or per household. The `let`-bound scratch pair is
+      # constructed inside the worker task and owned by it for all of
+      # its chunks: the fresh bindings cannot alias the serial path's
+      # buffers or another worker's. The `@sync` join is the completion
+      # barrier before the next tick system runs, and a failing worker
+      # surfaces as `TaskFailedException`/`CompositeException` (see
+      # `ADR-0014`).
+      nchunks = length(chunks)
+      cursor = Threads.Atomic{Int}(0)
+      @sync for _ in 1:min(Threads.nthreads(), nchunks)
+        Threads.@spawn let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
+            scratch = TransferSearchScratch()
+          while true
+            index = Threads.atomic_add!(cursor, 1)
+            index < nchunks || break
+            process_chunk!(chunks[index + 1], spouse_seen, scratch)
+          end
+        end
+      end
+    else
+      # Direct serial path (`ADR-0023`): one `let`-bound scratch pair,
+      # no tasks and no cursor; an empty household group runs zero
+      # chunks and returns cleanly.
+      let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
+          scratch = TransferSearchScratch()
+        for chunk_range in chunks
+          process_chunk!(chunk_range, spouse_seen, scratch)
+        end
       end
     end
   end

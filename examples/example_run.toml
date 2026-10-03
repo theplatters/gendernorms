@@ -4,7 +4,7 @@ seed = 42
 
 [model]
 name = "gender_norms"
-agents_per_gender = 20
+agents_per_gender = 200
 
 [runtime]
 ticks = 5

@@ -26,7 +26,6 @@ function make_shock_world(n::Int; seed::Int = 11)
         GN.Wage,
         GN.PreferencePrivate,
         GN.Conformism,
-        GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,

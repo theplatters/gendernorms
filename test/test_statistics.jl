@@ -23,7 +23,6 @@ function make_world(network::GN.NetworkSpec, n::Int)
         GN.Wage,
         GN.PreferencePrivate,
         GN.Conformism,
-        GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,

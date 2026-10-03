@@ -24,7 +24,6 @@ function make_world(network::GN.NetworkSpec, n::Int)
         GN.Wage,
         GN.PreferencePrivate,
         GN.Conformism,
-        GN.CurrentUtility,
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
@@ -182,4 +181,3 @@ end
 
     @test @allocated(GN.norm_means(world, net, 1, true, nothing, spouse_seen)) == 0
 end
-

@@ -66,7 +66,7 @@ which conventions it follows, and which architecture decisions were made.
 - `registry/code/decisions/ADR-0014-multithreaded-tick-systems.md`:
   multithreaded per-tick world loops (`calculate_norm_perception!`
   and `set_theta!`) with `Threads.@threads :greedy` over disjoint
-  agents and households.
+  agents and households (superseded by `ADR-0023`).
 - `registry/code/decisions/ADR-0015-bargaining-kernel-optimization.md`:
   behavior-preserving bargaining kernel optimization: exact identical
   solve reuse in `bargain_transfer`, chunk-task-owned `spouse_seen`
@@ -114,6 +114,25 @@ which conventions it follows, and which architecture decisions were made.
   `DERIVATIVE_RESPONSE_TOL` full solve), the unchanged bitwise generic
   Brent fallback, the allocation-free derivative helpers, and the
   fail-open-to-legacy policy (extends `ADR-0018`).
+
+- `registry/code/decisions/ADR-0023-task-owned-bargaining-scratch.md`:
+  task-owned `spouse_seen` and `TransferSearchScratch` reuse per active
+  worker task in `set_theta!` and bounded worker scheduling: the bounded
+  worker-task loop over a shared atomic chunk cursor with the
+  shared-work-queue variant rejected by measurement,
+  `HOUSEHOLD_BARGAIN_CHUNK` re-confirmed at 4, and
+  `HOUSEHOLD_BARGAIN_SERIAL_CUTOFF` 8 from the measured serial
+  crossover (see `benchmark/scheduling_tuning.md`).
+
+- `registry/code/decisions/ADR-0024-task-owned-norm-perception-scratch.md`:
+  the `ADR-0023` pattern applied to `calculate_norm_perception!` (which
+  `ADR-0023` left out of scope; no supersede): one flattened
+  women-then-men parallel region with arithmetic chunk decoding,
+  bounded worker tasks over a shared atomic chunk cursor, one
+  capacity-hinted `spouse_seen` per worker task reused across chunks
+  (the per-agent scratch allocation removed), and `chunk`/`schedule`
+  keywords with `NORM_PERCEPTION_CHUNK` 64 and
+  `NORM_PERCEPTION_SERIAL_CUTOFF` 256 from measurements.
 
 ## How to add a new source file correctly
 

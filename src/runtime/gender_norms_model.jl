@@ -523,7 +523,6 @@ function setup_world(::Type{GenderNormsModel}, config::GenderNormsConfig, rng)::
         Wage,
         PreferencePrivate,
         Conformism,
-        CurrentUtility,
         NormParameter,
         PerceptionNormDivisionOfLabor,
         Lambda,

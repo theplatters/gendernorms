@@ -42,6 +42,8 @@ There are two agent breeds plus two link/collection entities:
   [Observer \ (globals)], [`global-mean-working-time-men/women`, `global-mean-transfer`, `history-*`, `average-mean-*`, subgroup agentsets \ `run-time`, `current_wage_gap` \ `directly-affected-men/women`, `neighbors-of-affected-men/women` + `mean-current-working-time-*` \ `single-earner-*-*`, `dual-earner-*`, `both-unemployed-*` + `mean-current-working-time-*`], [Median-split preference/wage subgroups fixed at `setup` as before. Shock-propagation and household-type agentsets also fixed at `setup` from the initial `directly-affected-*` draw; histories are 10-period moving windows.],
 )
 
+_Julia-port note._ The Julia port evaluates utility transiently in its continuous solvers and does not store `current-utility`; the unused component was removed under `MDR-0018`. The NetLogo scratch and diagnostic variable described above is unchanged.
+
 *Scales.* No explicit space matters: `layout-circle` is visualisation only. Time is discrete ticks; one `go` = shock check + household re-bargaining + norm updating + preference adaptation. `shock-start` defaults to 60; recovery runs for all later ticks. BehaviorSpace runs use 1000–4000 ticks (time limits 1000–4000). Labour and transfer are normalised fractions, not hours.
 
 == Process overview and scheduling

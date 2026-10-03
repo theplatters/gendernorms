@@ -8,7 +8,7 @@ Base.@kwdef struct ModelProperties
   std_dev::Float64 = 0.2
   initial_transfer::Float64 = 0.0
   network::NetworkSpec = WattsStrogatz()
-  initial_lambda::Float64 = 0.5
+  initial_lambda::Float64 = 0.02
 end
 
 Base.@kwdef struct PaidTime

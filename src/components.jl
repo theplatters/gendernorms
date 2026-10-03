@@ -54,10 +54,6 @@ struct Conformism
   amount::Float64
 end
 
-struct CurrentUtility
-  amount::Float64
-end
-
 struct Lambda
   amount::Float64
 end
