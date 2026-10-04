@@ -1,0 +1,192 @@
+/* Restrained styling for the GenderNorms dashboard page.
+ *
+ * Two-column layout for the configuration form and the job/run tables,
+ * a three-column grid for the metric panels, and plain typography for
+ * sections, tables, and status displays. Everything else stays on the
+ * Stipple core theme. */
+
+.gn-page,
+body > .container {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 12px;
+}
+
+.gn-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid #d8dee6;
+    margin-bottom: 12px;
+}
+
+.gn-head h1 {
+    font-size: 22px;
+    margin: 12px 0;
+}
+
+.gn-status {
+    color: #44506a;
+    font-size: 14px;
+}
+
+.gn-columns {
+    display: grid;
+    grid-template-columns: minmax(360px, 5fr) 7fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.gn-side {
+    display: grid;
+    gap: 16px;
+}
+
+.gn-form,
+.gn-block {
+    background: #fff;
+    border: 1px solid #d8dee6;
+    border-radius: 6px;
+    padding: 12px 16px;
+}
+
+.gn-form h2,
+.gn-block h2 {
+    font-size: 16px;
+    margin: 4px 0 12px;
+}
+
+.gn-section {
+    border-top: 1px solid #e6eaf0;
+    padding: 10px 0;
+}
+
+.gn-section h4 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #57617a;
+    margin: 0 0 8px;
+}
+
+.gn-label {
+    font-size: 13px;
+    color: #57617a;
+    margin: 8px 0 2px;
+}
+
+.gn-hint {
+    font-size: 12px;
+    color: #6b7688;
+    margin: 6px 0 0;
+}
+
+.gn-field {
+    display: grid;
+    gap: 0;
+}
+
+.gn-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    border-top: 1px solid #e6eaf0;
+}
+
+.gn-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    margin: 2px 4px 2px 0;
+    border: 1px solid #b9c2d0;
+    border-radius: 4px;
+    background: #f6f8fb;
+    color: #2c3852;
+    cursor: pointer;
+}
+
+.gn-btn:hover {
+    background: #e8edf5;
+}
+
+.gn-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.gn-table th {
+    text-align: left;
+    color: #57617a;
+    font-weight: 600;
+    border-bottom: 1px solid #b9c2d0;
+    padding: 4px 8px 4px 0;
+}
+
+.gn-table td {
+    border-bottom: 1px solid #e6eaf0;
+    padding: 4px 8px 4px 0;
+    vertical-align: top;
+}
+
+.gn-block-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.gn-block-head h2 {
+    margin: 0;
+}
+
+.gn-panels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.gn-panel {
+    background: #fff;
+    border: 1px solid #d8dee6;
+    border-radius: 6px;
+    padding: 8px 8px 4px;
+    min-width: 0;
+}
+
+.gn-panel h4 {
+    font-size: 13px;
+    color: #38415c;
+    margin: 2px 8px 4px;
+}
+
+.gn-panel plotly {
+    display: block;
+    min-height: 320px;
+}
+
+.gn-problems {
+    background: #fdf2f2;
+    border: 1px solid #e6b8b8;
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin: 0 0 12px;
+    color: #8a2f2f;
+    font-size: 13px;
+}
+
+.gn-problems ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.gn-warnings {
+    color: #8a6d2f;
+    font-size: 12px;
+    margin: 8px 0 0;
+}
+
+.gn-warnings p {
+    margin: 2px 0;
+}

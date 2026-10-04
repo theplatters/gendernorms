@@ -1,0 +1,37 @@
+name = "GenderNormsDashboard"
+uuid = "c1a7bba4-fabc-4064-b160-2ea841a4afa7"
+version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+GenderNorms = "4e6faa1d-2179-4b0b-bf70-01c6526450f3"
+Genie = "c43c736e-a2d1-11e8-161f-af95117fbd1e"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+PlotlyBase = "a03496cd-edff-5a9b-9e67-9cda94a718b5"
+Stipple = "4acbeb90-81a0-11ea-1966-bdaff8155998"
+StipplePlotly = "ec984513-233d-481d-95b0-a3b58b97af2b"
+StippleUI = "a3c5d34a-b254-4859-a8fa-b86abb7e84a3"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[sources]
+GenderNorms = {path = ".."}
+
+[compat]
+Dates = "1.11.0"
+Genie = "6.1.2"
+JSON = "1.10.0"
+PlotlyBase = "0.10.0"
+Stipple = "1.0.6"
+StipplePlotly = "1.1.1"
+StippleUI = "1.0.1"
+TOML = "1.0.3"
+UUIDs = "1.11.0"
+julia = "1.12"
+
+[extras]
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Sockets", "Test"]

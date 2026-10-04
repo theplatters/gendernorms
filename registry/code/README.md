@@ -134,6 +134,15 @@ which conventions it follows, and which architecture decisions were made.
   keywords with `NORM_PERCEPTION_CHUNK` 64 and
   `NORM_PERCEPTION_SERIAL_CUTOFF` 256 from measurements.
 
+- `registry/code/decisions/ADR-0025-interactive-dashboard.md`:
+  interactive Genie/Stipple/StipplePlotly dashboard in a separate
+  `dashboard/` project outside `src/` (extends `ADR-0012`, follows
+  `ADR-0013`): live runs in one isolated worker process per run behind
+  a FIFO queue with a buffered dashboard `RunLogger` and versioned
+  JSONL IPC, shared live/recorded path representation with staged
+  writes and atomic promotion, and throttled Plotly panels
+  (implemented under `TASK-0028`).
+
 ## How to add a new source file correctly
 
 1. Decide the layer for the file: `components`, `resources`, or `systems`.
