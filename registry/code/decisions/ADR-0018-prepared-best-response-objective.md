@@ -25,13 +25,18 @@ material dominate the evaluation.
 
 Introduce the prepared own-hours objective `BestResponseObjective` in
 `src/resources/utility_functions.jl` (resources layer, beside
-`individual_utility`): an isbits callable struct parametric on the
-`UtilitySpec` type `S`, constructed once per `best_response_1d` call
+`individual_utility`): an isbits callable struct parametric on
+`{S<:UtilitySpec,Recipient}` (originally the `UtilitySpec` type `S`
+plus a `recipient::Bool` field; the gender and role markers became
+type parameters under `ADR-0026`), constructed once per
+`best_response_1d` call
 from `(theta, h_spouse, self_params, config)`, hoisting every
 transfer- and spouse-dependent term out of the per-hours evaluation
 (consumption terms of `x`, the fixed spouse hours of `Q`, the transfer
-and spouse norm products, the `MultiplicativeWeighted` payer exponent
-`1 - alpha`, and the spouse-hours guard). The alternating loop of
+and spouse norm products, the material preference `alpha` with its
+complement `1 - alpha` (once the role-specific `MultiplicativeWeighted`
+payer exponent; now the `Q` exponent of the unified `MDR-0019` form),
+and the spouse-hours guard). The alternating loop of
 `mutual_best_response` passes the callable directly (no closures, no
 captures); the `MDR-0002` no-boxing discipline is now structural
 rather than a discipline.
@@ -52,8 +57,12 @@ grouping of the old `individual_utility` (the exact variant of
 `MDR-0013`; the faster regrouped coefficient form was measured and
 dropped there), so the prepared evaluation is bitwise identical to the
 old per-sample computation and every guard trigger is preserved
-exactly. The single arithmetic change is the `CES` `beta == 0.5`
-sqrt/square `material` specialization of `MDR-0013`.
+exactly, with one recorded deviation: the `MDR-0019` fix of ODD quirk
+item 4, where the `MultiplicativeWeighted` payer branch computes the
+intended `x^alpha * Q^(1-alpha)` instead of the quirk form of the old
+`individual_utility`. The arithmetic changes are the `CES` `beta == 0.5`
+sqrt/square `material` specialization of `MDR-0013` and that `MDR-0019`
+unification.
 
 ## Consequences
 

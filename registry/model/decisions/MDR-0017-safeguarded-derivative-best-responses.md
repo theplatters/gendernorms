@@ -34,11 +34,11 @@ norm_spouse)` and `n'(h) = -2*k*(h - norm_hours)`, `n''(h) = -2*k`. For
 
 - Multiplicative: `g = A/(2x) - 1/(2Q)`,
   `g' = -A^2/(2x^2) - 1/(2Q^2)`.
-- MultiplicativeWeighted recipient: `g = alpha*A/x - (1-alpha)/Q`,
-  `g' = -alpha*A^2/x^2 - (1-alpha)/Q^2`.
-- MultiplicativeWeighted payer (the preserved NetLogo quirk branch
-  `(x^alpha * Q)^(1-alpha)` of `MDR-0003`, `individual_utility`):
-  `g = (1-alpha)*(alpha*A/x - 1/Q)`,
+- MultiplicativeWeighted (both roles since `MDR-0019` removed the
+  preserved NetLogo quirk branch `(x^alpha * Q)^(1-alpha)` of
+  `MDR-0003`, `individual_utility`): `g = alpha*A/x - (1-alpha)/Q`,
+  `g' = -alpha*A^2/x^2 - (1-alpha)/Q^2`. Historical quirk form of the
+  payer: `g = (1-alpha)*(alpha*A/x - 1/Q)`,
   `g' = -(1-alpha)*(alpha*A^2/x^2 + 1/Q^2)`.
 - Additive (and the `CES` `beta == 0.5` inner form of `MDR-0013`): with
   `r = sqrt(x)`, `s = sqrt(Q)`, `m = alpha*r + (1-alpha)*s`,
@@ -62,10 +62,11 @@ Sign argument (why a root of `g` brackets the optimum): on the positive
 feasible interior every material function above is positive and concave
 in `h` for `alpha` in `[0, 1]`, `A, B >= 0`, and `0 < beta <= 1`.
 Multiplicative is `sqrt(x*Q)` with `(x*Q)'' = -2A <= 0` and `sqrt`
-concave and increasing; the weighted Cobb-Douglas forms
-`x^alpha*Q^(1-alpha)` and `x^(alpha*(1-alpha))*Q^(1-alpha)` (payer
-quirk) are concave (weighted geometric means with exponent sums
-`<= 1`); Additive is a positive combination of `sqrt` of affine
+concave and increasing; the weighted Cobb-Douglas form
+`x^alpha*Q^(1-alpha)` is concave (a weighted geometric mean with
+exponent sum `<= 1`; the removed payer quirk form
+`x^(alpha*(1-alpha))*Q^(1-alpha)` of `MDR-0019` was one as well);
+Additive is a positive combination of `sqrt` of affine
 functions; the CES aggregator `(alpha*x^beta + (1-alpha)*Q^beta)^(1/beta)`
 is concave for `beta <= 1` (linear at `beta == 1`). The log of a
 positive concave function is concave, and `norm` is concave for
@@ -88,7 +89,9 @@ Preserved exactly (restated from `MDR-0002` and the preserved clauses of
 - Objective: the `individual_utility` of NetLogo `calculate-utility` via
   the prepared `BestResponseObjective` arithmetic of `MDR-0013`/`MDR-0014`
   (exact expression grouping, the `CES` `beta == 0.5` sqrt/square
-  `material`, the `MultiplicativeWeighted` payer quirk). The objective
+  `material`; the `MultiplicativeWeighted` payer quirk recorded here as
+  preserved was later removed under `MDR-0019`, which unified both
+  roles on the intended form). The objective
   chain is untouched by this record; only the search over it changes.
 - Alternating loop: `mutual_best_response` keeps its update order,
   `eps = 1.0e-3`, `max_sweeps = 100`, the clamping to `[0, 1]`, and the
@@ -197,8 +200,9 @@ Changed:
      analytic one-sided LIMIT of `g` is used for bracketing only when
      it is unambiguous in the bracketing direction: positive at the
      lower end (`+inf` at `x -> 0+` for Multiplicative, for the
-     weighted specs when the `1/x` coefficient `alpha*A` (or
-     `(1-alpha)*alpha*A` for the payer quirk) is positive, for
+     weighted specs when the `1/x` coefficient `alpha*A` is positive
+     (the `(1-alpha)*alpha*A` coefficient of the payer quirk branch
+     disappeared with `MDR-0019`), for
      `Additive` and `CES` `beta < 1` when `alpha > 0`, for `CES`
      `beta == 1` at `alpha == 1`; or a finite positive limit, e.g. the
      `CES` `beta == 1` value `D / ((1-alpha) * Q(0))` plus the norm
@@ -222,9 +226,11 @@ Changed:
      sign comes from the cheap derivative sign probe; the endpoint
      objective value is evaluated only when that endpoint is selected
      and is validated there (see the acceptance rule). An exactly zero
-     boundary derivative (the demonstrably flat objective, e.g. the
-     `MultiplicativeWeighted` payer with `alpha == 1` whose material is
-     constant) falls back to the legacy tie/seed behavior (a fully
+     boundary derivative (the demonstrably flat objective; the
+     historical example was the `MultiplicativeWeighted` payer with
+     `alpha == 1`, constant under the quirk branch removed by
+     `MDR-0019`, while the unified form there is `x` and no longer
+     flat) falls back to the legacy tie/seed behavior (a fully
      flat objective is already kept by the tier-1 certificate of step
      1, bitwise the legacy tie/seed return).
   4. Interior: bracket `[a, b]` with `g(a) > 0 > g(b)` (seed sign on
@@ -302,9 +308,10 @@ Changed:
   (1-alpha)*s`, `D = alpha*A - (1-alpha)`, `S = alpha*x + (1-alpha)*Q`
   for `beta == 1` and `S = alpha*x^beta + (1-alpha)*Q^beta` otherwise):
   Multiplicative (`den = 2*x*Q`) `A*Q - x + 2*n'*x*Q`;
-  MultiplicativeWeighted recipient (`den = x*Q`) `alpha*A*Q -
-  (1-alpha)*x + n'*x*Q`; MultiplicativeWeighted payer (`den = x*Q`, the
-  `MDR-0003` quirk) `(1-alpha)*(alpha*A*Q - x) + n'*x*Q`; Additive
+  MultiplicativeWeighted (`den = x*Q`, both roles since `MDR-0019`
+  removed the payer quirk branch) `alpha*A*Q -
+  (1-alpha)*x + n'*x*Q` (the historical quirk form of the payer was
+  `(1-alpha)*(alpha*A*Q - x) + n'*x*Q`); Additive
   (`den = m*r*s`) `0.5*(alpha*A*s - (1-alpha)*r) + n'*m*r*s`; CES
   `beta == 0.5` (`den = m*r*s`) `alpha*A*s - (1-alpha)*r + n'*m*r*s`;
   CES `beta == 1` (`den = S`) `D + n'*S`; CES general (`den = S*x*Q`)
@@ -418,8 +425,10 @@ Changed:
   guard-open boundary seeds, unsupported betas including the
   `CES_DERIVATIVE_MIN_BETA` sub-floor band, and the
   injected numerical trouble paths) are bitwise
-  unchanged; the flat `alpha == 1` payer quirk is tier-1-certified and
-  keeps the seed, bitwise the legacy tie/seed return.
+  unchanged; the flat `alpha == 1` payer quirk case (the quirk-branch
+  flat objective removed under `MDR-0019`; the unified form is `x`
+  there and no longer flat) was tier-1-certified and
+  kept the seed, bitwise the legacy tie/seed return.
   Sub-validated-scale transfer gains can flip sign under the measured
   divergence (the `MDR-0016` fixture household 100 hidden band at
   1e-8 gains commits nothing on the live chain now; its demonstrated

@@ -143,6 +143,15 @@ which conventions it follows, and which architecture decisions were made.
   writes and atomic promotion, and throttled Plotly panels
   (implemented under `TASK-0028`).
 
+- `registry/code/decisions/ADR-0026-parametric-role-and-gender-markers.md`:
+  parametric role and gender markers: the phantom gender type
+  parameter `G<:Gender` on `AgentPayoffParams` replacing `is_woman`,
+  the `Recipient::Bool` type parameter of
+  `BestResponseObjective{S<:UtilitySpec,Recipient}` with a statically
+  split constructor, the role-dispatch helper family, and the dropped
+  `_material_envelope` `recipient` argument (see `MDR-0019`,
+  `TASK-0030`).
+
 ## How to add a new source file correctly
 
 1. Decide the layer for the file: `components`, `resources`, or `systems`.

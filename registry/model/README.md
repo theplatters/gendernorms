@@ -117,3 +117,7 @@ instead of silent.
 - `registry/model/decisions/MDR-0018-remove-unused-current-utility.md` --
   remove the unused stored utility component without changing the pure
   utility evaluation or bargaining solvers.
+- `registry/model/decisions/MDR-0019-fix-multiplicative-weighted-donor-quirk.md` --
+  fix ODD quirk item 4: both roles of `multiplicative including weights`
+  compute the intended `x^alpha * Q^(1-alpha)` in the port, with the
+  unified `MDR-0017` derivative formulas (see `ADR-0026`).
