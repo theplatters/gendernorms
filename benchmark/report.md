@@ -307,6 +307,12 @@ measurement): the distorted, asymmetric surface changes hill-climb
 convergence and contributes to NetLogo's 9.8x spread over utility
 functions, including the 41x maximum speedup for this branch.
 
+Note added when this quirk was fixed in the port: the paragraph above
+describes the NetLogo reference surface. The Julia port dropped the
+quirk under `MDR-0019` (both roles compute
+`income^pref * leisure^(1 - pref)`), and the measurements recorded
+here predate that change and were taken under the quirk surface.
+
 ### Initial conformism
 
 N = 100 per gender, T = 20 (`conf` group; conformism of both genders

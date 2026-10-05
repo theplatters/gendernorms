@@ -147,7 +147,12 @@ bit-identical (`isequal` on every `Float64`, NaN matches NaN,
   solver chain and the frozen reference, including the 118 improving
   optima, the fallback and infeasible-status branches, boundary hours
   and transfers, extreme wage ratios (40:1), all four utility specs,
-  and the `MultiplicativeWeighted` payer branch.
+  and the `MultiplicativeWeighted` payer branch. Historical: this
+  replay was taken under the `MultiplicativeWeighted` payer quirk
+  surface; `MDR-0019` removed the quirk and re-synced the frozen
+  oracle `test/reference_bargaining.jl` and the 42
+  `multiplicative_weighted` rows of
+  `test/fixtures/bargaining_baseline.toml` to the fixed spec.
 - Trajectories: 4 recorded `create_world` + `GN.run` trajectory runs
   (metric series and per-tick phase snapshots) replayed bit-identical
   (kept as baseline data since `MDR-0012`; trajectory deltas belong to

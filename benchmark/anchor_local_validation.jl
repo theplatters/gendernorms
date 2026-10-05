@@ -50,9 +50,9 @@ function household_args(world, i::Int, config)
     nw = GN.norm_means(world, net, i, true, nothing, Ark.Entity[])
     nm = GN.norm_means(world, net, man_vertex, false, nothing, Ark.Entity[])
     pw = GN.payoff_params(wage_w.current, wage_m.current, preference_w.current,
-        conformism_w.amount, nw, true)
+        conformism_w.amount, nw, GN.Female())
     pm = GN.payoff_params(wage_m.current, wage_w.current, preference_m.current,
-        conformism_m.amount, nm, false)
+        conformism_m.amount, nm, GN.Male())
     return (time_w.current, time_m.current, transfer_w.current, pw, pm, config.utility)
 end
 

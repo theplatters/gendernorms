@@ -114,21 +114,19 @@ function main()
     totals_new = Float64[]
     route_counts = Dict{String,Int}("tier1" => 0, "boundary" => 0, "interior" => 0, "fallback" => 0)
     spec_rows = Dict{String,Tuple{Vector{Float64},Vector{Float64}}}()
-    for (spec_name, spec) in SPECS, (role, is_woman) in (("recipient", true), ("payer", false))
+    for (spec_name, spec) in SPECS, (role, gender) in (("recipient", GN.Female()), ("payer", GN.Male()))
         for (wage_self, wage_spouse, alpha, conformism) in (
             (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
         )
             theta0 = 0.05
             config = GN.UtilityConfig(func=spec)
-            p0 = GN.AgentPayoffParams(
+            p0 = GN.AgentPayoffParams{typeof(gender)}(
                 wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha,
                 conformism=conformism, N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
-                is_woman=is_woman,
             )
-            partner = GN.AgentPayoffParams(
+            partner = GN.AgentPayoffParams{gender isa GN.Female ? GN.Male : GN.Female}(
                 wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha,
                 conformism=conformism, N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
-                is_woman=!is_woman,
             )
             hw_eq, hm_eq = settle_mbr(0.36, 0.77, theta0, p0, partner, config)
             # `p0` is the first `mutual_best_response` argument, so its
@@ -190,7 +188,7 @@ mbr_sum(hours)::Float64 = hours[1] + hours[2]
     mbr_legacy(hw_init, hm_init, theta, pw, pm, config)
 
 Benchmark-local copy of the `mutual_best_response` alternation loop of
-`src/systems/household_bargaining.jl` (lines 35-53) with each best
+`src/systems/household_bargaining.jl` with each best
 response run through the legacy `MDR-0002` expression instead of the
 specialized solver.
 """
@@ -227,13 +225,13 @@ function mbr_benchmark()
     )
     theta0 = 0.05
     for (spec_name, spec) in SPECS, (pair_name, (ww, ws, a, c), (mw, ms, am, cm)) in pairs
-        pw = GN.AgentPayoffParams(
+        pw = GN.AgentPayoffParams{GN.Female}(
             wage_self=ww, wage_spouse=ws, alpha=a, conformism=c,
-            N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
+            N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
         )
-        pm = GN.AgentPayoffParams(
+        pm = GN.AgentPayoffParams{GN.Male}(
             wage_self=mw, wage_spouse=ms, alpha=am, conformism=cm,
-            N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
+            N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
         )
         config = GN.UtilityConfig(func=spec)
         h_fixed = settle_mbr(0.36, 0.77, theta0, pw, pm, config)
@@ -278,9 +276,9 @@ function fallback_benchmark()
         ("ces_beta_2e-5", GN.UtilityConfig(func=GN.CES(beta=2.0e-5))),
     )
     for (case_name, config) in cases
-        p = GN.AgentPayoffParams(
+        p = GN.AgentPayoffParams{GN.Female}(
             wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=2.0,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+            N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
         )
         obj = GN.BestResponseObjective(0.1, 0.5, p, config)
         t_legacy = time_per_call(h -> legacy_solve(obj, h), 0.3)
@@ -319,20 +317,18 @@ function allocation_benchmark()
     for (spec_name, spec) in SPECS
         max_new = 0
         max_legacy = 0
-        for is_woman in (true, false),
+        for gender in (GN.Female(), GN.Male()),
             (wage_self, wage_spouse, alpha, conformism) in (
                 (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
             )
             config = GN.UtilityConfig(func=spec)
-            p0 = GN.AgentPayoffParams(
+            p0 = GN.AgentPayoffParams{typeof(gender)}(
                 wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha,
                 conformism=conformism, N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
-                is_woman=is_woman,
             )
-            partner = GN.AgentPayoffParams(
+            partner = GN.AgentPayoffParams{gender isa GN.Female ? GN.Male : GN.Female}(
                 wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha,
                 conformism=conformism, N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
-                is_woman=!is_woman,
             )
             hw_eq, hm_eq = settle_mbr(0.36, 0.77, 0.05, p0, partner, config)
             obj = GN.BestResponseObjective(0.05, hm_eq, p0, config)
@@ -343,13 +339,13 @@ function allocation_benchmark()
         end
         println(rpad(spec_name, 16) * rpad(max_new, 10) * string(max_legacy))
     end
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self=0.9, wage_spouse=1.0, alpha=0.48, conformism=10.0,
-        N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
+        N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self=1.0, wage_spouse=0.9, alpha=0.45, conformism=10.0,
-        N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
+        N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
     )
     args = (0.36, 0.77, 0.05, pw, pm, GN.UtilityConfig(func=GN.CES(beta=0.5)))
     println("mutual_best_response pair: new ", mbr_allocs(args),
