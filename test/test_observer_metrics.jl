@@ -87,11 +87,11 @@ function household_params(world, net, woman, man, globals)
         Ark.get_components(world, man, (GN.Wage, GN.PreferencePrivate, GN.Conformism))
     pw = GN.payoff_params(
         woman_wage.current, man_wage.current, woman_pref.current, woman_conf.amount,
-        woman_norms, true,
+        woman_norms, GN.Female(),
     )
     pm = GN.payoff_params(
         man_wage.current, woman_wage.current, man_pref.current, man_conf.amount,
-        man_norms, false,
+        man_norms, GN.Male(),
     )
     return pw, pm
 end
@@ -360,9 +360,9 @@ end
 
 @testset "concrete individual_utility evaluation allocates nothing" begin
     config = GN.UtilityConfig()
-    params = GN.AgentPayoffParams(
+    params = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.9, wage_spouse = 1.1, alpha = 0.5, conformism = 2.0,
-        N_h = 0.36, N_theta = 0.1, N_h_spouse = 0.77, is_woman = true,
+        N_h = 0.36, N_theta = 0.1, N_h_spouse = 0.77,
     )
     utility_allocs(p::GN.AgentPayoffParams, c::GN.UtilityConfig) =
         @allocated GN.individual_utility(0.4, 0.6, 0.2, p, c)

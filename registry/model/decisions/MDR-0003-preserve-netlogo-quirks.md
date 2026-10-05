@@ -20,8 +20,11 @@ to replicate it or fix it, and that choice must be visible.
 The documented quirks (ODD Known implementation quirks, items 1-12) are
 treated as reference behavior and preserved during the port unless a
 dedicated MDR explicitly fixes one. The port already follows this rule where
-it replicates a quirk, e.g. the donor branch of `individual_utility` in
-`src/resources/utility_functions.jl`. Per `MDR-0001`, the reference
+it replicates a quirk. Quirk item 4 (the `multiplicative including weights`
+donor-branch parenthesisation of `individual_utility` in
+`src/resources/utility_functions.jl`, initially preserved) is now FIXED
+under `MDR-0023`, which states the corrected behavior and the
+comparability consequences as required below. Per `MDR-0001`, the reference
 implementation `gender_model_shocks_preferences.nlogox` remains the
 tiebreaker while the ODD remains normative.
 

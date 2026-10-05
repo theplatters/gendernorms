@@ -78,17 +78,18 @@ of `MDR-0005`, one unseeded `maximize_1d` (Brent) run over `[-1, 1]`
 with the search tolerance `TRANSFER_TOL = 1.0e-3` that `MDR-0012`
 removed (its value folds into `TRANSFER_COARSE_STEP`). The
 `maximize_1d` Brent core is unchanged, so the line still runs against
-current code and still shows the OLD search failing; the superseded
+current code and still shows the OLD search failing (construction lines
+migrated to the post-`ADR-0029` keyword form, values unchanged); the superseded
 search driver also survives frozen as `bargain_transfer_reference` with
 its local `TRANSFER_TOL` in `test/reference_bargaining.jl`.
 
 ```julia
 using GenderNorms
 G = GenderNorms
-pw = G.AgentPayoffParams(1.076522981086081, 1.2622098937756323,
-    0.6807684879583694, 7.364448780533483, 0.36, 0.0, 0.77, true)
-pm = G.AgentPayoffParams(1.2622098937756323, 1.076522981086081,
-    0.25119563157565356, 9.829866291370688, 0.77, 0.0, 0.36, false)
+pw = G.AgentPayoffParams{G.Female}(; wage_self=1.076522981086081, wage_spouse=1.2622098937756323,
+    alpha=0.6807684879583694, conformism=7.364448780533483, N_h=0.36, N_theta=0.0, N_h_spouse=0.77)
+pm = G.AgentPayoffParams{G.Male}(; wage_self=1.2622098937756323, wage_spouse=1.076522981086081,
+    alpha=0.25119563157565356, conformism=9.829866291370688, N_h=0.77, N_theta=0.0, N_h_spouse=0.36)
 config = G.UtilityConfig()
 hw, hm = 0.4260828134491813, 0.7428832411904329
 uw, um = 0.5447587065544779, 0.8152834480045269

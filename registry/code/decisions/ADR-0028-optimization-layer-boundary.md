@@ -106,7 +106,10 @@ dependency change.
    contract of `set_theta!` and the `ADR-0026` committed-observation
    rules are preserved unchanged. File paths stated in those records
    (and in `MDR-0013` through `MDR-0017`) describe historical
-   placement.
+   placement. The parametric role and gender markers of `ADR-0029`
+   apply on top of this placement decision: the marker types and the
+   role-dispatch helper family live in
+   `src/resources/utility_functions.jl` as allocated above.
 
 ## Consequences
 

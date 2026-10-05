@@ -12,7 +12,7 @@
 # API unchanged.
 
 """
-    payoff_params(wage_self::Float64, wage_spouse::Float64, alpha::Float64, conformism::Float64, means, is_woman::Bool)
+    payoff_params(wage_self::Float64, wage_spouse::Float64, alpha::Float64, conformism::Float64, means, ::G) where {G<:Gender}
 
 Transient per-agent parameter bundle of NetLogo `set-theta` (ODD section
 Transfer bargaining (`set-theta`, `calculate-payoff`)); the perceived norms
@@ -22,9 +22,9 @@ an `AgentPayoffParams`.
 """
 function payoff_params(
         wage_self::Float64, wage_spouse::Float64, alpha::Float64,
-        conformism::Float64, means, is_woman::Bool
-    )
-    return AgentPayoffParams(
+        conformism::Float64, means, ::G
+    ) where {G <: Gender}
+    return AgentPayoffParams{G}(
         wage_self = wage_self,
         wage_spouse = wage_spouse,
         alpha = alpha,
@@ -32,7 +32,6 @@ function payoff_params(
         N_h = means.division_of_labor,
         N_theta = means.transfer,
         N_h_spouse = means.division_of_labor_spouse,
-        is_woman = is_woman
     )
 end
 
@@ -149,11 +148,11 @@ function set_theta!(
 
                 pw = payoff_params(
                     wages[f].current, man_wage.current, preferences[f].current,
-                    conformisms[f].amount, woman_norms, true
+                    conformisms[f].amount, woman_norms, Female()
                 )
                 pm = payoff_params(
                     man_wage.current, wages[f].current, man_preference.current,
-                    man_conformism.amount, man_norms, false
+                    man_conformism.amount, man_norms, Male()
                 )
 
                 theta, hw, hm = bargain_transfer(

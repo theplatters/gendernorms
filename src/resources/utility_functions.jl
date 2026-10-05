@@ -43,6 +43,16 @@ end
 material(::Multiplicative, x::Float64, Q::Float64, alpha::Float64) =
     sqrt(x) * sqrt(Q)
 
+"""
+    material(::MultiplicativeWeighted, x::Float64, Q::Float64, alpha::Float64)
+
+MultiplicativeWeighted material utility (ODD section Material utility):
+the Cobb-Douglas form `x^alpha * Q^(1 - alpha)` for both roles. The
+NetLogo `calculate-utility` payer branch of this spec, the
+wrong-parenthesis form `(x^alpha * Q)^(1 - alpha)`, is removed and the
+intended form applies to payer and recipient alike (recorded deviation
+`MDR-0023`).
+"""
 material(::MultiplicativeWeighted, x::Float64, Q::Float64, alpha::Float64) =
     x^alpha * Q^(1 - alpha)
 
@@ -86,17 +96,17 @@ function _envelope_peak(f::F, q::Float64, d::Float64, v_star::Float64)::Float64 
 end
 
 """
-    _material_envelope(spec::UtilitySpec, q::Float64, d::Float64, alpha::Float64, recipient::Bool)
+    _material_envelope(spec::UtilitySpec, q::Float64, d::Float64, alpha::Float64)
 
 Fail-open fallback of `_material_envelope(::Additive, ...)`: a
 `UtilitySpec` subtype without a certified envelope yields `NaN`, so the
 certificate never certifies on an unenveloped spec and falls back to
 the full solve (see `ADR-0015`).
 """
-_material_envelope(::UtilitySpec, q::Float64, d::Float64, alpha::Float64, recipient::Bool)::Float64 = NaN
+_material_envelope(::UtilitySpec, q::Float64, d::Float64, alpha::Float64)::Float64 = NaN
 
 """
-    _material_envelope(::Additive, q::Float64, d::Float64, alpha::Float64, recipient::Bool)
+    _material_envelope(::Additive, q::Float64, d::Float64, alpha::Float64)
 
 Material-utility envelope of the certified `-Inf` transfer-objective
 certificate (see `ADR-0015`): an upper bound of `material(spec, x, Q,
@@ -111,12 +121,11 @@ evaluated at the analytic maximizer of the spec and at both endpoints
 `v* = clamp(2*alpha^2*q / (alpha^2*q + (1-alpha)^2), 0, d)`.
 Returns `NaN` (fail open) when an input is out of range, when the
 denominator of `v*` vanishes, or when an envelope intermediate is
-non-finite or subnormal (see `_envelope_peak`). The argument
-`recipient` is unused for this spec. Certification helper of
+non-finite or subnormal (see `_envelope_peak`). Certification helper of
 `ADR-0015`, not a ported NetLogo behavior.
 """
 function _material_envelope(
-        ::Additive, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+        ::Additive, q::Float64, d::Float64, alpha::Float64
     )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
@@ -157,7 +166,7 @@ end
 const CES_CERT_MIN_BETA = 1.0e-3
 
 """
-    _material_envelope(u::CES, q::Float64, d::Float64, alpha::Float64, recipient::Bool)
+    _material_envelope(u::CES, q::Float64, d::Float64, alpha::Float64)
 
 CES envelope of `_material_envelope(::Additive, ...)`, certified only
 inside the safe band `beta >= CES_CERT_MIN_BETA`; `beta` below the
@@ -201,11 +210,10 @@ overflows or underflows to zero is covered by the same guards:
 overflow makes `S` or the candidate value non-finite and fails open,
 and a dropped-underflow term contributes under `2^-1075` absolute,
 which is negligible against a normal `S` and mapped below the bound
-floor when the whole sum underflows. The argument `recipient` is
-unused for this spec. See `ADR-0015` and `ADR-0019`.
+floor when the whole sum underflows. See `ADR-0015` and `ADR-0019`.
 """
 function _material_envelope(
-        u::CES, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+        u::CES, q::Float64, d::Float64, alpha::Float64
     )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
@@ -264,16 +272,15 @@ function _material_envelope(
 end
 
 """
-    _material_envelope(::Multiplicative, q::Float64, d::Float64, alpha::Float64, recipient::Bool)
+    _material_envelope(::Multiplicative, q::Float64, d::Float64, alpha::Float64)
 
 Multiplicative envelope of `_material_envelope(::Additive, ...)`: the
-maximizer of `sqrt(q*v)*sqrt(2-v)` is `v* = min(d, 1)`. The argument
-`recipient` is unused for this spec and `alpha` does not enter the
-material function, but the uniform input guards apply. See
-`ADR-0015`.
+maximizer of `sqrt(q*v)*sqrt(2-v)` is `v* = min(d, 1)`. `alpha` does
+not enter the material function, but the uniform input guards apply.
+See `ADR-0015`.
 """
 function _material_envelope(
-        ::Multiplicative, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+        ::Multiplicative, q::Float64, d::Float64, alpha::Float64
     )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
@@ -283,41 +290,40 @@ function _material_envelope(
 end
 
 """
-    _material_envelope(::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64, recipient::Bool)
+    _material_envelope(::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64)
 
 MultiplicativeWeighted envelope of `_material_envelope(::Additive,
-...)`. The recipient uses the `material` method `x^alpha * Q^(1-alpha)`
-with maximizer `v* = clamp(2*alpha, 0, d)`; the payer uses the special
-branch of `individual_utility`, `(x^alpha * Q)^(1-alpha)`, with
-maximizer `v* = clamp(2*alpha/(1+alpha), 0, d)`. The argument
-`recipient` selects the branch and must match the one
-`individual_utility` takes. See `ADR-0015`.
+...)`: the single `material` form `x^alpha * Q^(1-alpha)` with
+maximizer `v* = clamp(2*alpha, 0, d)`, for both roles. Both roles use
+this intended Cobb-Douglas form; the NetLogo payer branch of
+`calculate-utility`, `(x^alpha * Q)^(1-alpha)` with maximizer
+`2*alpha/(1+alpha)`, is removed as a recorded deviation of `MDR-0023`.
+See `ADR-0015`.
 """
 function _material_envelope(
-        ::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+        ::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64
     )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
     ok || return NaN
-    if recipient
-        v_star = clamp(2.0 * alpha, 0.0, d)
-        return _envelope_peak(v -> (q * v)^alpha * (2.0 - v)^(1.0 - alpha), q, d, v_star)
-    end
-    v_star = clamp(2.0 * alpha / (1.0 + alpha), 0.0, d)
-    return _envelope_peak(v -> ((q * v)^alpha * (2.0 - v))^(1.0 - alpha), q, d, v_star)
+    v_star = clamp(2.0 * alpha, 0.0, d)
+    return _envelope_peak(v -> (q * v)^alpha * (2.0 - v)^(1.0 - alpha), q, d, v_star)
 end
 
 """
-    AgentPayoffParams
+    AgentPayoffParams{G<:Gender}
 
 Transient per-agent parameter object of the household bargaining: own and
 spouse wage, material preference `alpha`, conformism, the perceived norms
 `N_h` (own working time), `N_theta` (transfer), and `N_h_spouse` (spouse
-working time), and the agent's sex. `set_theta!` builds it at the
+working time). The `Gender` marker type parameter `G` is `Male` or
+`Female` (from `src/components.jl`) and marks the agent's sex for the
+role dispatch of `_get_relevant_transfer`; it replaces the deleted
+`is_woman` field (see `ADR-0029`). `set_theta!` builds it at the
 `mutual_best_response` call and the solver passes it to
 `individual_utility`; it is never stored or returned (see `ADR-0007`).
 """
-Base.@kwdef struct AgentPayoffParams
+Base.@kwdef struct AgentPayoffParams{G <: Gender}
     wage_self::Float64 = 1.0
     wage_spouse::Float64 = 1.0
     alpha::Float64 = 0.5
@@ -325,11 +331,10 @@ Base.@kwdef struct AgentPayoffParams
     N_h::Float64 = 0.5
     N_theta::Float64 = 0.0
     N_h_spouse::Float64 = 0.5
-    is_woman::Bool = true
 end
 
 """
-    BestResponseObjective{S}
+    BestResponseObjective{S<:UtilitySpec,Recipient}
 
 Prepared own-hours objective of one `best_response_1d` call (see
 `MDR-0013` and `ADR-0018`): the `individual_utility` of one partner at
@@ -339,7 +344,12 @@ spouse-dependent term hoisted out of the per-hours evaluation. Built by
 as `obj(h::Float64)`; an isbits callable that allocates nothing and
 keeps the `UtilitySpec` type `S` static for the material dispatch (the
 `MDR-0002` no-boxing discipline, now structural: `mutual_best_response`
-passes this callable instead of a closure). Fields hold the hoisted
+passes this callable instead of a closure). The `S<:UtilitySpec` type
+parameter is the material spec of the config; the `Recipient::Bool`
+type parameter marks the partner role (`true` = recipient) and replaces
+the deleted `recipient` field with a static marker (see `ADR-0029`):
+it selects the call overload and with it the consumption form of `x`
+(see below) without a runtime branch. Fields hold the hoisted
 consumption terms `wage_self`, `transfer_income`, and
 `one_minus_transfer` of `x` (the recipient's `h * wage_self +
 transfer_income` with `transfer_income = abs(relevant_transfer) *
@@ -349,17 +359,18 @@ h) - h_spouse`, the hoisted transfer and spouse norm products
 `norm_transfer` and `norm_spouse` of `norm = -conformism *
 ((norm_weight * (h - norm_hours)^2 + norm_transfer) + norm_spouse)`,
 the material
-preference `alpha` with `one_minus_alpha` for the
-`MultiplicativeWeighted` payer branch, the partner role `recipient`,
-and the spouse-hours guard `spouse_out_of_range`. Every formula keeps
+preference `alpha` with its hoisted complement `one_minus_alpha`, and
+the spouse-hours guard `spouse_out_of_range`. Every formula keeps
 the exact expression grouping of `individual_utility`, so the
 evaluation is bitwise identical to it (CSE-style hoisting only; the
 regrouped coefficient form of `MDR-0013` was measured and dropped,
 see the record). The formula is the `individual_utility` of NetLogo
 `calculate-utility` (ODD sections Material utility and conformity
-multiplier and Norm perception).
+multiplier and Norm perception), with the `MultiplicativeWeighted`
+deviation of `MDR-0023` (both roles use the intended Cobb-Douglas
+material `x^alpha * Q^(1-alpha)`).
 """
-struct BestResponseObjective{S <: UtilitySpec}
+struct BestResponseObjective{S <: UtilitySpec, Recipient}
     func::S
     alpha::Float64
     one_minus_alpha::Float64
@@ -372,29 +383,37 @@ struct BestResponseObjective{S <: UtilitySpec}
     norm_weight::Float64
     norm_hours::Float64
     conformism::Float64
-    recipient::Bool
     spouse_out_of_range::Bool
 end
 
 """
-    BestResponseObjective(theta::Float64, h_spouse::Float64, self_params::AgentPayoffParams, config::UtilityConfig)
+    BestResponseObjective(theta::Float64, h_spouse::Float64, self_params::AgentPayoffParams, config::UtilityConfig{S}) where {S}
 
 Build the prepared own-hours objective of one `best_response_1d` call
 (see `BestResponseObjective` and `MDR-0013`): hoists the transfer- and
 spouse-dependent terms of `individual_utility` for own hours `h` at
 fixed spouse hours `h_spouse` and fixed transfer `theta`. The role
-(`recipient`), the consumption terms of `x`, and the norm products are
-computed exactly as `individual_utility` derives them. Returns the
-callable objective.
+(`recipient = relevant_transfer < 0`, with `relevant_transfer` from
+`_get_relevant_transfer`), the consumption terms of `x`, and the norm
+products are computed exactly as `individual_utility` derives them. The
+runtime role selects the return type with a static `if recipient`
+split: the recipient branch returns `BestResponseObjective{S,true}`,
+the payer branch `BestResponseObjective{S,false}`, so every return path
+is a concrete isbits type and the method returns the 2-element small
+union of the two, never `Any` (the parametric role marker of
+`ADR-0029`). Arguments are the transfer `theta`, the spouse hours
+`h_spouse`, the transient parameter bundle `self_params`, and the
+utility config `config`, whose `UtilitySpec` type `S` is carried to the
+result. Returns the callable objective.
 """
 function BestResponseObjective(
         theta::Float64, h_spouse::Float64,
         self_params::AgentPayoffParams, config::UtilityConfig{S}
     ) where {S}
-    relevant_transfer = self_params.is_woman ? -theta : theta
+    relevant_transfer = _get_relevant_transfer(theta, self_params)
     recipient = relevant_transfer < 0
-    transfer_income::Float64 = 0.0
-    one_minus_transfer::Float64 = 1.0
+    transfer_income = 0.0
+    one_minus_transfer = 1.0
     if recipient
         transfer_income = abs(relevant_transfer) * self_params.wage_spouse * h_spouse
     else
@@ -402,7 +421,7 @@ function BestResponseObjective(
     end
     dtheta = theta - self_params.N_theta
     d_spouse = h_spouse - self_params.N_h_spouse
-    return BestResponseObjective{S}(
+    args = (
         config.func,
         self_params.alpha,
         1 - self_params.alpha,
@@ -415,10 +434,133 @@ function BestResponseObjective(
         config.w_self,
         self_params.N_h,
         self_params.conformism,
-        recipient,
         h_spouse < 0 || h_spouse > 1,
     )
+    if recipient
+        return BestResponseObjective{S, true}(args...)
+    else
+        return BestResponseObjective{S, false}(args...)
+    end
 end
+
+# Role-dispatched consumption geometry (see `ADR-0029`): the signed
+# transfer and the consumption `x` of one partner with its linear
+# coefficients `A` (slope in own hours) and `B` (intercept), selected by
+# the `Gender` marker of `AgentPayoffParams` and the `Recipient` marker
+# of `BestResponseObjective` instead of the deleted `is_woman` and
+# `recipient` fields. Every expression keeps the exact grouping of
+# `individual_utility` and its call overloads.
+
+"""
+    _get_relevant_transfer(theta::Float64, self_params::AgentPayoffParams)
+
+Signed transfer of the household transfer `theta` (positive from the
+man to the woman) from the perspective of partner `self_params`, of
+NetLogo `calculate-utility` (ODD section Material utility and
+conformity multiplier): `theta` for the man
+(`AgentPayoffParams{Male}`), `-theta` for the woman
+(`AgentPayoffParams{Female}`), so a positive value is a transfer the
+partner pays and a negative value one the partner receives. The
+`Gender` marker type parameter selects the sign by role dispatch (the
+parametric replacement of the deleted `is_woman` field, `ADR-0029`).
+Returns the signed transfer; `relevant_transfer < 0` marks the
+recipient role.
+"""
+_get_relevant_transfer(theta, ::AgentPayoffParams{Male}) = theta
+_get_relevant_transfer(theta, ::AgentPayoffParams{Female}) = -theta
+
+"""
+    _x_for_gradient(h, obj::BestResponseObjective)
+
+Consumption `x` at own hours `h` in the exact expression grouping of
+the `(obj::BestResponseObjective)(h::Float64)` call overloads (see
+`_eval_objective_function`): the recipient's `h * wage_self +
+transfer_income` and the payer's `(h * wage_self) *
+one_minus_transfer`, dispatched on the `Recipient` marker type
+parameter (`ADR-0029`). The derivative and sign probes of `MDR-0017`
+(`_best_response_derivatives`, `_gradient_sign_at`) must evaluate
+bitwise the `x` the objective call evaluates, hence the shared helper.
+Returns a `Float64`.
+"""
+function _x_for_gradient(h, obj::BestResponseObjective{S, true}) where {S}
+    return (h * obj.wage_self + obj.transfer_income)
+end
+
+function _x_for_gradient(h, obj::BestResponseObjective{S, false}) where {S}
+    return ((h * obj.wage_self) * obj.one_minus_transfer)
+end
+
+"""
+    _A_for_gradient(obj::BestResponseObjective)
+
+Consumption slope `A` in the exact expression grouping of the
+derivative solve of `MDR-0017` (`_best_response_derivatives`,
+`_best_response_gradient_sign`): the recipient's `wage_self` and the
+payer's `wage_self * one_minus_transfer`, dispatched on the `Recipient`
+marker type parameter (`ADR-0029`). Same coefficient as
+`_consumption_slope`, named for the derivative formulas that use `A`
+as their `dx/dh` factor. Returns a `Float64`.
+"""
+_A_for_gradient(obj::BestResponseObjective{S, true}) where {S} = obj.wage_self
+function _A_for_gradient(obj::BestResponseObjective{S, false}) where {S}
+    return obj.wage_self * obj.one_minus_transfer
+end
+
+"""
+    _consumption_slope(obj::BestResponseObjective)
+
+Consumption slope `A` of one partner: the coefficient of own hours in
+the call overload's `x`, the recipient's `wage_self` and the payer's
+`wage_self * one_minus_transfer`, dispatched on the `Recipient` marker
+type parameter (`ADR-0029`). Role-dispatch helper of the derivative
+solve of `MDR-0017` (`_derivative_applicable`,
+`_derivative_seed_certificate`, `_one_sided_gradient`,
+`_derivative_best_response`); with `_consumption_intercept` it replaces
+the deleted `obj.recipient` field reads. Returns a `Float64`.
+"""
+_consumption_slope(obj::BestResponseObjective{S, true}) where {S} =
+    obj.wage_self
+
+function _consumption_slope(obj::BestResponseObjective{S, false}) where {S}
+    return obj.wage_self * obj.one_minus_transfer
+end
+
+"""
+    _consumption_at_upper(obj::BestResponseObjective, A::Float64)
+
+Consumption `x` at own hours `h == 1`, computed from the slope `A` of
+`_consumption_slope`: the recipient's `A + transfer_income` and the
+payer's `A` (zero intercept), dispatched on the `Recipient` marker
+type parameter (`ADR-0029`). Supplies the upper-endpoint consumption
+`x1` of `_one_sided_gradient` and `_upper_material_gradient` (`MDR-0017`).
+Returns a `Float64`.
+"""
+_consumption_at_upper(
+    obj::BestResponseObjective{S, true}, A::Float64
+) where {S} = A + obj.transfer_income
+
+_consumption_at_upper(
+    ::BestResponseObjective{S, false}, A::Float64
+) where {S} = A
+
+"""
+    _consumption_intercept(obj::BestResponseObjective)
+
+Consumption intercept `B` of one partner: the constant term of the
+call overload's `x`, the recipient's `transfer_income` and the payer's
+`0.0`, dispatched on the `Recipient` marker type parameter
+(`ADR-0029`). With `_consumption_slope` it replaces the deleted
+`obj.recipient` field reads and drives the lower-endpoint test
+`B == 0 && A > 0` (`x(0) == 0`) of `_derivative_applicable` and
+`_derivative_best_response` (`MDR-0017`). Returns a `Float64`.
+"""
+_consumption_intercept(
+    obj::BestResponseObjective{S, true}
+) where {S} = obj.transfer_income
+
+_consumption_intercept(
+    ::BestResponseObjective{S, false}
+) where {S} = 0.0
 
 """
     (obj::BestResponseObjective)(h::Float64)
@@ -433,9 +575,36 @@ outside `[0, 1]`, spouse hours outside `[0, 1]`; see `MDR-0013`).
 Returns the utility, `-Inf` for infeasible `h`, `NaN` for non-finite
 inputs.
 """
-function (obj::BestResponseObjective)(h::Float64)
-    x = obj.recipient ? (h * obj.wage_self + obj.transfer_income) :
-        ((h * obj.wage_self) * obj.one_minus_transfer)
+function (obj::BestResponseObjective{S, true})(h::Float64) where {S}
+    x = (h * obj.wage_self + obj.transfer_income)
+    return _eval_objective_function(h, x, obj)
+end
+
+function (obj::BestResponseObjective{S, false})(h::Float64) where {S}
+    x = ((h * obj.wage_self) * obj.one_minus_transfer)
+    return _eval_objective_function(h, x, obj)
+end
+
+"""
+    _eval_objective_function(h::Float64, x::Float64, obj::BestResponseObjective{S,Recipient}) where {S,Recipient}
+
+Shared evaluation core of the two `(obj::BestResponseObjective)(h::Float64)`
+call overloads, given the own hours `h` and the already-evaluated
+consumption `x` of the calling role overload and the objective `obj`:
+computes `Q = (2 - h) - h_spouse`, applies the feasibility guards of
+`individual_utility` (`x <= 0`, `Q <= 0`, `h` outside `[0, 1]`, spouse
+hours outside `[0, 1]` return `-Inf`; see `MDR-0013`), and returns
+`material(obj.func, x, Q, obj.alpha) * exp(norm)` with `norm =
+-conformism * ((norm_weight * (h - norm_hours)^2 + norm_transfer) +
+norm_spouse)`, in the exact expression grouping of `individual_utility`
+(the NetLogo `calculate-utility` formula, ODD sections Material utility
+and conformity multiplier and Norm perception, with the
+`MultiplicativeWeighted` deviation of `MDR-0023`). Returns the utility
+value (`Float64`).
+"""
+function _eval_objective_function(
+        h::Float64, x::Float64, obj::BestResponseObjective{S, Recipient}
+    ) where {S, Recipient}
     Q = (2 - h) - obj.h_spouse
     if x <= 0 || Q <= 0 || h < 0 || h > 1 || obj.spouse_out_of_range
         return -Inf
@@ -444,11 +613,7 @@ function (obj::BestResponseObjective)(h::Float64)
     norm = -obj.conformism * (
         (obj.norm_weight * (dh * dh) + obj.norm_transfer) + obj.norm_spouse
     )
-    material_value = if !obj.recipient && obj.func isa MultiplicativeWeighted
-        (x^obj.alpha * Q)^obj.one_minus_alpha
-    else
-        material(obj.func, x, Q, obj.alpha)
-    end
+    material_value = material(obj.func, x, Q, obj.alpha)
     return material_value * exp(norm)
 end
 
@@ -459,7 +624,10 @@ Material utility times the conformity multiplier of NetLogo
 `calculate-utility` (ODD sections Material utility and conformity multiplier
 and Norm perception) for own hours `h_self`, spouse hours `h_spouse`, and
 transfer `theta`, evaluated for the transient `AgentPayoffParams` bundle
-`self_params` (see `ADR-0007`). Returns `-Inf` for infeasible bundles.
+`self_params` (see `ADR-0007`). For `MultiplicativeWeighted` both
+partners use the intended Cobb-Douglas material `x^alpha *
+Q^(1-alpha)`; the NetLogo payer branch `(x^alpha * Q)^(1-alpha)` is a
+recorded deviation (`MDR-0023`). Returns `-Inf` for infeasible bundles.
 Delegates to the prepared own-hours objective `BestResponseObjective`
 (one source of truth with the labour solver; see `MDR-0013`).
 """
@@ -477,7 +645,7 @@ Per-spec material part `(g_mat, g_prime_mat, mval)` of
 `_best_response_derivatives` (`MDR-0017`, see `ADR-0022`): the
 log-utility derivative `g_mat = d log(material)/dh` and its derivative
 `g_prime_mat`, plus the material value `mval` of the same pass (bitwise
-the material branch the call overload takes at this role and spec). The
+the `material` value the call overload evaluates for this spec). The
 coefficient `A` enters the derivative formulas; `x` and `Q` are the
 exact-grouping values of the call overload. The fallback method fails
 open with `(NaN, NaN, NaN)` for an unenveloped spec. See `MDR-0017` for
@@ -490,7 +658,7 @@ function _material_log_derivatives(
 end
 
 function _material_log_derivatives(
-        func::Multiplicative, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+        ::Multiplicative, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
     )
     inv_x = 1.0 / x
     inv_Q = 1.0 / Q
@@ -502,28 +670,20 @@ function _material_log_derivatives(
 end
 
 function _material_log_derivatives(
-        func::MultiplicativeWeighted, obj::BestResponseObjective,
+        ::MultiplicativeWeighted, obj::BestResponseObjective,
         x::Float64, Q::Float64, A::Float64
     )
     inv_x = 1.0 / x
     inv_Q = 1.0 / Q
     ax = A * inv_x
-    if obj.recipient
-        g_mat = obj.alpha * ax - obj.one_minus_alpha * inv_Q
-        g_prime_mat = -(obj.alpha * (ax * ax) + obj.one_minus_alpha * (inv_Q * inv_Q))
-        mval = x^obj.alpha * Q^obj.one_minus_alpha
-    else
-        # The preserved NetLogo quirk branch of the call overload,
-        # `(x^alpha * Q)^(1-alpha)` (see `MDR-0003`).
-        g_mat = obj.one_minus_alpha * (obj.alpha * ax - inv_Q)
-        g_prime_mat = -obj.one_minus_alpha * (obj.alpha * (ax * ax) + inv_Q * inv_Q)
-        mval = (x^obj.alpha * Q)^obj.one_minus_alpha
-    end
+    g_mat = obj.alpha * ax - obj.one_minus_alpha * inv_Q
+    g_prime_mat = -(obj.alpha * (ax * ax) + obj.one_minus_alpha * (inv_Q * inv_Q))
+    mval = x^obj.alpha * Q^obj.one_minus_alpha
     return (g_mat, g_prime_mat, mval)
 end
 
 function _material_log_derivatives(
-        func::Additive, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+        ::Additive, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
     )
     r = sqrt(x)
     s = sqrt(Q)
@@ -594,11 +754,8 @@ supplied by the caller and multiplied through by the same `den`. The
 exact formulas (the `MDR-0017` sign forms, `den > 0` throughout) are:
 
 - Multiplicative (`den = 2*x*Q`): `A*Q - x + 2*n_prime*x*Q`.
-- MultiplicativeWeighted recipient (`den = x*Q`):
+- MultiplicativeWeighted (`den = x*Q`):
   `alpha*A*Q - (1-alpha)*x + n_prime*x*Q`.
-- MultiplicativeWeighted payer (`den = x*Q`, the preserved NetLogo
-  quirk branch of `MDR-0003`):
-  `(1-alpha)*(alpha*A*Q - x) + n_prime*x*Q`.
 - Additive (`den = m*r*s`, `r = sqrt(x)`, `s = sqrt(Q)`, `m = alpha*r +
   (1-alpha)*s`): `0.5*(alpha*A*s - (1-alpha)*r) + n_prime*m*r*s`.
 - CES `beta == 0.5` (`den = m*r*s` as above):
@@ -642,13 +799,7 @@ function _gradient_sign_residual(
     )::Float64
     xQ = x * Q
     (isfinite(xQ) && xQ >= floatmin(Float64)) || return NaN
-    residual = if obj.recipient
-        obj.alpha * A * Q - obj.one_minus_alpha * x + n_prime * xQ
-    else
-        # The preserved NetLogo quirk branch of the call overload,
-        # `(x^alpha * Q)^(1-alpha)` (see `MDR-0003`).
-        obj.one_minus_alpha * (obj.alpha * A * Q - x) + n_prime * xQ
-    end
+    residual = obj.alpha * A * Q - obj.one_minus_alpha * x + n_prime * xQ
     return isfinite(residual) ? residual : NaN
 end
 
@@ -718,16 +869,15 @@ or the value is subnormal (the `_envelope_peak` guard style of
 `ADR-0015`).
 """
 function _best_response_derivatives(
-        obj::BestResponseObjective{S}, h::Float64
-    )::Tuple{Float64, Float64, Float64} where {S}
-    x = obj.recipient ? (h * obj.wage_self + obj.transfer_income) :
-        ((h * obj.wage_self) * obj.one_minus_transfer)
+        obj::BestResponseObjective, h::Float64
+    )::Tuple{Float64, Float64, Float64}
+    x = _x_for_gradient(h, obj)
     Q = (2 - h) - obj.h_spouse
     if !(x >= floatmin(Float64)) || !(Q >= floatmin(Float64)) ||
             h < 0.0 || h > 1.0 || obj.spouse_out_of_range
         return (NaN, NaN, NaN)
     end
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
+    A = _A_for_gradient(obj)
     g_mat, g_prime_mat, mval = _material_log_derivatives(obj.func, obj, x, Q, A)
     (isfinite(g_mat) && isfinite(g_prime_mat)) || return (NaN, NaN, NaN)
     (isfinite(mval) && mval >= floatmin(Float64)) || return (NaN, NaN, NaN)
@@ -765,13 +915,9 @@ non-finite. The skipped-probe semantics are the
 `MDR-0017` enclosure rule: a probe that leaves the feasible interval or
 hits a guard cannot confirm an enclosure.
 """
-function _best_response_gradient_sign(
-        obj::BestResponseObjective{S}, h::Float64
-    )::Float64 where {S}
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
-    k = obj.conformism * obj.norm_weight
-    return _gradient_sign_at(obj, h, A, k)
-end
+_best_response_gradient_sign(
+    obj::BestResponseObjective, h::Float64
+)::Float64 = _gradient_sign_at(obj, h, _A_for_gradient(obj), obj.conformism * obj.norm_weight)
 
 """
     _gradient_sign_at(obj::BestResponseObjective{S}, h::Float64, A::Float64, k::Float64)
@@ -786,10 +932,9 @@ and `n_prime` groupings and the point guards and `NaN` skip semantics
 of `_best_response_gradient_sign`. Returns a `Float64`.
 """
 function _gradient_sign_at(
-        obj::BestResponseObjective{S}, h::Float64, A::Float64, k::Float64
-    )::Float64 where {S}
-    x = obj.recipient ? (h * obj.wage_self + obj.transfer_income) :
-        ((h * obj.wage_self) * obj.one_minus_transfer)
+        obj::BestResponseObjective, h::Float64, A::Float64, k::Float64
+    )::Float64
+    x = _x_for_gradient(h, obj)
     Q = (2 - h) - obj.h_spouse
     if !(x >= floatmin(Float64)) || !(Q >= floatmin(Float64)) ||
             h < 0.0 || h > 1.0 || obj.spouse_out_of_range
@@ -800,6 +945,104 @@ function _gradient_sign_at(
     isfinite(n_prime) || return NaN
     return _gradient_sign_residual(obj.func, obj, x, Q, A, n_prime)
 end
+
+# Material log-gradient limit at the infeasible lower endpoint.
+
+"""
+    _lower_material_gradient(spec::UtilitySpec, obj::BestResponseObjective, A::Float64, Q0::Float64)
+
+Material part `g_mat` of the analytic one-sided limit of
+`_one_sided_gradient` at the guard-infeasible lower endpoint `h -> 0+`
+(`x(0) == 0`; `MDR-0017`, see `ADR-0022`): the limit of
+`d log(material)/dh` as the consumption `x -> 0+`, from the
+consumption slope `A` and the endpoint spouse consumption `Q0 = 2 -
+h_spouse`. Per spec (role-independent, the `Recipient` role enters only
+through `A`; `ADR-0029` and the unified `MultiplicativeWeighted` form
+of `MDR-0023`): `Multiplicative` is `+Inf`;
+`MultiplicativeWeighted` is `+Inf` at `alpha > 0` and `-1 / Q0` at
+`alpha == 0`; `Additive` is `+Inf` at `alpha > 0` and `-0.5 / Q0` at
+`alpha == 0`; `CES` `beta == 1` is `D / ((1 - alpha) * Q0)` with `D =
+alpha * A - (1 - alpha)`, `+Inf` at `alpha == 1`, and every other
+`beta` like `MultiplicativeWeighted`. The fallback fails open with
+`NaN` for an unenveloped spec. Returns a `Float64`.
+"""
+_lower_material_gradient(
+    ::UtilitySpec, ::BestResponseObjective, ::Float64, ::Float64
+)::Float64 = NaN
+
+_lower_material_gradient(
+    ::Multiplicative, ::BestResponseObjective, ::Float64, ::Float64
+)::Float64 = Inf
+
+_lower_material_gradient(
+    ::MultiplicativeWeighted, obj::BestResponseObjective,
+    ::Float64, Q0::Float64
+)::Float64 = obj.alpha > 0.0 ? Inf : -1.0 / Q0
+
+_lower_material_gradient(
+    ::Additive, obj::BestResponseObjective, ::Float64, Q0::Float64
+)::Float64 = obj.alpha > 0.0 ? Inf : -0.5 / Q0
+
+function _lower_material_gradient(
+        func::CES, obj::BestResponseObjective, A::Float64, Q0::Float64
+    )::Float64
+    if func.beta == 1.0
+        return obj.alpha == 1.0 ? Inf :
+            (obj.alpha * A - obj.one_minus_alpha) /
+            (obj.one_minus_alpha * Q0)
+    end
+    return obj.alpha > 0.0 ? Inf : -1.0 / Q0
+end
+
+# Material log-gradient limit at the infeasible upper endpoint.
+
+"""
+    _upper_material_gradient(spec::UtilitySpec, obj::BestResponseObjective, A::Float64, x1::Float64)
+
+Material part `g_mat` of the analytic one-sided limit of
+`_one_sided_gradient` at the guard-infeasible upper endpoint `h -> 1-`
+(`Q(1) == 0`; `MDR-0017`, see `ADR-0022`): the limit of
+`d log(material)/dh` as the spouse consumption `Q -> 0+`, from the
+consumption slope `A` and the endpoint consumption `x1 =
+_consumption_at_upper(obj, A)`. Per spec (role-independent, the
+`Recipient` role enters only through `A` and `x1`; `ADR-0029` and the
+unified `MultiplicativeWeighted` form of `MDR-0023`):
+`Multiplicative` is `-Inf`; `MultiplicativeWeighted` is `-Inf` at
+`alpha < 1` and `A / x1` at `alpha == 1`; `Additive` is `-Inf` at
+`alpha < 1` and `0.5 * A / x1` at `alpha == 1`; `CES` `beta == 1` is
+`D / (alpha * x1)` with `D = alpha * A - (1 - alpha)`, `-Inf` at
+`alpha == 0`, and every other `beta` like `MultiplicativeWeighted`.
+The fallback fails open with `NaN` for an unenveloped spec. Returns a
+`Float64`.
+"""
+_upper_material_gradient(
+    ::UtilitySpec, ::BestResponseObjective, ::Float64, ::Float64
+)::Float64 = NaN
+
+_upper_material_gradient(
+    ::Multiplicative, ::BestResponseObjective, ::Float64, ::Float64
+)::Float64 = -Inf
+
+_upper_material_gradient(
+    ::MultiplicativeWeighted, obj::BestResponseObjective,
+    A::Float64, x1::Float64
+)::Float64 = obj.alpha < 1.0 ? -Inf : A / x1
+
+_upper_material_gradient(
+    ::Additive, obj::BestResponseObjective, A::Float64, x1::Float64
+)::Float64 = obj.alpha < 1.0 ? -Inf : 0.5 * A / x1
+
+function _upper_material_gradient(
+        func::CES, obj::BestResponseObjective, A::Float64, x1::Float64
+    )::Float64
+    if func.beta == 1.0
+        return obj.alpha == 0.0 ? -Inf :
+            (obj.alpha * A - obj.one_minus_alpha) / (obj.alpha * x1)
+    end
+    return obj.alpha < 1.0 ? -Inf : A / x1
+end
+
+# Shared endpoint selection, norm slope, and guard handling.
 
 """
     _one_sided_gradient(obj::BestResponseObjective{S}, at_lower::Bool)
@@ -818,8 +1061,15 @@ cases return their finite analytic limit, material part plus the norm
 slope `n'(h)`: `CES` `beta == 1` has `g = D / S` with `D = alpha * A -
 (1 - alpha)` and `S -> (1 - alpha) * Q(0)` at the lower end, `S ->
 alpha * x(1)` at the upper end; `Additive` at `alpha == 0` has
-`-0.5 / Q(0)`; the `MultiplicativeWeighted` quirk branch at
-`alpha == 1` is the constant material with zero material part. The
+`-0.5 / Q(0)`; `MultiplicativeWeighted` at `alpha == 1` has the finite
+upper-end material limit `A / x(1)` of the unified Cobb-Douglas form
+(its lower-end limit is the `+Inf` of the `1/x` term above; `MDR-0023`,
+the NetLogo quirk branch with zero material part is removed). The
+material part is the role-independent per-spec dispatch of
+`_lower_material_gradient` and `_upper_material_gradient` (the
+`Recipient` marker enters only through the consumption terms `A`,
+`x(1)`, and `Q(0)`, see
+`ADR-0029`). The
 solve brackets with the limit only when it points away from the
 infeasible endpoint (positive at the lower end, negative at the upper
 end); a zero or opposite-signed limit (the unattainable supremum, e.g.
@@ -828,62 +1078,21 @@ the infeasible `h -> 0+`) or an indeterminate form (`NaN`) makes the
 solve fall back to `MDR-0002`. Returns a `Float64`.
 """
 function _one_sided_gradient(
-        obj::BestResponseObjective{S}, at_lower::Bool
-    )::Float64 where {S}
-    func = obj.func
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
+        obj::BestResponseObjective, at_lower::Bool
+    )::Float64
+    A = _consumption_slope(obj)
     k = obj.conformism * obj.norm_weight
-    local g_mat::Float64
-    if at_lower
+
+    g_mat = if at_lower
         Q0 = 2.0 - obj.h_spouse
-        if func isa Multiplicative
-            return Inf
-        elseif func isa MultiplicativeWeighted
-            if obj.recipient
-                g_mat = obj.alpha > 0.0 ? Inf : -1.0 / Q0
-            else
-                g_mat = obj.alpha == 1.0 ? 0.0 :
-                    (obj.alpha > 0.0 ? Inf : -1.0 / Q0)
-            end
-        elseif func isa Additive
-            g_mat = obj.alpha > 0.0 ? Inf : -0.5 / Q0
-        elseif func isa CES
-            if func.beta == 1.0
-                g_mat = obj.alpha == 1.0 ? Inf :
-                    (obj.alpha * A - obj.one_minus_alpha) /
-                    (obj.one_minus_alpha * Q0)
-            else
-                g_mat = obj.alpha > 0.0 ? Inf : -1.0 / Q0
-            end
-        else
-            return NaN
-        end
-        isfinite(g_mat) || return g_mat
-        n_prime = 2.0 * k * obj.norm_hours
-        return isfinite(n_prime) ? g_mat + n_prime : NaN
-    end
-    x1 = obj.recipient ? (obj.wage_self + obj.transfer_income) : A
-    if func isa Multiplicative
-        return -Inf
-    elseif func isa MultiplicativeWeighted
-        if obj.recipient
-            g_mat = obj.alpha < 1.0 ? -Inf : A / x1
-        else
-            g_mat = obj.alpha < 1.0 ? -Inf : 0.0
-        end
-    elseif func isa Additive
-        g_mat = obj.alpha < 1.0 ? -Inf : 0.5 * A / x1
-    elseif func isa CES
-        if func.beta == 1.0
-            g_mat = obj.alpha == 0.0 ? -Inf :
-                (obj.alpha * A - obj.one_minus_alpha) / (obj.alpha * x1)
-        else
-            g_mat = obj.alpha < 1.0 ? -Inf : A / x1
-        end
+        _lower_material_gradient(obj.func, obj, A, Q0)
     else
-        return NaN
+        x1 = _consumption_at_upper(obj, A)
+        _upper_material_gradient(obj.func, obj, A, x1)
     end
     isfinite(g_mat) || return g_mat
-    n_prime = -2.0 * k * (1.0 - obj.norm_hours)
+
+    n_prime = at_lower ? 2.0 * k * obj.norm_hours :
+        -2.0 * k * (1.0 - obj.norm_hours)
     return isfinite(n_prime) ? g_mat + n_prime : NaN
 end

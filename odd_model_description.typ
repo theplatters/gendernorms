@@ -133,13 +133,15 @@ Four `utility-function` options (with $alpha_i =$ `preference-private`, $beta =$
 - `additive`: $(alpha_i sqrt(x_i) + (1-alpha_i) sqrt(Q)) dot exp("norm-penalty"_i)$.
 - `CES`: $(alpha_i x_i^beta + (1-alpha_i) Q^beta)^(1/beta) dot exp("norm-penalty"_i)$.
 - `multiplicative`: $sqrt(x_i) sqrt(Q) dot exp("norm-penalty"_i)$.
-- `multiplicative including weights`: intended $x_i^(alpha_i) Q^(1-alpha_i) dot exp(...)$; recipient branch matches this intent, donor branch as shipped computes $((x_i^(alpha_i) dot Q))^(1-alpha_i)$ — see code critique.
+- `multiplicative including weights`: intended $x_i^(alpha_i) Q^(1-alpha_i) dot exp(...)$; the recipient branch matches this intent, while the donor branch as shipped binds the outer exponent to the whole product and computes $((x_i^(alpha_i) dot Q))^(1-alpha_i)$.
+
+_Julia-port note._ The Julia port (`GenderNorms`) computes the intended $x_i^(alpha_i) Q^(1-alpha_i) dot exp(...)$ for both roles; the donor-branch parenthesisation is not replicated (see `MDR-0023` and Known implementation quirks item 4).
 
 === Labour best response (`choose-bundle`)
 
 Holding $theta$ fixed, each partner steps $h_i$ by $plus.minus "current-delta"$ (`0.0001`) while it strictly improves own utility and stays in $[0,1]$. Partners alternate until joint absolute change `change-a + change-b <= convergence_epsilon` (default `0.001`). `memory-change` (last 10 steps) and `sum-memory-change` guard against 2-cycles. No step-size annealing is active in the shipped version (the `current-delta / 2` block is commented out). Relative to the baseline (`> 0` exact convergence, step `0.00001`), this converges earlier and more coarsely.
 
-_Julia-port note._ The NetLogo description above stays factual for the reference implementation. The Julia port (`GenderNorms`) replaces the discrete `current-delta` hill-climb by continuous best responses in two accuracy tiers: for eligible utility regimes (additive, multiplicative, multiplicative-with-weights, and CES with $0 < beta <= 1$ under the stated parameter guards) each best response first checks a two-probe sign certificate at the `current-delta` resolution (`0.0001`) and keeps the current hours when it encloses the optimum there (the tier-1 seed certificate, one probe at a boundary step); otherwise it solves the first-order condition $d log U / d h_i = 0$ over $[0,1]$ with a safeguarded derivative root solve (bracketed Newton/bisection, argument tolerance $10^-8$). Every ineligible or numerically failed case falls back bitwise to a seeded continuous Brent search whose argument resolution is `current-delta` and whose window half-width is `0.05`. The alternating loop, `convergence_epsilon`, and the keep-current-hours rule on no feasible sample are unchanged (see `MDR-0017`, which supersedes `MDR-0002`).
+_Julia-port note._ The NetLogo description above stays factual for the reference implementation. The Julia port (`GenderNorms`) replaces the discrete `current-delta` hill-climb by continuous best responses in two accuracy tiers: for eligible utility regimes (additive, multiplicative, multiplicative-with-weights, and CES with $0 < beta <= 1$ under the stated parameter guards) each best response first checks a two-probe sign certificate at the `current-delta` resolution (`0.0001`) and keeps the current hours when it encloses the optimum there (the tier-1 seed certificate, one probe at a boundary step); otherwise it solves the first-order condition $d log U / d h_i = 0$ over $[0,1]$ with a safeguarded derivative root solve (bracketed Newton/bisection, argument tolerance $10^-8$). Every ineligible or numerically failed case falls back bitwise to a seeded continuous Brent search whose argument resolution is `current-delta` and whose window half-width is `0.05`. The alternating loop, `convergence_epsilon`, and the keep-current-hours rule on no feasible sample are unchanged (see `MDR-0017`, which supersedes `MDR-0002`). The objective this solve optimises is unchanged except that quirk item 4 below is not replicated: `multiplicative including weights` uses the intended form for both roles (see `MDR-0023`).
 
 === Transfer bargaining (`set-theta`, `calculate-payoff`)
 
@@ -235,7 +237,7 @@ Shipped BehaviorSpace: 50 experiments, all `runMetricsEveryStep=true` (baseline 
 1. Specific-woman conformism override uses the male probe value (unchanged).
 2. Preferences CSV block is duplicated (unchanged).
 3. `set-theta` never evaluates staying put; defaults to 0 on failure (unchanged).
-4. `multiplicative including weights` donor branch parenthesisation differs from the Cobb–Douglas intent (recipient branch is correct); unchanged from baseline.
+4. `multiplicative including weights` donor branch parenthesisation differs from the Cobb–Douglas intent (recipient branch is correct); unchanged from baseline in the reference, but fixed in the Julia port under `MDR-0023` (both roles compute the intended form).
 5. `precision x 8` in `calculate-payoff` creates plateaus at the `1e-5` labour step (unchanged; labour step is now `1e-4` with `convergence_epsilon = 0.001` early stopping).
 6. `calc-pct` indexing is only safe for interior percentiles (used as 25/75; unchanged).
 7. Subgroup agentsets and Info-tab documentation are static/stub as shipped (unchanged).

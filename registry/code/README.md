@@ -171,6 +171,15 @@ which conventions it follows, and which architecture decisions were made.
   ownership kept (supersedes `ADR-0002`; code motion only, the
   placement statements of `ADR-0015`-`ADR-0023` become historical).
 
+- `registry/code/decisions/ADR-0029-parametric-role-and-gender-markers.md`:
+  parametric role and gender markers: the phantom gender type
+  parameter `G<:Gender` on `AgentPayoffParams` replacing `is_woman`,
+  the `Recipient::Bool` type parameter of
+  `BestResponseObjective{S<:UtilitySpec,Recipient}` with a statically
+  split constructor, the role-dispatch helper family, and the dropped
+  `_material_envelope` `recipient` argument (see `MDR-0023`,
+  `TASK-0035`).
+
 ## How to add a new source file correctly
 
 1. Decide the layer for the file: `components`, `resources`, `optim`,

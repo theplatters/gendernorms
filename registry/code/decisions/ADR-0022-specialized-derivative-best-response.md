@@ -13,8 +13,9 @@ superseded_by: ""
 with a safeguarded derivative root solve for eligible utility regimes,
 falling back to the unchanged seeded path otherwise.
 `ADR-0018` established the prepared own-hours objective
-`BestResponseObjective` (isbits, parametric on the `UtilitySpec` type
-`S`, exact expression grouping, no closures in the alternating loop) and
+`BestResponseObjective` (isbits, parametric on
+`{S<:UtilitySpec,Recipient}` after `ADR-0029`, exact expression
+grouping, no closures in the alternating loop) and
 the zero-allocation discipline of the solver chain; the new solve must
 stay inside that discipline: no allocations, no closures in the hot
 path, type-stable concrete returns.
@@ -55,7 +56,15 @@ not supersede `ADR-0018`):
   ::BestResponseObjective, ::Bool)` (the analytic one-sided limit of
   `g` at a guard-infeasible endpoint), and `_derivative_best_response(
   ::BestResponseObjective, ::Float64)` returning
-  `(candidate::Float64, ok::Bool)`.
+  `(candidate::Float64, ok::Bool)`. Since `ADR-0029` the role-dependent
+  arithmetic of these helpers is dispatched through the role-dispatch
+  family `_get_relevant_transfer`, `_eval_objective_function`,
+  `_x_for_gradient`, `_A_for_gradient`, `_consumption_slope`,
+  `_consumption_at_upper`, `_consumption_intercept`,
+  `_lower_material_gradient`, and `_upper_material_gradient` (methods
+  on the `BestResponseObjective{S,R}` and `AgentPayoffParams{G}`
+  markers), which replaced the inline `recipient`-field branches and
+  split the material endpoint limits out of `_one_sided_gradient`.
 - Failure-open-to-legacy policy: every numerical-gate violation, every
   unsupported regime, every unbracketable or uncertifiable case returns
   `ok == false` and the caller runs the legacy expression. That
@@ -68,7 +77,11 @@ not supersede `ADR-0018`):
   feasibility bookkeeping) while the `x` and `Q` values keep the exact
   expression grouping of the objective call overload (`MDR-0013`
   rounding discipline): the derivative side may be algebraically
-  rearranged, the objective side may not. The shipped rearrangements
+  rearranged, the objective side may not. `A` and `B` are read through
+  the role-dispatch helpers `_consumption_slope` and
+  `_consumption_intercept` (with `_A_for_gradient` and `_x_for_gradient`
+  for the derivative evaluation itself) instead of a `recipient` field
+  test (`ADR-0029`). The shipped rearrangements
   are the shared reciprocal per form between the `g_mat` and
   `g_prime_mat` divisions of `_material_log_derivatives` and the
   multiplied-through division-free probe sign forms of

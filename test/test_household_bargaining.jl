@@ -48,11 +48,11 @@ end
     # theta 0 and conformism 0: both first-order conditions are
     # h_i = K_i * (2 - h_w - h_m) with K_i = alpha_i^2 * wage_i / (1 - alpha_i)^2,
     # so the fixed point is h_i = 2 K_i / (1 + K_w + K_m).
-    pw = GN.AgentPayoffParams(
-        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
+    pw = GN.AgentPayoffParams{GN.Female}(
+        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0
     )
-    pm = GN.AgentPayoffParams(
-        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
+    pm = GN.AgentPayoffParams{GN.Male}(
+        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0
     )
 
     hw, hm = GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, GN.UtilityConfig())
@@ -65,13 +65,13 @@ end
     config = GN.UtilityConfig()
     # A wage gap with zero conformism: the transfer toward the lower-wage
     # woman has a positive Nash product for both partners.
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
     uw, um = GN.outside_options(0.5, 0.5, pw, pm, config)
 
@@ -98,13 +98,13 @@ end
 
 @testset "bargain_transfer finds a negative optimum when the woman earns more" begin
     config = GN.UtilityConfig()
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
     uw, um = GN.outside_options(0.5, 0.5, pw, pm, config)
 
@@ -125,13 +125,13 @@ end
     # committed hours match the labour equilibrium there (the
     # exact case where no candidate beats the status quo is constructed
     # in `test/test_transfer_search.jl`).
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.9, wage_spouse = 1.0, alpha = 0.48, conformism = 1.0e4,
-        N_h = 0.36, N_theta = 0.3, N_h_spouse = 0.77, is_woman = true,
+        N_h = 0.36, N_theta = 0.3, N_h_spouse = 0.77,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 1.0, wage_spouse = 0.9, alpha = 0.45, conformism = 1.0e4,
-        N_h = 0.77, N_theta = 0.3, N_h_spouse = 0.36, is_woman = false,
+        N_h = 0.77, N_theta = 0.3, N_h_spouse = 0.36,
     )
     uw, um = GN.outside_options(0.36, 0.77, pw, pm, config)
     hw_status, hm_status = GN.mutual_best_response(0.36, 0.77, 0.3, pw, pm, config)
@@ -153,13 +153,13 @@ end
     # A zero male wage makes the male outside option non-finite, so no
     # candidate can be evaluated; the household keeps its transfer and the
     # labour equilibrium at that transfer.
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.9, wage_spouse = 0.0, alpha = 0.48, conformism = 10.0,
-        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77, is_woman = true,
+        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 0.0, wage_spouse = 0.9, alpha = 0.45, conformism = 10.0,
-        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36, is_woman = false,
+        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36,
     )
 
     theta, hw, hm = GN.bargain_transfer(0.36, 0.77, 0.4, pw, pm, config)
@@ -180,13 +180,13 @@ end
     # anchor neighbourhood of the status quo and commits inside the
     # band; the fallback kept the old outcome safe, the current search
     # finds what it missed.
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.05, wage_spouse = 2.0, alpha = 0.9, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 2.0, wage_spouse = 0.05, alpha = 0.9, conformism = 0.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
     uw, um = GN.outside_options(0.5, 0.5, pw, pm, config)
 
@@ -220,11 +220,11 @@ end
     # `mutual_best_response` returns its input exactly. That fixed-point
     # property is what the transfer chain relies on when it re-solves a
     # cached labour equilibrium (see `MDR-0017`).
-    pw = GN.AgentPayoffParams(
-        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
+    pw = GN.AgentPayoffParams{GN.Female}(
+        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0
     )
-    pm = GN.AgentPayoffParams(
-        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
+    pm = GN.AgentPayoffParams{GN.Male}(
+        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0
     )
     config = GN.UtilityConfig()
 
@@ -260,11 +260,11 @@ end
             GN.CES(beta = 0.9),
         )
         config = GN.UtilityConfig(func = spec)
-        pw = GN.AgentPayoffParams(
-            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 2.0, is_woman = true
+        pw = GN.AgentPayoffParams{GN.Female}(
+            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 2.0
         )
-        pm = GN.AgentPayoffParams(
-            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.45, conformism = 2.0, is_woman = false
+        pm = GN.AgentPayoffParams{GN.Male}(
+            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.45, conformism = 2.0
         )
         hw, hm = GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
         for _ in 1:40
@@ -313,11 +313,11 @@ mbr_allocs(
             GN.CES(beta = 1.5),
         )
         config = GN.UtilityConfig(func = spec)
-        pw = GN.AgentPayoffParams(
-            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
+        pw = GN.AgentPayoffParams{GN.Female}(
+            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0
         )
-        pm = GN.AgentPayoffParams(
-            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
+        pm = GN.AgentPayoffParams{GN.Male}(
+            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0
         )
         GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
         @test mbr_allocs(0.2, 0.8, 0.0, pw, pm, config) == 0
@@ -326,13 +326,13 @@ mbr_allocs(
     # `A == B == 0`, so his solve is inapplicable and keeps the current
     # hours through the legacy `NaN` path.
     config = GN.UtilityConfig()
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.9, wage_spouse = 0.0, alpha = 0.48, conformism = 10.0,
-        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77, is_woman = true,
+        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 0.0, wage_spouse = 0.9, alpha = 0.45, conformism = 10.0,
-        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36, is_woman = false,
+        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36,
     )
     GN.mutual_best_response(0.36, 0.77, 0.4, pw, pm, config)
     @test mbr_allocs(0.36, 0.77, 0.4, pw, pm, config) == 0
@@ -380,13 +380,13 @@ end
     # Under `NoNetwork` every agent is isolated: the perceived norms fall
     # back to own lag, the lagged transfer, and the spouse lag.
     expected = map(states) do state
-        pw = GN.AgentPayoffParams(
+        pw = GN.AgentPayoffParams{GN.Female}(
             wage_self = state.wage_w, wage_spouse = state.wage_m, alpha = state.pref_w, conformism = state.c_w,
-            N_h = state.h_w_old, N_theta = state.theta_old, N_h_spouse = state.h_m_old, is_woman = true,
+            N_h = state.h_w_old, N_theta = state.theta_old, N_h_spouse = state.h_m_old,
         )
-        pm = GN.AgentPayoffParams(
+        pm = GN.AgentPayoffParams{GN.Male}(
             wage_self = state.wage_m, wage_spouse = state.wage_w, alpha = state.pref_m, conformism = state.c_m,
-            N_h = state.h_m_old, N_theta = state.theta_old, N_h_spouse = state.h_w_old, is_woman = false,
+            N_h = state.h_m_old, N_theta = state.theta_old, N_h_spouse = state.h_w_old,
         )
         theta, hw, hm = GN.bargain_transfer(state.h_w, state.h_m, state.theta, pw, pm, config)
         (; theta, hw, hm, pw, pm, h_w = state.h_w, h_m = state.h_m)

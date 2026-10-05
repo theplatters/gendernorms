@@ -91,10 +91,11 @@ the non-degradation envelope; see `CES_DERIVATIVE_MIN_BETA`),
 `h_start` is finite, the spouse hours lie in `[0, 1]`,
 `alpha` in `[0, 1]`, every objective field is finite, `wage_self`,
 `conformism`, and `norm_weight` are non-negative, and the consumption
-coefficients `A` (recipient `wage_self`, payer `wage_self *
-one_minus_transfer`) and `B` (recipient `transfer_income`, payer `0`)
-are finite and non-negative with `A > 0 || B > 0`. Every other objective
-runs the `MDR-0002` fallback. Returns a `Bool`.
+coefficients `A` = `_consumption_slope(obj)` (recipient `wage_self`,
+payer `wage_self * one_minus_transfer`) and `B` =
+`_consumption_intercept(obj)` (recipient `transfer_income`, payer
+`0.0`) are finite and non-negative with `A > 0 || B > 0`. Every other
+objective runs the `MDR-0002` fallback. Returns a `Bool`.
 """
 function _derivative_applicable(
         obj::BestResponseObjective{S}, h_start::Float64
@@ -119,8 +120,8 @@ function _derivative_applicable(
         isfinite(obj.norm_hours) &&
         isfinite(obj.conformism) && obj.conformism >= 0.0
     ok || return false
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
-    B = obj.recipient ? obj.transfer_income : 0.0
+    A = _consumption_slope(obj)
+    B = _consumption_intercept(obj)
     (isfinite(A) && A >= 0.0 && isfinite(B) && B >= 0.0) || return false
     return A > 0.0 || B > 0.0
 end
@@ -191,10 +192,10 @@ residual at both probes) certifies and keeps the seed, matching the
 legacy tie/seed return. Returns a `Bool`.
 """
 function _derivative_seed_certificate(
-        obj::BestResponseObjective{S}, h_start::Float64
-    )::Bool where {S}
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
-    B = obj.recipient ? obj.transfer_income : 0.0
+        obj::BestResponseObjective, h_start::Float64
+    )::Bool
+    A = _consumption_slope(obj)
+    B = _consumption_intercept(obj)
     lo_open = B == 0.0 && A > 0.0
     hi_open = obj.h_spouse == 1.0
     return _seed_certificate_probes(obj, h_start, A, lo_open, hi_open)
@@ -212,9 +213,9 @@ in `[0, 1]` that is not at a guard-removed endpoint (both are checked
 here). Returns a `Bool`.
 """
 function _seed_certificate_probes(
-        obj::BestResponseObjective{S}, h_start::Float64, A::Float64,
+        obj::BestResponseObjective, h_start::Float64, A::Float64,
         lo_open::Bool, hi_open::Bool,
-    )::Bool where {S}
+    )::Bool
     (0.0 <= h_start <= 1.0) || return false
     ((lo_open && h_start == 0.0) || (hi_open && h_start == 1.0)) && return false
     tol = BEST_RESPONSE_TOL
@@ -275,12 +276,12 @@ acceptance falls back. The accepted tier-2 candidate passes
 values.
 """
 function _derivative_best_response(
-        obj::BestResponseObjective{S}, h_start::Float64
-    )::Tuple{Float64, Bool} where {S}
+        obj::BestResponseObjective, h_start::Float64
+    )::Tuple{Float64, Bool}
     _derivative_applicable(obj, h_start) || return (NaN, false)
     tol = DERIVATIVE_RESPONSE_TOL
-    A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
-    B = obj.recipient ? obj.transfer_income : 0.0
+    A = _consumption_slope(obj)
+    B = _consumption_intercept(obj)
     lo_open = B == 0.0 && A > 0.0
     hi_open = obj.h_spouse == 1.0
 
@@ -446,7 +447,7 @@ function _derivative_best_response(
 end
 
 """
-    best_response_1d(obj::BestResponseObjective{S}, h_start::Float64) where {S}
+    best_response_1d(obj::BestResponseObjective{S,R}, h_start::Float64) where {S,R}
 
 Own working time on `[0, 1]` for one partner at fixed spouse hours and
 fixed transfer (ODD section Labour best response, NetLogo
@@ -462,7 +463,7 @@ the seeded Brent expression of `MDR-0002` (the generic
 the pre-`MDR-0017` solver. Returns the best feasible hours, or `NaN`
 when no feasible sample exists.
 """
-function best_response_1d(obj::BestResponseObjective{S}, h_start::Float64) where {S}
+function best_response_1d(obj::BestResponseObjective{S, R}, h_start::Float64) where {S, R}
     candidate, ok = _derivative_best_response(obj, h_start)
     ok && return candidate
     return maximize_1d(obj, 0.0, 1.0, h_start, BEST_RESPONSE_WINDOW, BEST_RESPONSE_TOL)

@@ -14,14 +14,19 @@
 # - from `src/systems/household_bargaining.jl`: `mutual_best_response`,
 #   `outside_options`, `nash_product`, `equilibrium_payoff`,
 #   `bargain_transfer`.
-# The types `UtilityConfig`, `AgentPayoffParams`, and the `UtilitySpec`
-# subtypes `Additive`, `CES`, `Multiplicative`, and `MultiplicativeWeighted`
+# The types `Female`, `UtilityConfig`, `AgentPayoffParams`, and the
+# `UtilitySpec` subtypes `Additive`, `CES`, `Multiplicative`, and
+# `MultiplicativeWeighted`
 # are imported from the package, not redefined. `BEST_RESPONSE_TOL`,
 # `BEST_RESPONSE_WINDOW`, and `TRANSFER_TOL` are local copies with the
 # package values. The code below is byte-identical to the source slices
-# modulo the `_reference` renames; the only additions are this header, the
-# import line below, and docstrings on the four `material_reference` methods
-# (whose originals have none). `payoff_params` and `set_theta!` are
+# modulo the `_reference` renames and the two recorded exceptions noted
+# at `individual_utility_reference`: the `MDR-0023` unified
+# `MultiplicativeWeighted` material (donor quirk fixed) and the
+# `ADR-0029` gender type-parameter dispatch replacing `is_woman`; the
+# only other additions are this header, the import line below, and
+# docstrings on the four `material_reference` methods (whose originals
+# have none). `payoff_params` and `set_theta!` are
 # world-facing and intentionally not copied. Helper file like
 # `test/threading_driver.jl`: not included in `test/runtests.jl`; a later
 # test file `include`s it exactly once. See `MDR-0002` and `MDR-0005`.
@@ -36,7 +41,7 @@
 # `nash_product`, `equilibrium_payoff`, and `bargain_transfer` in
 # `src/optim/transfer_optimization.jl`.
 
-using GenderNorms: AgentPayoffParams, UtilityConfig, Additive, CES, Multiplicative, MultiplicativeWeighted
+using GenderNorms: AgentPayoffParams, Female, UtilityConfig, Additive, CES, Multiplicative, MultiplicativeWeighted
 
 """
     material_reference(::Additive, x::Float64, Q::Float64, alpha::Float64)
@@ -88,7 +93,15 @@ function individual_utility_reference(
         h_self::Float64, h_spouse::Float64, theta::Float64,
         self_params::AgentPayoffParams, config::UtilityConfig
     )
-    relevant_transfer = self_params.is_woman ? -theta : theta
+    # `MDR-0023` (unified `MultiplicativeWeighted` material) and
+    # `ADR-0029` (gender as the `AgentPayoffParams` type parameter)
+    # recorded decisions, applied minimally to this frozen copy: the
+    # gender dispatch reads the type parameter instead of the deleted
+    # `is_woman` field, and the frozen NetLogo payer branch of
+    # `calculate-utility`, `(x^alpha * Q)^(1-alpha)`, is removed so
+    # both roles use the intended Cobb-Douglas material
+    # `x^alpha * Q^(1-alpha)`.
+    relevant_transfer = self_params isa AgentPayoffParams{Female} ? -theta : theta
     recipient = relevant_transfer < 0
     if recipient
         x = h_self * self_params.wage_self +
@@ -105,9 +118,6 @@ function individual_utility_reference(
             config.w_transfer * (theta - self_params.N_theta)^2 +
             config.w_partner * (h_spouse - self_params.N_h_spouse)^2
     )
-    if !recipient && config.func isa MultiplicativeWeighted
-        return (x^self_params.alpha * Q)^(1 - self_params.alpha) * exp(norm)
-    end
     return material_reference(config.func, x, Q, self_params.alpha) * exp(norm)
 end
 

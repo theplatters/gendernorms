@@ -352,7 +352,7 @@ end
     new_only_commits = 0
     @testset "solver case $(case["id"]): $(case["label"])" for case in SOLVER_CASES
         config = fixture_config(case["utility"], f64(get(case, "beta", "0.5")))
-        pw = GN.AgentPayoffParams(
+        pw = GN.AgentPayoffParams{GN.Female}(
             wage_self = f64(case["pw_wage_self"]),
             wage_spouse = f64(case["pw_wage_spouse"]),
             alpha = f64(case["pw_alpha"]),
@@ -360,9 +360,9 @@ end
             N_h = f64(case["pw_N_h"]),
             N_theta = f64(case["pw_N_theta"]),
             N_h_spouse = f64(case["pw_N_h_spouse"]),
-            is_woman = true,
+
         )
-        pm = GN.AgentPayoffParams(
+        pm = GN.AgentPayoffParams{GN.Male}(
             wage_self = f64(case["pm_wage_self"]),
             wage_spouse = f64(case["pm_wage_spouse"]),
             alpha = f64(case["pm_alpha"]),
@@ -370,7 +370,7 @@ end
             N_h = f64(case["pm_N_h"]),
             N_theta = f64(case["pm_N_theta"]),
             N_h_spouse = f64(case["pm_N_h_spouse"]),
-            is_woman = false,
+
         )
         theta_init = f64(case["theta_init"])
         hw_init = f64(case["hw_init"])
@@ -737,13 +737,13 @@ end
     # derivative solve may have run; the transfer result is checked by
     # validity invariants and bit-identical repeats.
     config = GN.UtilityConfig(func = GN.CES(beta = 0.5))
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 10.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 10.0,
-        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5,
     )
     for theta_init in (-0.0, 0.0, 1.5, -1.5, 0.37)
         theta0 = clamp(theta_init, -1.0, 1.0)

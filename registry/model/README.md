@@ -141,3 +141,7 @@ instead of silent.
   the single pre-adaptation observation point, restating `MDR-0010`'s
   guarantees and making the statistics/adaptation order observationally
   significant (see `ADR-0026`; supersedes `MDR-0010`).
+- `registry/model/decisions/MDR-0023-fix-multiplicative-weighted-donor-quirk.md` --
+  fix ODD quirk item 4: both roles of `multiplicative including weights`
+  compute the intended `x^alpha * Q^(1-alpha)` in the port, with the
+  unified `MDR-0017` derivative formulas (see `ADR-0029`).

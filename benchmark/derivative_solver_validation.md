@@ -59,7 +59,9 @@ solver-resolution global solve.
   differences"): the closed-form `g = d log(U)/dh` and
   `g' = d2 log(U)/dh2` of every regime of `MDR-0017` (including the
   `MultiplicativeWeighted` payer quirk and `CES` `beta == 1`) match
-  central finite differences of the call-overload value.
+  central finite differences of the call-overload value. Historical:
+  the payer quirk row tested here was removed under `MDR-0023`, which
+  unified both roles on the `alpha*A/x - (1-alpha)/Q` form.
 - Sign-probe contract (`MDR-0017` sign form, `ADR-0022`): the
   derivative sign probes evaluate the division-free multiplied-through
   residual `den * g = num + n_prime * den` (products only, the norm
@@ -119,7 +121,9 @@ solver-resolution global solve.
   false`, asserted), and the whole measured sub-floor band
   (`beta` in 1e-12, 1e-6, 1e-5, 2e-5, 9.9e-4) stays bitwise legacy
   at every seed while the floor itself is the first applicable `CES`
-  regime.
+  regime. Historical: the flat `alpha == 1` payer quirk case listed
+  above belongs to the quirk branch removed under `MDR-0023` (the
+  unified form is not flat there).
 - Width-exit certificate ("derivative best response width exit
   certifies a sign bracket"): reviewer repro 2 (`MultiplicativeWeighted`
   payer, `alpha = 1e-12`, zero conformism, transfer `-0.3`, spouse
@@ -134,7 +138,9 @@ solver-resolution global solve.
   the eligible regime: a spurious sign flip needs the multiplied-through
   residual within rounding noise of zero, which the BigFloat scan of
   the sign-probe contract found no case of, and the invariant is
-  pinned structurally by the regime grid.
+  pinned structurally by the regime grid. Historical: repro 2 ran on
+  the `MultiplicativeWeighted` payer quirk branch removed under
+  `MDR-0023`.
 - Regime grid and quality invariant: 9 specs x 4 `alpha` x 2
   conformism x 4 theta x 3 spouse hours x 2 wages x 3 seeds
   (`checked > 1000` asserted) covering the full eligible beta range

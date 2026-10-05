@@ -213,7 +213,9 @@ inflated by `OBJECTIVE_CERT_MARGIN` at the comparison site
 the payer (`relevant_transfer >= 0`) has `q = wage_self * (1 -
 abs(theta))`, `v = h_self`, `d = 1`, and the recipient has
 `q = max(wage_self, abs(theta) * wage_spouse)`, `v = h_self +
-h_spouse`, `d = 2`; `z = conformism * w_transfer * (theta -
+h_spouse`, `d = 2` (the envelope itself is spec-only since `MDR-0023`
+and takes no role argument; the role enters through `q` and `d`);
+`z = conformism * w_transfer * (theta -
 N_theta)^2` drops the two non-negative norm squares of `individual_utility`
 (the `N_h` and `N_h_spouse` terms) and therefore lower-bounds the norm
 exponent whenever `conformism` and the weights are non-negative. The
@@ -248,7 +250,7 @@ function _payoff_upper_bound(
     if func isa CES
         (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return NaN
     end
-    relevant_transfer = p.is_woman ? -theta : theta
+    relevant_transfer = _get_relevant_transfer(theta, p)
     recipient = relevant_transfer < 0.0
     r = abs(theta)
     local q::Float64
@@ -262,7 +264,7 @@ function _payoff_upper_bound(
     end
     iszero(q) && return 0.0
     (isfinite(q) && q >= floatmin(Float64)) || return NaN
-    m = _material_envelope(func, q, d, p.alpha, recipient)
+    m = _material_envelope(func, q, d, p.alpha)
     (isfinite(m) && m >= floatmin(Float64)) || return NaN
     dz = theta - p.N_theta
     z = p.conformism * (config.w_transfer * (dz * dz))
@@ -330,7 +332,9 @@ norm effects cannot oppose: `M` is the material envelope
 recipient (`d == 2`, `v == h_self + h_spouse`) at `q = max(wage_self,
 b * wage_spouse)`, where `a <= |theta| <= b` is the slab's range of
 absolute transfers (`a = min(abs(lo), abs(hi))`, `b = max(abs(lo),
-abs(hi))`); `z_min` is the smallest norm penalty of the slab, at
+abs(hi))`) (the envelope itself is spec-only since `MDR-0023` and
+takes no role argument; the role enters through `q` and `d`); `z_min`
+is the smallest norm penalty of the slab, at
 `closest = clamp(N_theta, lo, hi)`: `z_min = conformism * w_transfer *
 (closest - N_theta)^2` in the operation order of
 `individual_utility`'s retained term. Guards, margin arithmetic, the
@@ -400,7 +404,7 @@ function _payoff_interval_bound(
     iszero(q_slack) && return 0.0
     (isfinite(q_slack) && q_slack >= floatmin(Float64)) || return NaN
     (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return NaN
-    m = _material_envelope(func, q_slack, d, p.alpha, recipient)
+    m = _material_envelope(func, q_slack, d, p.alpha)
     (isfinite(m) && m >= floatmin(Float64)) || return NaN
     closest = clamp(p.N_theta, lo, hi)
     dz = closest - p.N_theta
@@ -431,7 +435,10 @@ Material-side pointwise-parity guard of `_payoff_interval_bound` (see
 smallest consumption is finite and normal (`>= 2 * floatmin`, a
 factor-of-two floor against rounding races at the `floatmin`
 boundary), and its product with the `exp` of the largest norm penalty
-of the slab stays at or above that floor. Material-envelope finiteness
+of the slab stays at or above that floor. The `recipient` argument
+fixes the role of `p` on the whole slab and drives only the `q`/`d`
+consumption geometry of the guard (the material envelope is spec-only
+since `MDR-0023` and takes no role argument). Material-envelope finiteness
 is monotone in the consumption, and the norm factor is largest at the
 endpoint farthest from `N_theta`, so the pointwise bound of every
 covered transfer is then finite and normal as well. The one exception
@@ -499,7 +506,7 @@ function _interval_normal_ok(
     # `NaN` for it).
     iszero(q_slack) && return true
     (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return false
-    m_tight = _material_envelope(func, q_tight, d, p.alpha, recipient)
+    m_tight = _material_envelope(func, q_tight, d, p.alpha)
     (isfinite(m_tight) && m_tight >= 2.0 * floatmin(Float64)) || return false
     farthest = abs(lo - p.N_theta) >= abs(hi - p.N_theta) ? lo : hi
     dz_far = farthest - p.N_theta
