@@ -130,6 +130,10 @@ comprehensible.
 - Start from `.gitmessage` (enable locally with
   `git config commit.template .gitmessage`) and follow the `commit`
   command for the step-by-step workflow.
+- Commits are guarded by `.githooks/pre-commit` (see `ADR-0027`),
+  which runs Runic over all `.jl` files on every commit and restages
+  only already-staged files. Activate it once per clone with
+  `git config core.hooksPath .githooks`.
 
 ## Enforcement
 

@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+#
+# .githooks/pre-commit
+#
+# Pre-commit hook for the GenderNorms repository (see ADR-0027): format
+# Julia sources with Runic before every commit and commit the formatted
+# version of the staged content.
+#
+# Activate once per clone with:
+#
+#     git config core.hooksPath .githooks
+#
+# On every commit the hook:
+#
+#   1. runs scripts/format.jl (Runic from the dedicated @runic Julia
+#      environment) in place over all *.jl files in the working tree
+#      (directory scans skip symlinks, so files outside the repository
+#      are never written through a link);
+#   2. formats the staged blob of every staged *.jl file and writes that
+#      blob back into the index, so the commit contains the formatted
+#      version of the previously staged content only. Unstaged and
+#      untracked content never ends up in the commit.
+#
+# Every git command that receives literal paths runs with
+# --literal-pathspecs, so a filename like [x].jl is never mistaken for
+# a glob. Staged blobs are hashed with --no-filters: they are already in
+# canonical repository form and must not pass through working-tree
+# filters (clean filters, working-tree-encoding) again. Staged deletions
+# stay deleted and non-Julia files are not touched.
+set -euo pipefail
+
+if ! command -v julia >/dev/null 2>&1; then
+    echo "pre-commit: error: 'julia' is not on PATH; install Julia or skip the hook with --no-verify" >&2
+    exit 1
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# Snapshot the staged paths before formatting; only these are re-staged
+# afterwards, so nothing that was not staged before can sneak in.
+staged=()
+while IFS= read -r -d '' path; do
+    staged+=("$path")
+done < <(git diff --cached --name-only -z)
+
+# Format the working tree in place.
+julia scripts/format.jl ||
+    echo "pre-commit: warning: Runic reported problems (see above); continuing" >&2
+
+# Extract every staged *.jl blob into the temporary directory so that the
+# staged content itself can be formatted without touching the working
+# tree, then format all extracted blobs in one Runic run.
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+names=()
+modes=()
+tmps=()
+for path in "${staged[@]}"; do
+    case "$path" in
+        *.jl) ;;
+        *) continue ;;
+    esac
+    # Read the index entries for this path. -z output is NUL-delimited,
+    # one '<mode> <sha> <stage>\t<path>' record per entry: none for a
+    # staged deletion, several for an unmerged path (stages 1-3).
+    found=0
+    unmerged=0
+    mode=""
+    sha=""
+    while IFS= read -r -d '' record; do
+        meta=${record%%$'\t'*}
+        read -r entry_mode entry_sha entry_stage <<<"$meta"
+        found=1
+        if [ "$entry_stage" != "0" ]; then
+            unmerged=1
+        else
+            mode=$entry_mode
+            sha=$entry_sha
+        fi
+    done < <(git --literal-pathspecs ls-files --stage -z -- "$path")
+    if [ "$unmerged" -eq 1 ]; then
+        echo "pre-commit: warning: unmerged path '$path' left untouched" >&2
+        continue
+    fi
+    if [ "$found" -eq 0 ]; then
+        # Staged deletion: leave the index alone so the file stays deleted.
+        continue
+    fi
+    case "$mode" in
+        100644 | 100755) ;;
+        *) continue ;; # symlinks and gitlinks are not Julia source files
+    esac
+    tmpfile=$(printf '%s/%05d.jl' "$tmpdir" "${#tmps[@]}")
+    git cat-file blob "$sha" >"$tmpfile"
+    names+=("$path")
+    modes+=("$mode")
+    tmps+=("$tmpfile")
+done
+
+if [ "${#tmps[@]}" -gt 0 ]; then
+    julia scripts/format.jl "${tmps[@]}" ||
+        echo "pre-commit: warning: Runic reported problems while formatting staged content" >&2
+fi
+
+# Hash every formatted blob first and update the index only afterwards,
+# so a hashing failure cannot leave a half-updated index and never
+# blocks the commit. --no-filters is mandatory: the extracted blobs are
+# already in canonical repository form, and re-running clean filters
+# (for example working-tree-encoding) can fail on content that is
+# already clean. --path is deliberately not passed: it only selects
+# filters and git rejects it together with --no-filters.
+shas=()
+hash_failed=0
+for ((i = 0; i < ${#tmps[@]}; i++)); do
+    if sha=$(git hash-object --no-filters -w "${tmps[$i]}"); then
+        shas+=("$sha")
+    else
+        echo "pre-commit: warning: could not hash formatted content of '${names[$i]}'" >&2
+        hash_failed=1
+        shas+=("")
+    fi
+done
+
+# Write the formatted blobs into the index; nothing else is re-staged.
+# If any blob could not be hashed the index is left completely
+# unchanged, so the commit contains the staged content exactly as
+# staged and nothing is half-updated.
+restaged=0
+if [ "$hash_failed" -eq 0 ]; then
+    for ((i = 0; i < ${#tmps[@]}; i++)); do
+        git --literal-pathspecs update-index --cacheinfo "${modes[$i]},${shas[$i]},${names[$i]}"
+        restaged=$((restaged + 1))
+    done
+else
+    echo "pre-commit: warning: leaving the index unchanged; committing the staged content as staged" >&2
+fi
+
+echo "pre-commit: formatted working tree; re-staged $restaged staged Julia file(s)" >&2

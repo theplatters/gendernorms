@@ -143,6 +143,14 @@ which conventions it follows, and which architecture decisions were made.
   writes and atomic promotion, and throttled Plotly panels
   (implemented under `TASK-0028`).
 
+- `registry/code/decisions/ADR-0027-runic-pre-commit-hook.md`:
+  Runic pre-commit hook for automatic formatting: tracked
+  `.githooks/pre-commit` activated per clone with
+  `git config core.hooksPath .githooks`, Runic in the separate
+  `@runic` environment auto-installed by `scripts/format.jl` (never in
+  `Project.toml`/`Manifest.toml`), format-all plus restage-only-staged
+  semantics on every commit.
+
 ## How to add a new source file correctly
 
 1. Decide the layer for the file: `components`, `resources`, or `systems`.
