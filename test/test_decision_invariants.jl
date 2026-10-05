@@ -83,7 +83,7 @@ end
     )
     @test GN.best_response_1d(x -> 1.0 - (x - 0.3)^2, 0.3) isa Float64
     config = GN.UtilityConfig(func=GN.CES(beta=1.5))
-    p = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=1.0, is_woman=true)
+    p = GN.AgentPayoffParams{GN.Female}(wage_self=1.0, wage_spouse=1.0)
     obj = GN.BestResponseObjective(0.2, 0.5, p, config)
     @test GN._derivative_applicable(obj, 0.3) == false
     for h_start in (0.0, 0.3, 1.0)

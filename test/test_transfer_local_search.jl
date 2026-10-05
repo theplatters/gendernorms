@@ -472,8 +472,11 @@ Decode one frozen near-zero household without changing its recorded state.
 function local_fixture_case(h)
     f(key) = parse(Float64, h[key])
     fields = ("wage_self", "wage_spouse", "alpha", "conformism", "N_h", "N_theta", "N_h_spouse")
-    pw = GN.AgentPayoffParams((f("pw_" * key) for key in fields)..., true)
-    pm = GN.AgentPayoffParams((f("pm_" * key) for key in fields)..., false)
+    bundle(G, prefix) = GN.AgentPayoffParams{G}(;
+        (Symbol(key) => f(prefix * key) for key in fields)...
+    )
+    pw = bundle(GN.Female, "pw_")
+    pm = bundle(GN.Male, "pm_")
     return (f("hw_init"), f("hm_init"), f("theta_init"), pw, pm,
         GN.UtilityConfig(func=GN.CES(beta=f("beta"))))
 end
@@ -512,8 +515,8 @@ end
         @test isequal(result, GN.bargain_transfer(scratch, args...))
     end
     # The non-finite-outside fast path also drops all previous scratch state.
-    pw = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=0.0, is_woman=true)
-    pm = GN.AgentPayoffParams(wage_self=0.0, wage_spouse=1.0, is_woman=false)
+    pw = GN.AgentPayoffParams{GN.Female}(wage_self=1.0, wage_spouse=0.0)
+    pm = GN.AgentPayoffParams{GN.Male}(wage_self=0.0, wage_spouse=1.0)
     for search in (:local, :discovery)
         scratch.cache[0.0] = GN.TransferObjectiveValue(1.0, 1.0, 1.0, 0.5, 0.5)
         push!(scratch.samples, (0.0, 1.0))
@@ -587,8 +590,8 @@ end
 end
 
 @testset "local transfer search: explicit mode and tolerance validation" begin
-    pw = GN.AgentPayoffParams(is_woman=true)
-    pm = GN.AgentPayoffParams(is_woman=false)
+    pw = GN.AgentPayoffParams{GN.Female}()
+    pm = GN.AgentPayoffParams{GN.Male}()
     config = GN.UtilityConfig()
     args = (0.5, 0.5, 0.0, pw, pm, config)
     @test_throws ArgumentError GN.bargain_transfer(args...; search=:unknown)

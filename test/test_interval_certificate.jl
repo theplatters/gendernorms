@@ -78,13 +78,13 @@ end
     config = interval_config("ces", 0.5, (1.0, 1.0, 1.0))
     # A household whose zero-transfer payoff is the finite 0.0 of the
     # status quo: no interval containing zero may certify.
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=1.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=1.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
     uw_out, um_out = GN.outside_options(0.5, 0.5, pw, pm, config)
     @test isfinite(uw_out) && isfinite(um_out)
@@ -131,13 +131,13 @@ end
     # and unenveloped utility specs fail open (never certify) except
     # for the exact zero-wage rule, which is spec-independent.
     config = interval_config("ces", 0.5, (1.0, 1.0, 1.0))
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=50.0,
-        N_h=0.5, N_theta=0.9, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.9, N_h_spouse=0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=50.0,
-        N_h=0.5, N_theta=-0.9, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=-0.9, N_h_spouse=0.5,
     )
     uw_out, um_out = GN.outside_options(0.5, 0.5, pw, pm, config)
     # Sanity: this household certifies on a far slab away from the
@@ -164,13 +164,13 @@ end
         (NaN, 1.0, 0.5, 10.0), (1.0, -1.0, 0.5, 10.0), (1.0, 1.0, 1.5, 10.0),
         (1.0, 1.0, 0.5, NaN), (1.0, 1.0, 0.5, -1.0),
     )
-        bad_w = GN.AgentPayoffParams(
+        bad_w = GN.AgentPayoffParams{GN.Female}(
             wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+            N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
         )
-        bad_m = GN.AgentPayoffParams(
+        bad_m = GN.AgentPayoffParams{GN.Male}(
             wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+            N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
         )
         @test !GN._objective_interval_prunable(0.4, 0.9, 1.0, 1.0, bad_w, bad_m, config)
     end
@@ -179,13 +179,13 @@ end
     # exception and is sound for every spec.
     unknown = interval_config("unknown", 0.5, (1.0, 1.0, 1.0))
     @test !GN._objective_interval_prunable(0.4, 0.9, uw_out, um_out, pw, pm, unknown)
-    zero_wage_w = GN.AgentPayoffParams(
+    zero_wage_w = GN.AgentPayoffParams{GN.Female}(
         wage_self=0.0, wage_spouse=0.0, alpha=0.5, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
-    zero_wage_m = GN.AgentPayoffParams(
+    zero_wage_m = GN.AgentPayoffParams{GN.Male}(
         wage_self=0.0, wage_spouse=0.0, alpha=0.5, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
     # With zero wages every consumption is exactly zero, so every
     # transfer is `-Inf` for both partners under every spec, including
@@ -205,13 +205,13 @@ end
     # any material certification, and the directly computed payoff is
     # FINITE inside the slab, so declining is mandatory (parity
     # genuinely fails there).
-    mixed_w = GN.AgentPayoffParams(
+    mixed_w = GN.AgentPayoffParams{GN.Female}(
         wage_self=0.0, wage_spouse=1.0, alpha=0.5, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
-    mixed_m = GN.AgentPayoffParams(
+    mixed_m = GN.AgentPayoffParams{GN.Male}(
         wage_self=1.0, wage_spouse=0.0, alpha=0.5, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
     @test !GN._objective_interval_prunable(0.0, 0.5, 0.1, 0.1, mixed_w, mixed_m, unknown)
     @test isfinite(interval_payoff(0.25, 0.5, 0.5, 0.1, 0.1, mixed_w, mixed_m, unknown))
@@ -229,13 +229,13 @@ end
     # Below `CES_CERT_MIN_BETA` the interval certificate fails open on
     # the envelope path exactly like the pointwise one; at and above
     # the floor it certifies the same far slab.
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self=0.125, wage_spouse=0.25, alpha=0.3, conformism=50.0,
-        N_h=0.5, N_theta=0.9, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.9, N_h_spouse=0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self=0.25, wage_spouse=0.125, alpha=0.3, conformism=50.0,
-        N_h=0.5, N_theta=-0.9, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=-0.9, N_h_spouse=0.5,
     )
     for beta in (1.0e-12, 1.0e-6, 0.5e-3, 0.999e-3)
         config = interval_config("ces", beta, (1.0, 1.0, 1.0))
@@ -299,23 +299,23 @@ end
         end
         conformism = rand(rng, conformisms) * (rand(rng) < 0.5 ? 1.0 : rand(rng))
         n_theta = 2.0 * rand(rng) - 1.0
-        pw = GN.AgentPayoffParams(
+        pw = GN.AgentPayoffParams{GN.Female}(
             wage_self=wage_self, wage_spouse=wage_spouse,
             alpha=rand(rng, alphas),
             conformism=conformism,
             N_h=rand(rng) * 1.5 - 0.25,
             N_theta=n_theta,
             N_h_spouse=rand(rng) * 1.5 - 0.25,
-            is_woman=true,
+
         )
-        pm = GN.AgentPayoffParams(
+        pm = GN.AgentPayoffParams{GN.Male}(
             wage_self=wage_spouse, wage_spouse=wage_self,
             alpha=rand(rng, alphas),
             conformism=conformism,
             N_h=rand(rng) * 1.5 - 0.25,
             N_theta=n_theta,
             N_h_spouse=rand(rng) * 1.5 - 0.25,
-            is_woman=false,
+
         )
         hw_init = rand(rng, (0.0, 1.0, 0.5)) + (rand(rng) < 0.5 ? 0.0 : 0.4 * rand(rng))
         hm_init = rand(rng, (0.0, 1.0, 0.5)) + (rand(rng) < 0.5 ? 0.0 : 0.4 * rand(rng))

@@ -125,9 +125,9 @@ function solver_obj(
     N_h::Float64=0.5, N_theta::Float64=0.0, N_h_spouse::Float64=0.5,
     w_self::Float64=1.0,
 )
-    p = GN.AgentPayoffParams(
+    p = GN.AgentPayoffParams{GN.Female}(
         wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha, conformism=conformism,
-        N_h=N_h, N_theta=N_theta, N_h_spouse=N_h_spouse, is_woman=true,
+        N_h=N_h, N_theta=N_theta, N_h_spouse=N_h_spouse,
     )
     config = GN.UtilityConfig(func=spec, w_self=w_self)
     return GN.BestResponseObjective(theta, h_spouse, p, config)
@@ -373,8 +373,8 @@ end
     # payer corner at `h_start == 0` runs the full solve and falls back
     # bitwise. A near-boundary seed keeps its hours through the
     # one-sided rule, which is bitwise the legacy anchor return there.
-    p = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=0.0, is_woman=false
+    p = GN.AgentPayoffParams{GN.Male}(
+        wage_self=1.0, wage_spouse=1.0, alpha=0.0
     )
     obj = GN.BestResponseObjective(
         0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
@@ -385,9 +385,13 @@ end
     @test isequal(GN.best_response_1d(obj, 5.0e-5), 5.0e-5)
     @test isequal(GN.best_response_1d(obj, 5.0e-5), legacy_response(obj, 5.0e-5))
     # Flat objective (`g == 0` at both probes): tier-1 keeps the seed,
-    # matching the legacy tie/seed return bitwise.
-    p = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=1.0, is_woman=false
+    # matching the legacy tie/seed return bitwise. The flat corner of
+    # the unified `MultiplicativeWeighted` material (`MDR-0019`) is
+    # `alpha == 1` at zero own wage: material `x` with `x` the constant
+    # transfer income, bitwise constant in `h` (the old flat payer
+    # surface `(x^alpha * Q)^0` of the removed NetLogo quirk is gone).
+    p = GN.AgentPayoffParams{GN.Female}(
+        wage_self=0.0, wage_spouse=1.0, alpha=1.0
     )
     obj = GN.BestResponseObjective(
         0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
@@ -430,7 +434,7 @@ end
     end
     # The all-infeasible payer (`A == B == 0`) is inapplicable and keeps
     # the legacy `NaN` contract.
-    p = GN.AgentPayoffParams(wage_self=0.0, wage_spouse=1.0, is_woman=false)
+    p = GN.AgentPayoffParams{GN.Male}(wage_self=0.0, wage_spouse=1.0)
     obj = GN.BestResponseObjective(0.2, 0.5, p, GN.UtilityConfig())
     @test GN._derivative_applicable(obj, 0.3) == false
     @test isequal(GN.best_response_1d(obj, 0.3), legacy_response(obj, 0.3))
@@ -441,7 +445,7 @@ end
     # `h -> 0+` when `x(0) == 0`: `U` rises toward the infeasible
     # endpoint, so the derivative solve refuses the unattainable
     # supremum and falls back bitwise.
-    p = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=1.0, alpha=0.0, is_woman=false)
+    p = GN.AgentPayoffParams{GN.Male}(wage_self=1.0, wage_spouse=1.0, alpha=0.0)
     obj = GN.BestResponseObjective(
         0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
     )
@@ -489,9 +493,9 @@ end
     # lower end). The sign bracket certifies the candidate, which must
     # sit within `DERIVATIVE_RESPONSE_TOL` of an independently computed
     # root of `g` (the sharp interior root near `h -> 0+`).
-    p = GN.AgentPayoffParams(
+    p = GN.AgentPayoffParams{GN.Female}(
         alpha=1.0e-12, wage_self=1.0, wage_spouse=1.0, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.0, N_h_spouse=0.5,
     )
     obj = GN.BestResponseObjective(
         -0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())

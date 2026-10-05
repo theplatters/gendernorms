@@ -147,11 +147,11 @@ function serial_set_theta!(world, config::GN.UtilityConfig; search::Symbol=:loca
 
             pw = GN.payoff_params(
                 wages[f].current, man_wage.current, preferences[f].current,
-                conformisms[f].amount, woman_norms, true
+                conformisms[f].amount, woman_norms, GN.Female()
             )
             pm = GN.payoff_params(
                 man_wage.current, wages[f].current, man_preference.current,
-                man_conformism.amount, man_norms, false
+                man_conformism.amount, man_norms, GN.Male()
             )
 
             theta, hw, hm = GN.bargain_transfer(

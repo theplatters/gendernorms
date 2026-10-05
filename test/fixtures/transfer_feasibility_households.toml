@@ -18,9 +18,10 @@
 # back with `parse(Float64, s)` and compare with `isequal`.
 #
 # [[household]]: `id` is the 1-based position of the woman in
-# `SocialNetwork.women_entities`. `pw_*` and `pm_*` are the
-# `AgentPayoffParams` fields of the woman (`is_woman = true`) and the man
-# (`is_woman = false`) exactly as `set_theta!` builds them; `hw_init`,
+# `SocialNetwork.women_entities`. `pw_*` and `pm_*` are the keyword
+# fields of the woman's `GN.AgentPayoffParams{GN.Female}` and the man's
+# `GN.AgentPayoffParams{GN.Male}` bundles exactly as `set_theta!` builds
+# them; `hw_init`,
 # `hm_init`, and `theta_init` are the household's `WorkingTime.current`
 # and `TransferToWoman.current` at tick 0; `uw_out`, `um_out` are the
 # zero-transfer outside options and `hw_status`, `hm_status` the

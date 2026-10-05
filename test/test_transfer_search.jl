@@ -486,13 +486,13 @@ GN.material(::ConstantMaterial, x::Float64, Q::Float64, alpha::Float64) = 1.0
     # status-quo payoff: the constant material utility makes every gain
     # exactly zero, so the search must stay at the status quo.
     config = GN.UtilityConfig(func=ConstantMaterial())
-    pw = GN.AgentPayoffParams(
+    pw = GN.AgentPayoffParams{GN.Female}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=true,
+        N_h=0.5, N_theta=0.25, N_h_spouse=0.5,
     )
-    pm = GN.AgentPayoffParams(
+    pm = GN.AgentPayoffParams{GN.Male}(
         wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=false,
+        N_h=0.5, N_theta=0.25, N_h_spouse=0.5,
     )
     theta, hw, hm = GN.bargain_transfer(0.5, 0.5, 0.25, pw, pm, config)
     status_w, status_m = GN.mutual_best_response(0.5, 0.5, 0.25, pw, pm, config)
@@ -589,7 +589,7 @@ end
     @test length(fixture["household"]) == 3
     @testset "household $(h["id"])" for h in fixture["household"]
         config = GN.UtilityConfig(func=GN.CES(beta=t64(h["beta"])))
-        pw = GN.AgentPayoffParams(
+        pw = GN.AgentPayoffParams{GN.Female}(
             wage_self=t64(h["pw_wage_self"]),
             wage_spouse=t64(h["pw_wage_spouse"]),
             alpha=t64(h["pw_alpha"]),
@@ -597,9 +597,9 @@ end
             N_h=t64(h["pw_N_h"]),
             N_theta=t64(h["pw_N_theta"]),
             N_h_spouse=t64(h["pw_N_h_spouse"]),
-            is_woman=true,
+
         )
-        pm = GN.AgentPayoffParams(
+        pm = GN.AgentPayoffParams{GN.Male}(
             wage_self=t64(h["pm_wage_self"]),
             wage_spouse=t64(h["pm_wage_spouse"]),
             alpha=t64(h["pm_alpha"]),
@@ -607,7 +607,7 @@ end
             N_h=t64(h["pm_N_h"]),
             N_theta=t64(h["pm_N_theta"]),
             N_h_spouse=t64(h["pm_N_h_spouse"]),
-            is_woman=false,
+
         )
         hw_init, hm_init, theta_init = t64(h["hw_init"]), t64(h["hm_init"]), t64(h["theta_init"])
         demo_theta, demo_payoff = t64(h["demo_theta"]), t64(h["demo_payoff"])
