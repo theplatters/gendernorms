@@ -19,8 +19,8 @@ const RECORD_DIRS = (
 )
 
 # Flat `key: value` frontmatter of a decision record.
-function frontmatter(path::String)::Dict{String,String}
-    values = Dict{String,String}()
+function frontmatter(path::String)::Dict{String, String}
+    values = Dict{String, String}()
     lines = readlines(path)
     (isempty(lines) || strip(lines[1]) != "---") && return values
     for line in lines[2:end]
@@ -53,7 +53,7 @@ end
 
 # Task ledger rows as `(id, status, task)` triples.
 function task_rows(path::String)
-    rows = Tuple{String,String,String}[]
+    rows = Tuple{String, String, String}[]
     for line in readlines(path)
         startswith(strip(line), "|") || continue
         cells = strip.(split(strip(line), "|"))

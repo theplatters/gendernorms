@@ -90,7 +90,7 @@ function report_error!(st::CheckState, msg::String)
 end
 
 # Read a file as text; return nothing when it cannot be read.
-function try_read_text(path::String)::Union{String,Nothing}
+function try_read_text(path::String)::Union{String, Nothing}
     try
         return read(path, String)
     catch
@@ -149,7 +149,7 @@ end
 
 # Parsed frontmatter (flat key/value map), body lines, and parse errors.
 struct ParsedRecord
-    front::Dict{String,String}
+    front::Dict{String, String}
     body::Vector{String}
     errors::Vector{String}
 end
@@ -167,7 +167,7 @@ end
 # Parse flat `key: value` frontmatter between `---` delimiters. Never
 # throws: malformed input is reported through the errors vector.
 function parse_record(content::String)::ParsedRecord
-    front = Dict{String,String}()
+    front = Dict{String, String}()
     errors = String[]
     raw = String.(split(content, "\n"))
     if isempty(raw) || strip(raw[1]) != "---"
@@ -184,8 +184,8 @@ function parse_record(content::String)::ParsedRecord
     if closing == 0
         push!(errors, "missing closing `---` frontmatter delimiter")
     end
-    front_lines = closing == 0 ? raw[2:end] : raw[2:closing-1]
-    body = closing == 0 ? String[] : raw[closing+1:end]
+    front_lines = closing == 0 ? raw[2:end] : raw[2:(closing - 1)]
+    body = closing == 0 ? String[] : raw[(closing + 1):end]
     for (k, line) in enumerate(front_lines)
         s = strip(line)
         isempty(s) && continue
@@ -240,22 +240,22 @@ end
 
 function check_decision_records(st::CheckState, root::String)
     rels = decision_files(root)
-    parsed = Dict{String,ParsedRecord}()
+    parsed = Dict{String, ParsedRecord}()
     for rel in rels
         content = try_read_text(joinpath(root, rel))
         if content === nothing
-            rec = ParsedRecord(Dict{String,String}(), String[], String["cannot read file"])
+            rec = ParsedRecord(Dict{String, String}(), String[], String["cannot read file"])
             parsed[rel] = rec
         else
             rec = try
                 parse_record(content)
             catch
-                ParsedRecord(Dict{String,String}(), String[], String["cannot parse frontmatter"])
+                ParsedRecord(Dict{String, String}(), String[], String["cannot parse frontmatter"])
             end
             parsed[rel] = rec
         end
     end
-    file_errors = Dict{String,Vector{String}}()
+    file_errors = Dict{String, Vector{String}}()
     for rel in rels
         errs = copy(parsed[rel].errors)
         front = parsed[rel].front
@@ -287,7 +287,7 @@ function check_decision_records(st::CheckState, root::String)
         end
         file_errors[rel] = errs
     end
-    owners = Dict{String,Vector{String}}()
+    owners = Dict{String, Vector{String}}()
     for rel in rels
         rid = haskey(parsed[rel].front, "id") ? String(strip(parsed[rel].front["id"])) : ""
         is_empty_value(rid) && continue
@@ -359,9 +359,9 @@ end
 # `registry/` must resolve to a record or a task. Skill files and
 # AGENTS.md are outside this scan: their examples may use placeholder ids.
 function check_tracked_id_citations(
-    st::CheckState, root::String, jl_files::Vector{String}, md_files::Vector{String},
-    tasks::Dict{String,String},
-)
+        st::CheckState, root::String, jl_files::Vector{String}, md_files::Vector{String},
+        tasks::Dict{String, String},
+    )
     known = union(decision_ids(root), Set(keys(tasks)))
     for rel in sort!(vcat(jl_files, md_files))
         content = try_read_text(joinpath(root, rel))
@@ -379,8 +379,8 @@ function check_tracked_id_citations(
 end
 
 # Parse the task ledger into id => status and report malformed rows.
-function check_tasks(st::CheckState, root::String)::Dict{String,String}
-    statuses = Dict{String,String}()
+function check_tasks(st::CheckState, root::String)::Dict{String, String}
+    statuses = Dict{String, String}()
     rel = "registry/tasks.md"
     content = try_read_text(joinpath(root, rel))
     if content === nothing
@@ -396,24 +396,28 @@ function check_tasks(st::CheckState, root::String)::Dict{String,String}
             report_error!(st, rel * ": duplicate task id `" * id * "` on line " * string(i))
         end
         if !(status in TASK_STATUSES)
-            report_error!(st, rel * ": task `" * id * "` on line " * string(i) *
-                " has invalid status `" * status * "`")
+            report_error!(
+                st, rel * ": task `" * id * "` on line " * string(i) *
+                    " has invalid status `" * status * "`"
+            )
         end
         statuses[id] = status
     end
     if isempty(statuses)
         report_error!(st, rel * ": no `TASK-NNNN` rows found")
     else
-        report_ok!(st, rel * ": " * string(length(statuses)) *
-            " task id(s) with valid statuses")
+        report_ok!(
+            st, rel * ": " * string(length(statuses)) *
+                " task id(s) with valid statuses"
+        )
     end
     return statuses
 end
 
 # A `TODO`/`FIXME` comment in src/ must cite an open task on the same line.
 function check_todos(
-    st::CheckState, root::String, jl_files::Vector{String}, tasks::Dict{String,String}
-)
+        st::CheckState, root::String, jl_files::Vector{String}, tasks::Dict{String, String}
+    )
     for rel in jl_files
         content = try_read_text(joinpath(root, rel))
         content === nothing && continue
@@ -447,9 +451,9 @@ end
 # decisions directory, so renames and additions cannot leave it stale.
 function check_decision_index(st::CheckState, root::String)
     for (dir, readme, prefix) in (
-        ("registry/code/decisions", "registry/code/README.md", "ADR"),
-        ("registry/model/decisions", "registry/model/README.md", "MDR"),
-    )
+            ("registry/code/decisions", "registry/code/README.md", "ADR"),
+            ("registry/model/decisions", "registry/model/README.md", "MDR"),
+        )
         content = try_read_text(joinpath(root, readme))
         if content === nothing
             report_error!(st, readme * ": cannot read registry index")
@@ -492,7 +496,7 @@ function check_includes(st::CheckState, root::String, jl_files::Vector{String}, 
     for m in eachmatch(INCLUDE_PATTERN, content)
         push!(targets, String(m.captures[1]))
     end
-    counts = Dict{String,Int}()
+    counts = Dict{String, Int}()
     for t in targets
         norm = replace(joinpath("src", t), "\\" => "/")
         counts[norm] = get(counts, norm, 0) + 1
@@ -581,7 +585,7 @@ end
 
 function check_skills(st::CheckState, root::String)
     for rel in skill_files(root)
-        parent = split(rel, "/")[end-1]
+        parent = split(rel, "/")[end - 1]
         content = try_read_text(joinpath(root, rel))
         if content === nothing
             report_error!(st, rel * ": cannot read file")
@@ -590,7 +594,7 @@ function check_skills(st::CheckState, root::String)
         rec = try
             parse_record(content)
         catch
-            ParsedRecord(Dict{String,String}(), String[], String["cannot parse frontmatter"])
+            ParsedRecord(Dict{String, String}(), String[], String["cannot parse frontmatter"])
         end
         errs = copy(rec.errors)
         name = haskey(rec.front, "name") ? String(strip(rec.front["name"])) : ""
@@ -615,9 +619,9 @@ function check_skills(st::CheckState, root::String)
 end
 
 # Collect top-level (column-zero) definitions from source files.
-function collect_definitions(root::String, jl_files::Vector{String})::Vector{Tuple{String,String}}
-    defs = Tuple{String,String}[]
-    seen = Set{Tuple{String,String}}()
+function collect_definitions(root::String, jl_files::Vector{String})::Vector{Tuple{String, String}}
+    defs = Tuple{String, String}[]
+    seen = Set{Tuple{String, String}}()
     for rel in jl_files
         content = try_read_text(joinpath(root, rel))
         content === nothing && continue
