@@ -215,8 +215,8 @@ const TRANSFER_REFINE_MAX_ITER = 6
 # probes of both refinements (their seeds are cached Stage A points).
 # Outside/status solves are separate.
 const TRANSFER_SEARCH_MAX_EVALS = 4 +
-    4 * length(TRANSFER_EXPLORE_OFFSETS) + 4 +
-    (TRANSFER_GUIDANCE_REFINEMENTS + TRANSFER_MAX_REFINEMENTS) * TRANSFER_REFINE_MAX_ITER
+                                  4 * length(TRANSFER_EXPLORE_OFFSETS) + 4 +
+                                  (TRANSFER_GUIDANCE_REFINEMENTS + TRANSFER_MAX_REFINEMENTS) * TRANSFER_REFINE_MAX_ITER
 
 # Total relative margin of the certified `-Inf` transfer-objective
 # certificate (see `ADR-0015`): the Float64 envelope bound is inflated
@@ -260,7 +260,9 @@ inflated by `OBJECTIVE_CERT_MARGIN` at the comparison site
 the payer (`relevant_transfer >= 0`) has `q = wage_self * (1 -
 abs(theta))`, `v = h_self`, `d = 1`, and the recipient has
 `q = max(wage_self, abs(theta) * wage_spouse)`, `v = h_self +
-h_spouse`, `d = 2`; `z = conformism * w_transfer * (theta -
+h_spouse`, `d = 2` (the envelope itself is spec-only since `MDR-0019`
+and takes no role argument; the role enters through `q` and `d`);
+`z = conformism * w_transfer * (theta -
 N_theta)^2` drops the two non-negative norm squares of `individual_utility`
 (the `N_h` and `N_h_spouse` terms) and therefore lower-bounds the norm
 exponent whenever `conformism` and the weights are non-negative. The
@@ -279,46 +281,46 @@ on the committed-hours path (see `ADR-0015`). Not a ported NetLogo
 behavior.
 """
 function _payoff_upper_bound(
-    theta::Float64, p::AgentPayoffParams, config::UtilityConfig
+  theta::Float64, p::AgentPayoffParams, config::UtilityConfig
 )::Float64
-    isfinite(theta) || return NaN
-    (-1.0 <= theta <= 1.0) || return NaN
-    (isfinite(p.wage_self) && p.wage_self >= 0.0) || return NaN
-    (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return NaN
-    (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return NaN
-    (isfinite(p.conformism) && p.conformism >= 0.0) || return NaN
-    (isfinite(p.N_h) && isfinite(p.N_theta) && isfinite(p.N_h_spouse)) || return NaN
-    (isfinite(config.w_self) && config.w_self >= 0.0) || return NaN
-    (isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return NaN
-    (isfinite(config.w_partner) && config.w_partner >= 0.0) || return NaN
-    func = config.func
-    if func isa CES
-        (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return NaN
-    end
-    relevant_transfer = p.is_woman ? -theta : theta
-    recipient = relevant_transfer < 0.0
-    r = abs(theta)
-    local q::Float64
-    local d::Float64
-    if recipient
-        q = max(p.wage_self, r * p.wage_spouse)
-        d = 2.0
-    else
-        q = p.wage_self * (1.0 - r)
-        d = 1.0
-    end
-    iszero(q) && return 0.0
-    (isfinite(q) && q >= floatmin(Float64)) || return NaN
-    m = _material_envelope(func, q, d, p.alpha, recipient)
-    (isfinite(m) && m >= floatmin(Float64)) || return NaN
-    dz = theta - p.N_theta
-    z = p.conformism * (config.w_transfer * (dz * dz))
-    isfinite(z) || return NaN
-    e = exp(-z)
-    (isfinite(e) && e >= floatmin(Float64)) || return NaN
-    bound = m * e
-    (isfinite(bound) && bound >= floatmin(Float64)) || return NaN
-    return bound
+  isfinite(theta) || return NaN
+  (-1.0 <= theta <= 1.0) || return NaN
+  (isfinite(p.wage_self) && p.wage_self >= 0.0) || return NaN
+  (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return NaN
+  (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return NaN
+  (isfinite(p.conformism) && p.conformism >= 0.0) || return NaN
+  (isfinite(p.N_h) && isfinite(p.N_theta) && isfinite(p.N_h_spouse)) || return NaN
+  (isfinite(config.w_self) && config.w_self >= 0.0) || return NaN
+  (isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return NaN
+  (isfinite(config.w_partner) && config.w_partner >= 0.0) || return NaN
+  func = config.func
+  if func isa CES
+    (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return NaN
+  end
+  relevant_transfer = _get_relevant_transfer(theta, p)
+  recipient = relevant_transfer < 0.0
+  r = abs(theta)
+  local q::Float64
+  local d::Float64
+  if recipient
+    q = max(p.wage_self, r * p.wage_spouse)
+    d = 2.0
+  else
+    q = p.wage_self * (1.0 - r)
+    d = 1.0
+  end
+  iszero(q) && return 0.0
+  (isfinite(q) && q >= floatmin(Float64)) || return NaN
+  m = _material_envelope(func, q, d, p.alpha)
+  (isfinite(m) && m >= floatmin(Float64)) || return NaN
+  dz = theta - p.N_theta
+  z = p.conformism * (config.w_transfer * (dz * dz))
+  isfinite(z) || return NaN
+  e = exp(-z)
+  (isfinite(e) && e >= floatmin(Float64)) || return NaN
+  bound = m * e
+  (isfinite(bound) && bound >= floatmin(Float64)) || return NaN
+  return bound
 end
 
 """
@@ -343,16 +345,16 @@ path and never inside `outside_options`, `nash_product`,
 behavior.
 """
 function _objective_prunable(
-    theta::Float64, uw_out::Float64, um_out::Float64,
-    pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+  theta::Float64, uw_out::Float64, um_out::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
 )::Bool
-    (isfinite(uw_out) && isfinite(um_out)) || return false
-    bound_w = _payoff_upper_bound(theta, pw, config)
-    if isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out
-        return true
-    end
-    bound_m = _payoff_upper_bound(theta, pm, config)
-    return isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out
+  (isfinite(uw_out) && isfinite(um_out)) || return false
+  bound_w = _payoff_upper_bound(theta, pw, config)
+  if isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out
+    return true
+  end
+  bound_m = _payoff_upper_bound(theta, pm, config)
+  return isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out
 end
 
 """
@@ -377,7 +379,9 @@ norm effects cannot oppose: `M` is the material envelope
 recipient (`d == 2`, `v == h_self + h_spouse`) at `q = max(wage_self,
 b * wage_spouse)`, where `a <= |theta| <= b` is the slab's range of
 absolute transfers (`a = min(abs(lo), abs(hi))`, `b = max(abs(lo),
-abs(hi))`); `z_min` is the smallest norm penalty of the slab, at
+abs(hi))`) (the envelope itself is spec-only since `MDR-0019` and
+takes no role argument; the role enters through `q` and `d`); `z_min`
+is the smallest norm penalty of the slab, at
 `closest = clamp(N_theta, lo, hi)`: `z_min = conformism * w_transfer *
 (closest - N_theta)^2` in the operation order of
 `individual_utility`'s retained term. Guards, margin arithmetic, the
@@ -406,68 +410,68 @@ Used only by `_objective_interval_prunable` as a Stage A prefilter of
 `ADR-0017`). Not a ported NetLogo behavior.
 """
 function _payoff_interval_bound(
-    lo::Float64, hi::Float64, recipient::Bool,
-    p::AgentPayoffParams, config::UtilityConfig
+  lo::Float64, hi::Float64, recipient::Bool,
+  p::AgentPayoffParams, config::UtilityConfig
 )::Float64
-    (isfinite(lo) && isfinite(hi) && lo <= hi) || return NaN
-    (hi <= 0.0 || lo >= 0.0) || return NaN
-    (lo < 0.0 || hi > 0.0) || return NaN
-    (isfinite(p.wage_self) && p.wage_self >= 0.0) || return NaN
-    (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return NaN
-    (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return NaN
-    (isfinite(p.conformism) && p.conformism >= 0.0) || return NaN
-    (isfinite(p.N_h) && isfinite(p.N_theta) && isfinite(p.N_h_spouse)) || return NaN
-    (isfinite(config.w_self) && config.w_self >= 0.0) || return NaN
-    (isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return NaN
-    (isfinite(config.w_partner) && config.w_partner >= 0.0) || return NaN
-    func = config.func
-    if func isa CES
-        (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return NaN
-    end
-    r_min = min(abs(lo), abs(hi))
-    r_max = max(abs(lo), abs(hi))
-    local q_slack::Float64
-    local q_tight::Float64
-    local d::Float64
-    if recipient
-        q_slack = max(p.wage_self, r_max * p.wage_spouse)
-        q_tight = max(p.wage_self, r_min * p.wage_spouse)
-        d = 2.0
-    else
-        q_slack = p.wage_self * (1.0 - r_min)
-        q_tight = p.wage_self * (1.0 - r_max)
-        d = 1.0
-    end
-    # Zero-wage rule: zero slack consumption means zero consumption at
-    # every transfer of the slab, so the computed utility is exactly
-    # `-Inf` everywhere by its `x <= 0` guard (IEEE monotonicity). A
-    # mixed zero/nonzero range holds transfers with subnormal positive
-    # consumption, where the pointwise certificate fails open; fail
-    # open too.
-    iszero(q_slack) && return 0.0
-    (isfinite(q_slack) && q_slack >= floatmin(Float64)) || return NaN
-    (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return NaN
-    m = _material_envelope(func, q_slack, d, p.alpha, recipient)
-    (isfinite(m) && m >= floatmin(Float64)) || return NaN
-    closest = clamp(p.N_theta, lo, hi)
-    dz = closest - p.N_theta
-    z_min = p.conformism * (config.w_transfer * (dz * dz))
-    isfinite(z_min) || return NaN
-    e_min = exp(-z_min)
-    (isfinite(e_min) && e_min >= floatmin(Float64)) || return NaN
-    bound = m * e_min
-    (isfinite(bound) && bound >= floatmin(Float64)) || return NaN
-    # Cheap pointwise-parity guard: the largest norm penalty of the
-    # slab, at the endpoint farthest from `N_theta`, must keep the
-    # pointwise `exp` normal there too (see `_interval_normal_ok` for
-    # the material side and the docstring).
-    farthest = abs(lo - p.N_theta) >= abs(hi - p.N_theta) ? lo : hi
-    dz_far = farthest - p.N_theta
-    z_max = p.conformism * (config.w_transfer * (dz_far * dz_far))
-    isfinite(z_max) || return NaN
-    e_max = exp(-z_max)
-    (isfinite(e_max) && e_max >= 2.0 * floatmin(Float64)) || return NaN
-    return bound
+  (isfinite(lo) && isfinite(hi) && lo <= hi) || return NaN
+  (hi <= 0.0 || lo >= 0.0) || return NaN
+  (lo < 0.0 || hi > 0.0) || return NaN
+  (isfinite(p.wage_self) && p.wage_self >= 0.0) || return NaN
+  (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return NaN
+  (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return NaN
+  (isfinite(p.conformism) && p.conformism >= 0.0) || return NaN
+  (isfinite(p.N_h) && isfinite(p.N_theta) && isfinite(p.N_h_spouse)) || return NaN
+  (isfinite(config.w_self) && config.w_self >= 0.0) || return NaN
+  (isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return NaN
+  (isfinite(config.w_partner) && config.w_partner >= 0.0) || return NaN
+  func = config.func
+  if func isa CES
+    (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return NaN
+  end
+  r_min = min(abs(lo), abs(hi))
+  r_max = max(abs(lo), abs(hi))
+  local q_slack::Float64
+  local q_tight::Float64
+  local d::Float64
+  if recipient
+    q_slack = max(p.wage_self, r_max * p.wage_spouse)
+    q_tight = max(p.wage_self, r_min * p.wage_spouse)
+    d = 2.0
+  else
+    q_slack = p.wage_self * (1.0 - r_min)
+    q_tight = p.wage_self * (1.0 - r_max)
+    d = 1.0
+  end
+  # Zero-wage rule: zero slack consumption means zero consumption at
+  # every transfer of the slab, so the computed utility is exactly
+  # `-Inf` everywhere by its `x <= 0` guard (IEEE monotonicity). A
+  # mixed zero/nonzero range holds transfers with subnormal positive
+  # consumption, where the pointwise certificate fails open; fail
+  # open too.
+  iszero(q_slack) && return 0.0
+  (isfinite(q_slack) && q_slack >= floatmin(Float64)) || return NaN
+  (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return NaN
+  m = _material_envelope(func, q_slack, d, p.alpha)
+  (isfinite(m) && m >= floatmin(Float64)) || return NaN
+  closest = clamp(p.N_theta, lo, hi)
+  dz = closest - p.N_theta
+  z_min = p.conformism * (config.w_transfer * (dz * dz))
+  isfinite(z_min) || return NaN
+  e_min = exp(-z_min)
+  (isfinite(e_min) && e_min >= floatmin(Float64)) || return NaN
+  bound = m * e_min
+  (isfinite(bound) && bound >= floatmin(Float64)) || return NaN
+  # Cheap pointwise-parity guard: the largest norm penalty of the
+  # slab, at the endpoint farthest from `N_theta`, must keep the
+  # pointwise `exp` normal there too (see `_interval_normal_ok` for
+  # the material side and the docstring).
+  farthest = abs(lo - p.N_theta) >= abs(hi - p.N_theta) ? lo : hi
+  dz_far = farthest - p.N_theta
+  z_max = p.conformism * (config.w_transfer * (dz_far * dz_far))
+  isfinite(z_max) || return NaN
+  e_max = exp(-z_max)
+  (isfinite(e_max) && e_max >= 2.0 * floatmin(Float64)) || return NaN
+  return bound
 end
 
 """
@@ -478,7 +482,10 @@ Material-side pointwise-parity guard of `_payoff_interval_bound` (see
 smallest consumption is finite and normal (`>= 2 * floatmin`, a
 factor-of-two floor against rounding races at the `floatmin`
 boundary), and its product with the `exp` of the largest norm penalty
-of the slab stays at or above that floor. Material-envelope finiteness
+of the slab stays at or above that floor. The `recipient` argument
+fixes the role of `p` on the whole slab and drives only the `q`/`d`
+consumption geometry of the guard (the material envelope is spec-only
+since `MDR-0019` and takes no role argument). Material-envelope finiteness
 is monotone in the consumption, and the norm factor is largest at the
 endpoint farthest from `N_theta`, so the pointwise bound of every
 covered transfer is then finite and normal as well. The one exception
@@ -498,63 +505,63 @@ it. Fail open (`false`) on any non-finite intermediate (see the guards
 of `_payoff_upper_bound`). Not a ported NetLogo behavior.
 """
 function _interval_normal_ok(
-    lo::Float64, hi::Float64, recipient::Bool,
-    p::AgentPayoffParams, config::UtilityConfig
+  lo::Float64, hi::Float64, recipient::Bool,
+  p::AgentPayoffParams, config::UtilityConfig
 )::Bool
-    (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
-    (hi <= 0.0 || lo >= 0.0) || return false
-    (lo < 0.0 || hi > 0.0) || return false
-    (isfinite(p.wage_self) && p.wage_self >= 0.0) || return false
-    (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return false
-    (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return false
-    (isfinite(p.conformism) && p.conformism >= 0.0) || return false
-    (isfinite(p.N_theta) && isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return false
-    func = config.func
-    if func isa CES
-        (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return false
-    end
-    r_min = min(abs(lo), abs(hi))
-    r_max = max(abs(lo), abs(hi))
-    local q_slack::Float64
-    local q_tight::Float64
-    local d::Float64
-    if recipient
-        q_slack = max(p.wage_self, r_max * p.wage_spouse)
-        q_tight = max(p.wage_self, r_min * p.wage_spouse)
-        d = 2.0
-    else
-        q_slack = p.wage_self * (1.0 - r_min)
-        q_tight = p.wage_self * (1.0 - r_max)
-        d = 1.0
-    end
-    # Exact zero-consumption parity rule: the same rule as the
-    # `iszero(q_slack)` zero-wage rule of `_payoff_interval_bound` and
-    # the `iszero(q) && return 0.0` rule of the pointwise
-    # `_payoff_upper_bound`. A pure-zero consumption range over the
-    # whole slab (`iszero(q_slack)`, which forces `iszero(q_tight)`)
-    # makes the computed utility exactly `-Inf` at every transfer by
-    # `individual_utility`'s `x <= 0` guard (IEEE rounding is monotone),
-    # and the pointwise certificate certifies the same `-Inf` through
-    # the identical exact rule at every covered transfer without ever
-    # consulting the material envelope, so the pointwise-parity
-    # property holds spec-independently here and no normal material
-    # envelope is needed. A MIXED zero/nonzero range (`q_slack > 0`
-    # with `iszero(q_tight)`) falls through to the guard below and
-    # fails open: the pointwise certificate certifies only the
-    # exactly-zero transfers there, not the whole slab, so parity
-    # genuinely fails (and `_payoff_interval_bound` already returns
-    # `NaN` for it).
-    iszero(q_slack) && return true
-    (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return false
-    m_tight = _material_envelope(func, q_tight, d, p.alpha, recipient)
-    (isfinite(m_tight) && m_tight >= 2.0 * floatmin(Float64)) || return false
-    farthest = abs(lo - p.N_theta) >= abs(hi - p.N_theta) ? lo : hi
-    dz_far = farthest - p.N_theta
-    z_max = p.conformism * (config.w_transfer * (dz_far * dz_far))
-    isfinite(z_max) || return false
-    e_max = exp(-z_max)
-    (isfinite(e_max) && e_max >= 2.0 * floatmin(Float64)) || return false
-    return m_tight * e_max >= 2.0 * floatmin(Float64)
+  (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
+  (hi <= 0.0 || lo >= 0.0) || return false
+  (lo < 0.0 || hi > 0.0) || return false
+  (isfinite(p.wage_self) && p.wage_self >= 0.0) || return false
+  (isfinite(p.wage_spouse) && p.wage_spouse >= 0.0) || return false
+  (isfinite(p.alpha) && 0.0 <= p.alpha <= 1.0) || return false
+  (isfinite(p.conformism) && p.conformism >= 0.0) || return false
+  (isfinite(p.N_theta) && isfinite(config.w_transfer) && config.w_transfer >= 0.0) || return false
+  func = config.func
+  if func isa CES
+    (isfinite(func.beta) && func.beta >= CES_CERT_MIN_BETA) || return false
+  end
+  r_min = min(abs(lo), abs(hi))
+  r_max = max(abs(lo), abs(hi))
+  local q_slack::Float64
+  local q_tight::Float64
+  local d::Float64
+  if recipient
+    q_slack = max(p.wage_self, r_max * p.wage_spouse)
+    q_tight = max(p.wage_self, r_min * p.wage_spouse)
+    d = 2.0
+  else
+    q_slack = p.wage_self * (1.0 - r_min)
+    q_tight = p.wage_self * (1.0 - r_max)
+    d = 1.0
+  end
+  # Exact zero-consumption parity rule: the same rule as the
+  # `iszero(q_slack)` zero-wage rule of `_payoff_interval_bound` and
+  # the `iszero(q) && return 0.0` rule of the pointwise
+  # `_payoff_upper_bound`. A pure-zero consumption range over the
+  # whole slab (`iszero(q_slack)`, which forces `iszero(q_tight)`)
+  # makes the computed utility exactly `-Inf` at every transfer by
+  # `individual_utility`'s `x <= 0` guard (IEEE rounding is monotone),
+  # and the pointwise certificate certifies the same `-Inf` through
+  # the identical exact rule at every covered transfer without ever
+  # consulting the material envelope, so the pointwise-parity
+  # property holds spec-independently here and no normal material
+  # envelope is needed. A MIXED zero/nonzero range (`q_slack > 0`
+  # with `iszero(q_tight)`) falls through to the guard below and
+  # fails open: the pointwise certificate certifies only the
+  # exactly-zero transfers there, not the whole slab, so parity
+  # genuinely fails (and `_payoff_interval_bound` already returns
+  # `NaN` for it).
+  iszero(q_slack) && return true
+  (isfinite(q_tight) && q_tight >= floatmin(Float64)) || return false
+  m_tight = _material_envelope(func, q_tight, d, p.alpha)
+  (isfinite(m_tight) && m_tight >= 2.0 * floatmin(Float64)) || return false
+  farthest = abs(lo - p.N_theta) >= abs(hi - p.N_theta) ? lo : hi
+  dz_far = farthest - p.N_theta
+  z_max = p.conformism * (config.w_transfer * (dz_far * dz_far))
+  isfinite(z_max) || return false
+  e_max = exp(-z_max)
+  (isfinite(e_max) && e_max >= 2.0 * floatmin(Float64)) || return false
+  return m_tight * e_max >= 2.0 * floatmin(Float64)
 end
 
 """
@@ -604,46 +611,46 @@ objective calls inside `bargain_transfer`'s payoff-only objective,
 never on the committed-hours path. Not a ported NetLogo behavior.
 """
 function _objective_interval_prunable(
-    lo::Float64, hi::Float64, uw_out::Float64, um_out::Float64,
-    pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+  lo::Float64, hi::Float64, uw_out::Float64, um_out::Float64,
+  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
 )::Bool
-    (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
-    (-1.0 <= lo && hi <= 1.0) || return false
-    (isfinite(uw_out) && isfinite(um_out)) || return false
-    margin2 = (1.0 + OBJECTIVE_CERT_MARGIN) * (1.0 + OBJECTIVE_CERT_MARGIN)
-    if lo <= 0.0 && 0.0 <= hi
-        _objective_prunable(0.0, uw_out, um_out, pw, pm, config) || return false
+  (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
+  (-1.0 <= lo && hi <= 1.0) || return false
+  (isfinite(uw_out) && isfinite(um_out)) || return false
+  margin2 = (1.0 + OBJECTIVE_CERT_MARGIN) * (1.0 + OBJECTIVE_CERT_MARGIN)
+  if lo <= 0.0 && 0.0 <= hi
+    _objective_prunable(0.0, uw_out, um_out, pw, pm, config) || return false
+  end
+  if lo < 0.0
+    # Negative slab: the woman pays, the man receives. The payer is
+    # tested first and the recipient envelope is skipped when the
+    # payer certifies; the material-side parity guard runs only on
+    # a bound that already passed its comparison.
+    hi_neg = hi < 0.0 ? hi : 0.0
+    bound = _payoff_interval_bound(lo, hi_neg, false, pw, config)
+    certified = isfinite(bound) && bound * margin2 < uw_out &&
+                _interval_normal_ok(lo, hi_neg, false, pw, config)
+    if !certified
+      bound = _payoff_interval_bound(lo, hi_neg, true, pm, config)
+      certified = isfinite(bound) && bound * margin2 < um_out &&
+                  _interval_normal_ok(lo, hi_neg, true, pm, config)
     end
-    if lo < 0.0
-        # Negative slab: the woman pays, the man receives. The payer is
-        # tested first and the recipient envelope is skipped when the
-        # payer certifies; the material-side parity guard runs only on
-        # a bound that already passed its comparison.
-        hi_neg = hi < 0.0 ? hi : 0.0
-        bound = _payoff_interval_bound(lo, hi_neg, false, pw, config)
-        certified = isfinite(bound) && bound * margin2 < uw_out &&
-            _interval_normal_ok(lo, hi_neg, false, pw, config)
-        if !certified
-            bound = _payoff_interval_bound(lo, hi_neg, true, pm, config)
-            certified = isfinite(bound) && bound * margin2 < um_out &&
-                _interval_normal_ok(lo, hi_neg, true, pm, config)
-        end
-        certified || return false
+    certified || return false
+  end
+  if hi > 0.0
+    # Positive slab: the man pays, the woman receives.
+    lo_pos = lo > 0.0 ? lo : 0.0
+    bound = _payoff_interval_bound(lo_pos, hi, false, pm, config)
+    certified = isfinite(bound) && bound * margin2 < um_out &&
+                _interval_normal_ok(lo_pos, hi, false, pm, config)
+    if !certified
+      bound = _payoff_interval_bound(lo_pos, hi, true, pw, config)
+      certified = isfinite(bound) && bound * margin2 < uw_out &&
+                  _interval_normal_ok(lo_pos, hi, true, pw, config)
     end
-    if hi > 0.0
-        # Positive slab: the man pays, the woman receives.
-        lo_pos = lo > 0.0 ? lo : 0.0
-        bound = _payoff_interval_bound(lo_pos, hi, false, pm, config)
-        certified = isfinite(bound) && bound * margin2 < um_out &&
-            _interval_normal_ok(lo_pos, hi, false, pm, config)
-        if !certified
-            bound = _payoff_interval_bound(lo_pos, hi, true, pw, config)
-            certified = isfinite(bound) && bound * margin2 < uw_out &&
-                _interval_normal_ok(lo_pos, hi, true, pw, config)
-        end
-        certified || return false
-    end
-    return true
+    certified || return false
+  end
+  return true
 end
 
 """
@@ -664,13 +671,13 @@ solved gains or, for local certified probes, bound gains computed in that
 same evaluation (`MDR-0016`, `ADR-0021`). They never rank or commit a point.
 """
 struct TransferObjectiveValue
-    gain_w::Float64
-    gain_m::Float64
-    payoff::Float64
-    hw::Float64
-    hm::Float64
-    guidance_w::Float64
-    guidance_m::Float64
+  gain_w::Float64
+  gain_m::Float64
+  payoff::Float64
+  hw::Float64
+  hm::Float64
+  guidance_w::Float64
+  guidance_m::Float64
 end
 
 """
@@ -680,7 +687,7 @@ Construct a solved objective record whose guidance equals its utility gains.
 Certified local probes instead supply separate bound gains (`ADR-0021`).
 """
 TransferObjectiveValue(gain_w, gain_m, payoff, hw, hm) =
-    TransferObjectiveValue(gain_w, gain_m, payoff, hw, hm, gain_w, gain_m)
+  TransferObjectiveValue(gain_w, gain_m, payoff, hw, hm, gain_w, gain_m)
 
 # Production storage hints retained from `ADR-0020` under `ADR-0021`:
 # at most `TRANSFER_SEARCH_MAX_EVALS` raw entries including the seed and
@@ -714,10 +721,10 @@ constructs one per call. Production uses small capacity hints; the
 explicit discovery mode grows them as needed.
 """
 struct TransferSearchScratch
-    cache::Dict{Float64,TransferObjectiveValue}
-    samples::Vector{Tuple{Float64,Float64}}
-    maxima::Vector{Int}
-    slabs::Vector{Tuple{Float64,Float64}}
+  cache::Dict{Float64,TransferObjectiveValue}
+  samples::Vector{Tuple{Float64,Float64}}
+  maxima::Vector{Int}
+  slabs::Vector{Tuple{Float64,Float64}}
 end
 
 """
@@ -728,7 +735,7 @@ with fresh side vectors (the entry point of the cache-probing tests of
 `test/test_transfer_search.jl`, which own and inspect the cache).
 """
 function TransferSearchScratch(cache::Dict{Float64,TransferObjectiveValue})
-    return TransferSearchScratch(cache, Tuple{Float64,Float64}[], Int[], Tuple{Float64,Float64}[])
+  return TransferSearchScratch(cache, Tuple{Float64,Float64}[], Int[], Tuple{Float64,Float64}[])
 end
 
 """
@@ -742,9 +749,9 @@ only grows when a household needs an exceptional evaluation count (see
 `ADR-0017` and `ADR-0019`).
 """
 function TransferSearchScratch()
-    cache = sizehint!(Dict{Float64,TransferObjectiveValue}(), TRANSFER_CACHE_CAPACITY)
-    samples = sizehint!(Tuple{Float64,Float64}[], TRANSFER_SAMPLE_CAPACITY)
-    return TransferSearchScratch(cache, samples, Int[], Tuple{Float64,Float64}[])
+  cache = sizehint!(Dict{Float64,TransferObjectiveValue}(), TRANSFER_CACHE_CAPACITY)
+  samples = sizehint!(Tuple{Float64,Float64}[], TRANSFER_SAMPLE_CAPACITY)
+  return TransferSearchScratch(cache, samples, Int[], Tuple{Float64,Float64}[])
 end
 
 """
@@ -757,12 +764,12 @@ cached evaluation of the previous household; nothing of it survives
 into the next search (see `ADR-0017`).
 """
 function _reset_scratch!(scratch::TransferSearchScratch)
-    empty!(scratch.cache)
-    sizehint!(scratch.cache, TRANSFER_CACHE_CAPACITY; shrink=false)
-    empty!(scratch.samples)
-    empty!(scratch.maxima)
-    empty!(scratch.slabs)
-    return nothing
+  empty!(scratch.cache)
+  sizehint!(scratch.cache, TRANSFER_CACHE_CAPACITY; shrink=false)
+  empty!(scratch.samples)
+  empty!(scratch.maxima)
+  empty!(scratch.slabs)
+  return nothing
 end
 
 """
@@ -776,13 +783,13 @@ call, so every sampled, refined, and committed transfer is evaluated at
 most once. Returns the `TransferObjectiveValue`.
 """
 function _transfer_eval!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F, theta::Float64
+  cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F, theta::Float64
 )::TransferObjectiveValue where {F}
-    cached = get(cache, theta, nothing)
-    cached === nothing || return cached
-    entry = evaluate!(theta)
-    cache[theta] = entry
-    return entry
+  cached = get(cache, theta, nothing)
+  cached === nothing || return cached
+  entry = evaluate!(theta)
+  cache[theta] = entry
+  return entry
 end
 
 """
@@ -797,10 +804,10 @@ partition splits at zero), so it always falls through to the pointwise
 path.
 """
 function _transfer_covered(slabs::Vector{Tuple{Float64,Float64}}, theta::Float64)::Bool
-    for (lo, hi) in slabs
-        lo <= theta <= hi && return true
-    end
-    return false
+  for (lo, hi) in slabs
+    lo <= theta <= hi && return true
+  end
+  return false
 end
 
 """
@@ -822,21 +829,21 @@ probe at one re-certifies through `evaluate!` to the identical `-Inf`).
 Returns the `TransferObjectiveValue`.
 """
 function _transfer_sample!(
-    cache::Dict{Float64,TransferObjectiveValue}, samples::Vector{Tuple{Float64,Float64}},
-    slabs::Vector{Tuple{Float64,Float64}}, evaluate!::F, theta::Float64
+  cache::Dict{Float64,TransferObjectiveValue}, samples::Vector{Tuple{Float64,Float64}},
+  slabs::Vector{Tuple{Float64,Float64}}, evaluate!::F, theta::Float64
 )::TransferObjectiveValue where {F}
-    if haskey(cache, theta)
-        push!(samples, (theta, cache[theta].payoff))
-        return cache[theta]
-    end
-    if _transfer_covered(slabs, theta)
-        push!(samples, (theta, -Inf))
-        return TransferObjectiveValue(NaN, NaN, -Inf, NaN, NaN)
-    end
-    entry = evaluate!(theta)
-    cache[theta] = entry
-    push!(samples, (theta, entry.payoff))
-    return entry
+  if haskey(cache, theta)
+    push!(samples, (theta, cache[theta].payoff))
+    return cache[theta]
+  end
+  if _transfer_covered(slabs, theta)
+    push!(samples, (theta, -Inf))
+    return TransferObjectiveValue(NaN, NaN, -Inf, NaN, NaN)
+  end
+  entry = evaluate!(theta)
+  cache[theta] = entry
+  push!(samples, (theta, entry.payoff))
+  return entry
 end
 
 # Stop splitting a slab candidate below this many grid samples (see
@@ -866,28 +873,28 @@ is evaluated here: the slabs only prefilter the objective calls of the
 Stage A enumeration loops.
 """
 function _transfer_cover_slabs!(
-    slabs::Vector{Tuple{Float64,Float64}}, lo::Float64, hi::Float64,
-    spacing::Float64, slab_prunable
+  slabs::Vector{Tuple{Float64,Float64}}, lo::Float64, hi::Float64,
+  spacing::Float64, slab_prunable
 )
-    lo < hi || return nothing
-    if lo < 0.0 < hi
-        _transfer_cover_slabs!(slabs, lo, prevfloat(0.0), spacing, slab_prunable)
-        _transfer_cover_slabs!(slabs, nextfloat(0.0), hi, spacing, slab_prunable)
-        return nothing
-    end
-    for (slab_lo, slab_hi) in slabs
-        (slab_lo <= lo && hi <= slab_hi) && return nothing
-    end
-    (hi - lo) <= (TRANSFER_SLAB_MIN_SAMPLES - 1) * spacing && return nothing
-    if slab_prunable(lo, hi)::Bool
-        push!(slabs, (lo, hi))
-        return nothing
-    end
-    mid = lo + 0.5 * (hi - lo)
-    (mid <= lo || mid >= hi) && return nothing
-    _transfer_cover_slabs!(slabs, lo, mid, spacing, slab_prunable)
-    _transfer_cover_slabs!(slabs, mid, hi, spacing, slab_prunable)
+  lo < hi || return nothing
+  if lo < 0.0 < hi
+    _transfer_cover_slabs!(slabs, lo, prevfloat(0.0), spacing, slab_prunable)
+    _transfer_cover_slabs!(slabs, nextfloat(0.0), hi, spacing, slab_prunable)
     return nothing
+  end
+  for (slab_lo, slab_hi) in slabs
+    (slab_lo <= lo && hi <= slab_hi) && return nothing
+  end
+  (hi - lo) <= (TRANSFER_SLAB_MIN_SAMPLES - 1) * spacing && return nothing
+  if slab_prunable(lo, hi)::Bool
+    push!(slabs, (lo, hi))
+    return nothing
+  end
+  mid = lo + 0.5 * (hi - lo)
+  (mid <= lo || mid >= hi) && return nothing
+  _transfer_cover_slabs!(slabs, lo, mid, spacing, slab_prunable)
+  _transfer_cover_slabs!(slabs, mid, hi, spacing, slab_prunable)
+  return nothing
 end
 
 """
@@ -902,14 +909,14 @@ Certified-slab partition of every Stage A grid run of `_transfer_search!`
 nothing.
 """
 function _transfer_prepare_slabs!(slabs::Vector{Tuple{Float64,Float64}}, slab_prunable, theta0::Float64)
-    slab_prunable === nothing && return nothing
-    for anchor in (0.0, theta0)
-        lo = max(anchor - TRANSFER_FINE_STEPS * TRANSFER_FINE_STEP, -1.0)
-        hi = min(anchor + TRANSFER_FINE_STEPS * TRANSFER_FINE_STEP, 1.0)
-        _transfer_cover_slabs!(slabs, lo, hi, TRANSFER_FINE_STEP, slab_prunable)
-    end
-    _transfer_cover_slabs!(slabs, -1.0, 1.0, TRANSFER_COARSE_STEP, slab_prunable)
-    return nothing
+  slab_prunable === nothing && return nothing
+  for anchor in (0.0, theta0)
+    lo = max(anchor - TRANSFER_FINE_STEPS * TRANSFER_FINE_STEP, -1.0)
+    hi = min(anchor + TRANSFER_FINE_STEPS * TRANSFER_FINE_STEP, 1.0)
+    _transfer_cover_slabs!(slabs, lo, hi, TRANSFER_FINE_STEP, slab_prunable)
+  end
+  _transfer_cover_slabs!(slabs, -1.0, 1.0, TRANSFER_COARSE_STEP, slab_prunable)
+  return nothing
 end
 
 """
@@ -925,13 +932,13 @@ distinct transfers, so the result does not depend on cache iteration
 order.
 """
 function _transfer_better(
-    theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
+  theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
 )::Bool
-    payoff != best_payoff && return payoff > best_payoff
-    distance = abs(theta - theta0)
-    best_distance = abs(best_theta - theta0)
-    distance != best_distance && return distance < best_distance
-    return theta < best_theta
+  payoff != best_payoff && return payoff > best_payoff
+  distance = abs(theta - theta0)
+  best_distance = abs(best_theta - theta0)
+  distance != best_distance && return distance < best_distance
+  return theta < best_theta
 end
 
 """
@@ -981,105 +988,105 @@ seeds the cache at `theta0` with the status-quo evaluation before
 calling (see `MDR-0014`).
 """
 function _transfer_search!(
-    scratch::TransferSearchScratch, slab_prunable, evaluate!::F,
-    theta0::Float64, tol::Float64
+  scratch::TransferSearchScratch, slab_prunable, evaluate!::F,
+  theta0::Float64, tol::Float64
 )::Float64 where {F}
-    cache = scratch.cache
-    samples = scratch.samples
-    maxima = scratch.maxima
-    slabs = scratch.slabs
-    # The sampled sequence starts from every pre-seeded key (the
-    # status quo) and keeps every Stage A sample of this call.
-    empty!(samples)
-    for (theta, entry) in cache
-        push!(samples, (theta, entry.payoff))
+  cache = scratch.cache
+  samples = scratch.samples
+  maxima = scratch.maxima
+  slabs = scratch.slabs
+  # The sampled sequence starts from every pre-seeded key (the
+  # status quo) and keeps every Stage A sample of this call.
+  empty!(samples)
+  for (theta, entry) in cache
+    push!(samples, (theta, entry.payoff))
+  end
+  empty!(maxima)
+  empty!(slabs)
+  _transfer_prepare_slabs!(slabs, slab_prunable, theta0)
+  # Stage A: the tiered evaluation set of `MDR-0014`, anchors first,
+  # then the fine anchor windows, then the coarse grid; the cache and
+  # the sort-time collapse deduplicate overlaps (theta0 often
+  # coincides with an anchor or a grid point).
+  _transfer_sample!(cache, samples, slabs, evaluate!, -1.0)
+  _transfer_sample!(cache, samples, slabs, evaluate!, 0.0)
+  _transfer_sample!(cache, samples, slabs, evaluate!, theta0)
+  _transfer_sample!(cache, samples, slabs, evaluate!, 1.0)
+  for anchor in (0.0, theta0)
+    for k in 1:TRANSFER_FINE_STEPS
+      _transfer_sample!(
+        cache, samples, slabs, evaluate!, clamp(anchor + k * TRANSFER_FINE_STEP, -1.0, 1.0)
+      )
+      _transfer_sample!(
+        cache, samples, slabs, evaluate!, clamp(anchor - k * TRANSFER_FINE_STEP, -1.0, 1.0)
+      )
     end
-    empty!(maxima)
-    empty!(slabs)
-    _transfer_prepare_slabs!(slabs, slab_prunable, theta0)
-    # Stage A: the tiered evaluation set of `MDR-0014`, anchors first,
-    # then the fine anchor windows, then the coarse grid; the cache and
-    # the sort-time collapse deduplicate overlaps (theta0 often
-    # coincides with an anchor or a grid point).
-    _transfer_sample!(cache, samples, slabs, evaluate!, -1.0)
-    _transfer_sample!(cache, samples, slabs, evaluate!, 0.0)
-    _transfer_sample!(cache, samples, slabs, evaluate!, theta0)
-    _transfer_sample!(cache, samples, slabs, evaluate!, 1.0)
-    for anchor in (0.0, theta0)
-        for k in 1:TRANSFER_FINE_STEPS
-            _transfer_sample!(
-                cache, samples, slabs, evaluate!, clamp(anchor + k * TRANSFER_FINE_STEP, -1.0, 1.0)
-            )
-            _transfer_sample!(
-                cache, samples, slabs, evaluate!, clamp(anchor - k * TRANSFER_FINE_STEP, -1.0, 1.0)
-            )
-        end
+  end
+  for theta in -1.0:TRANSFER_COARSE_STEP:1.0
+    _transfer_sample!(cache, samples, slabs, evaluate!, theta)
+  end
+  # Stage B: sort the sampled sequence once and collapse duplicate
+  # transfers (exact `isequal` semantics: `-0.0` and `+0.0` stay
+  # distinct), then weak local maxima of the sampled payoffs, one
+  # bounded refinement per equal-payoff plateau (see `MDR-0014`).
+  sort!(samples)
+  nraw = length(samples)
+  n = 0
+  for i in 1:nraw
+    if n == 0 || !isequal(samples[n][1], samples[i][1])
+      n += 1
+      samples[n] = samples[i]
     end
-    for theta in -1.0:TRANSFER_COARSE_STEP:1.0
-        _transfer_sample!(cache, samples, slabs, evaluate!, theta)
+  end
+  resize!(samples, n)
+  for i in 1:n
+    payoff = samples[i][2]
+    isfinite(payoff) || continue
+    i == 1 || payoff >= samples[i-1][2] || continue
+    i == n || payoff >= samples[i+1][2] || continue
+    push!(maxima, i)
+  end
+  objective(theta) = _transfer_eval!(cache, evaluate!, theta).payoff
+  plateau_start = 1
+  while plateau_start <= length(maxima)
+    plateau_end = plateau_start
+    while plateau_end < length(maxima) &&
+            maxima[plateau_end+1] == maxima[plateau_end] + 1 &&
+            samples[maxima[plateau_end+1]][2] == samples[maxima[plateau_start]][2]
+      plateau_end += 1
     end
-    # Stage B: sort the sampled sequence once and collapse duplicate
-    # transfers (exact `isequal` semantics: `-0.0` and `+0.0` stay
-    # distinct), then weak local maxima of the sampled payoffs, one
-    # bounded refinement per equal-payoff plateau (see `MDR-0014`).
-    sort!(samples)
-    nraw = length(samples)
-    n = 0
-    for i in 1:nraw
-        if n == 0 || !isequal(samples[n][1], samples[i][1])
-            n += 1
-            samples[n] = samples[i]
-        end
+    # The plateau member closest to the status quo refines; equal
+    # payoffs make `_transfer_better` apply the distance-then-theta
+    # rule of `MDR-0014`.
+    refined = maxima[plateau_start]
+    for mi in (plateau_start+1):plateau_end
+      m = maxima[mi]
+      if _transfer_better(
+        samples[m][1], samples[m][2],
+        samples[refined][1], samples[refined][2], theta0,
+      )
+        refined = m
+      end
     end
-    resize!(samples, n)
-    for i in 1:n
-        payoff = samples[i][2]
-        isfinite(payoff) || continue
-        i == 1 || payoff >= samples[i - 1][2] || continue
-        i == n || payoff >= samples[i + 1][2] || continue
-        push!(maxima, i)
+    lo = clamp(refined == 1 ? samples[refined][1] : samples[refined-1][1], -1.0, 1.0)
+    hi = clamp(refined == n ? samples[refined][1] : samples[refined+1][1], -1.0, 1.0)
+    maximize_1d(objective, lo, hi, tol)
+    plateau_start = plateau_end + 1
+  end
+  # Candidate selection over every cached finite payoff with the tie
+  # rule of `MDR-0014` (the empty best `(NaN, -Inf)` loses to the
+  # first finite candidate).
+  best_theta = NaN
+  best_payoff = -Inf
+  for theta in keys(cache)
+    entry = cache[theta]
+    isfinite(entry.payoff) || continue
+    if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
+      best_theta = theta
+      best_payoff = entry.payoff
     end
-    objective(theta) = _transfer_eval!(cache, evaluate!, theta).payoff
-    plateau_start = 1
-    while plateau_start <= length(maxima)
-        plateau_end = plateau_start
-        while plateau_end < length(maxima) &&
-            maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
-            samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
-            plateau_end += 1
-        end
-        # The plateau member closest to the status quo refines; equal
-        # payoffs make `_transfer_better` apply the distance-then-theta
-        # rule of `MDR-0014`.
-        refined = maxima[plateau_start]
-        for mi in (plateau_start + 1):plateau_end
-            m = maxima[mi]
-            if _transfer_better(
-                samples[m][1], samples[m][2],
-                samples[refined][1], samples[refined][2], theta0,
-            )
-                refined = m
-            end
-        end
-        lo = clamp(refined == 1 ? samples[refined][1] : samples[refined - 1][1], -1.0, 1.0)
-        hi = clamp(refined == n ? samples[refined][1] : samples[refined + 1][1], -1.0, 1.0)
-        maximize_1d(objective, lo, hi, tol)
-        plateau_start = plateau_end + 1
-    end
-    # Candidate selection over every cached finite payoff with the tie
-    # rule of `MDR-0014` (the empty best `(NaN, -Inf)` loses to the
-    # first finite candidate).
-    best_theta = NaN
-    best_payoff = -Inf
-    for theta in keys(cache)
-        entry = cache[theta]
-        isfinite(entry.payoff) || continue
-        if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
-            best_theta = theta
-            best_payoff = entry.payoff
-        end
-    end
-    return best_theta
+  end
+  return best_theta
 end
 
 """
@@ -1094,11 +1101,11 @@ every sample goes through `evaluate!` exactly as before `ADR-0017`.
 Returns the best transfer (see `_transfer_search!`).
 """
 function _transfer_search!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
-    theta0::Float64, tol::Float64
+  cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
+  theta0::Float64, tol::Float64
 )::Float64 where {F}
-    scratch = TransferSearchScratch(cache)
-    return _transfer_search!(scratch, nothing, evaluate!, theta0, tol)
+  scratch = TransferSearchScratch(cache)
+  return _transfer_search!(scratch, nothing, evaluate!, theta0, tol)
 end
 
 """
@@ -1139,147 +1146,151 @@ Remote bands between probes can be missed; failed local probes do not
 certify global infeasibility. The caller applies the strict commit rule.
 """
 function _transfer_local_search!(
-    scratch::TransferSearchScratch, evaluate!::F, theta0::Float64, tol::Float64;
-    scale_w::Float64=1.0, scale_m::Float64=1.0
+  scratch::TransferSearchScratch, evaluate!::F, theta0::Float64, tol::Float64;
+  scale_w::Float64=1.0, scale_m::Float64=1.0
 )::Float64 where {F}
-    cache = scratch.cache
-    samples = scratch.samples
-    maxima = scratch.maxima
-    slabs = scratch.slabs
-    status_payoff = cache[theta0].payoff
-    function sample(theta::Float64)
-        cached = get(cache, theta, nothing)
-        cached === nothing || return cached
-        entry = evaluate!(theta)
-        cache[theta] = entry
-        push!(samples, (theta, entry.payoff))
-        return entry
+  cache = scratch.cache
+  samples = scratch.samples
+  maxima = scratch.maxima
+  slabs = scratch.slabs
+  status_payoff = cache[theta0].payoff
+  function sample(theta::Float64)
+    cached = get(cache, theta, nothing)
+    cached === nothing || return cached
+    entry = evaluate!(theta)
+    cache[theta] = entry
+    push!(samples, (theta, entry.payoff))
+    return entry
+  end
+  guidance(theta) = begin
+    entry = _transfer_eval!(cache, evaluate!, theta)
+    value = min(entry.guidance_w / scale_w, entry.guidance_m / scale_m)
+    isfinite(value) ? value : -Inf
+  end
+  empty!(samples)
+  push!(samples, (theta0, status_payoff))
+  empty!(maxima)
+  empty!(slabs)
+  for theta in (-1.0, 0.0, theta0, 1.0)
+    sample(theta)
+  end
+  anchors = abs(theta0) <= TRANSFER_ANCHOR_OVERLAP ? (0.0,) : (0.0, theta0)
+  for anchor in anchors, offset in TRANSFER_EXPLORE_OFFSETS
+    sample(clamp(anchor + offset, -1.0, 1.0))
+    sample(clamp(anchor - offset, -1.0, 1.0))
+  end
+  for anchor in anchors, sign in (1.0, -1.0)
+    outer = clamp(anchor + sign * 0.001, -1.0, 1.0)
+    inner = clamp(anchor + sign * 0.0001, -1.0, 1.0)
+    if guidance(outer) >= TRANSFER_GUIDANCE_MIN && guidance(outer) > guidance(inner)
+      sample(clamp(anchor + sign * TRANSFER_ADAPTIVE_OFFSET, -1.0, 1.0))
     end
-    guidance(theta) = begin
-        entry = _transfer_eval!(cache, evaluate!, theta)
-        value = min(entry.guidance_w / scale_w, entry.guidance_m / scale_m)
-        isfinite(value) ? value : -Inf
+  end
+  sort!(samples)
+  n = 0
+  for i in eachindex(samples)
+    if n == 0 || !isequal(samples[n][1], samples[i][1])
+      n += 1
+      samples[n] = samples[i]
     end
-    empty!(samples)
-    push!(samples, (theta0, status_payoff))
-    empty!(maxima)
-    empty!(slabs)
-    for theta in (-1.0, 0.0, theta0, 1.0)
-        sample(theta)
+  end
+  resize!(samples, n)
+  # Guidance changes probe placement only, never the cached Nash payoff.
+  for i in 1:n
+    samples[i] = (samples[i][1], guidance(samples[i][1]))
+  end
+  for i in 1:n
+    payoff = samples[i][2]
+    isfinite(payoff) || continue
+    payoff >= TRANSFER_GUIDANCE_MIN || continue
+    entry = cache[samples[i][1]]
+    samples[i][1] === 0.0 && entry.guidance_w == 0.0 && entry.guidance_m == 0.0 && continue
+    left = i == 1 || !isfinite(samples[i-1][2]) ? -Inf : samples[i-1][2]
+    right = i == n || !isfinite(samples[i+1][2]) ? -Inf : samples[i+1][2]
+    payoff >= left && payoff >= right && push!(maxima, i)
+  end
+  # Collapse plateaus in place before ranking. Every original sample stays
+  # in the cache even when its peak receives no refinement budget.
+  plateau_start = 1
+  representatives = 0
+  while plateau_start <= length(maxima)
+    plateau_end = plateau_start
+    while plateau_end < length(maxima) &&
+            maxima[plateau_end+1] == maxima[plateau_end] + 1 &&
+            samples[maxima[plateau_end+1]][2] == samples[maxima[plateau_start]][2]
+      plateau_end += 1
     end
-    anchors = abs(theta0) <= TRANSFER_ANCHOR_OVERLAP ? (0.0,) : (0.0, theta0)
-    for anchor in anchors, offset in TRANSFER_EXPLORE_OFFSETS
-        sample(clamp(anchor + offset, -1.0, 1.0))
-        sample(clamp(anchor - offset, -1.0, 1.0))
+    refined = maxima[plateau_start]
+    for mi in (plateau_start+1):plateau_end
+      m = maxima[mi]
+      if _transfer_better(
+        samples[m][1], samples[m][2], samples[refined][1], samples[refined][2], theta0
+      )
+        refined = m
+      end
     end
-    for anchor in anchors, sign in (1.0, -1.0)
-        outer = clamp(anchor + sign * 0.001, -1.0, 1.0)
-        inner = clamp(anchor + sign * 0.0001, -1.0, 1.0)
-        if guidance(outer) >= TRANSFER_GUIDANCE_MIN && guidance(outer) > guidance(inner)
-            sample(clamp(anchor + sign * TRANSFER_ADAPTIVE_OFFSET, -1.0, 1.0))
-        end
+    representatives += 1
+    maxima[representatives] = refined
+    plateau_start = plateau_end + 1
+  end
+  resize!(maxima, representatives)
+  sort!(
+    maxima; lt=(i, j) -> _transfer_better(
+      samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
+    )
+  )
+  for mi in 1:min(length(maxima), TRANSFER_GUIDANCE_REFINEMENTS)
+    refined = maxima[mi]
+    lo = refined == 1 ? samples[refined][1] : samples[refined-1][1]
+    hi = refined == n ? samples[refined][1] : samples[refined+1][1]
+    lo < hi || continue
+    _brent_maximize(guidance, lo, hi, tol, TRANSFER_REFINE_MAX_ITER, samples[refined][1])
+  end
+  best_theta = NaN
+  best_payoff = -Inf
+  for (theta, entry) in cache
+    isfinite(entry.payoff) || continue
+    if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
+      best_theta = theta
+      best_payoff = entry.payoff
     end
-    sort!(samples)
-    n = 0
-    for i in eachindex(samples)
-        if n == 0 || !isequal(samples[n][1], samples[i][1])
-            n += 1
-            samples[n] = samples[i]
-        end
+  end
+  best_payoff > status_payoff || return best_theta
+  # Stage C includes every Stage B probe. Rebuild neighbour brackets from
+  # actual cached records, not invented payoff values at unvisited points.
+  empty!(samples)
+  for (theta, entry) in cache
+    push!(samples, (theta, entry.payoff))
+  end
+  sort!(samples)
+  n = length(samples)
+  empty!(maxima)
+  for i in 1:n
+    isfinite(samples[i][2]) && samples[i][2] > status_payoff && push!(maxima, i)
+  end
+  sort!(
+    maxima; lt=(i, j) -> _transfer_better(
+      samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
+    )
+  )
+  objective(theta) = _transfer_eval!(cache, evaluate!, theta).payoff
+  for mi in 1:min(length(maxima), TRANSFER_MAX_REFINEMENTS)
+    refined = maxima[mi]
+    lo = samples[max(1, refined - 1)][1]
+    hi = samples[min(n, refined + 1)][1]
+    lo < hi || continue
+    _brent_maximize(objective, lo, hi, tol, TRANSFER_REFINE_MAX_ITER, samples[refined][1])
+  end
+  best_theta = NaN
+  best_payoff = -Inf
+  for (theta, entry) in cache
+    isfinite(entry.payoff) || continue
+    if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
+      best_theta = theta
+      best_payoff = entry.payoff
     end
-    resize!(samples, n)
-    # Guidance changes probe placement only, never the cached Nash payoff.
-    for i in 1:n
-        samples[i] = (samples[i][1], guidance(samples[i][1]))
-    end
-    for i in 1:n
-        payoff = samples[i][2]
-        isfinite(payoff) || continue
-        payoff >= TRANSFER_GUIDANCE_MIN || continue
-        entry = cache[samples[i][1]]
-        samples[i][1] === 0.0 && entry.guidance_w == 0.0 && entry.guidance_m == 0.0 && continue
-        left = i == 1 || !isfinite(samples[i - 1][2]) ? -Inf : samples[i - 1][2]
-        right = i == n || !isfinite(samples[i + 1][2]) ? -Inf : samples[i + 1][2]
-        payoff >= left && payoff >= right && push!(maxima, i)
-    end
-    # Collapse plateaus in place before ranking. Every original sample stays
-    # in the cache even when its peak receives no refinement budget.
-    plateau_start = 1
-    representatives = 0
-    while plateau_start <= length(maxima)
-        plateau_end = plateau_start
-        while plateau_end < length(maxima) &&
-            maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
-            samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
-            plateau_end += 1
-        end
-        refined = maxima[plateau_start]
-        for mi in (plateau_start + 1):plateau_end
-            m = maxima[mi]
-            if _transfer_better(
-                samples[m][1], samples[m][2], samples[refined][1], samples[refined][2], theta0
-            )
-                refined = m
-            end
-        end
-        representatives += 1
-        maxima[representatives] = refined
-        plateau_start = plateau_end + 1
-    end
-    resize!(maxima, representatives)
-    sort!(maxima; lt=(i, j) -> _transfer_better(
-        samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
-    ))
-    for mi in 1:min(length(maxima), TRANSFER_GUIDANCE_REFINEMENTS)
-        refined = maxima[mi]
-        lo = refined == 1 ? samples[refined][1] : samples[refined - 1][1]
-        hi = refined == n ? samples[refined][1] : samples[refined + 1][1]
-        lo < hi || continue
-        _brent_maximize(guidance, lo, hi, tol, TRANSFER_REFINE_MAX_ITER, samples[refined][1])
-    end
-    best_theta = NaN
-    best_payoff = -Inf
-    for (theta, entry) in cache
-        isfinite(entry.payoff) || continue
-        if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
-            best_theta = theta
-            best_payoff = entry.payoff
-        end
-    end
-    best_payoff > status_payoff || return best_theta
-    # Stage C includes every Stage B probe. Rebuild neighbour brackets from
-    # actual cached records, not invented payoff values at unvisited points.
-    empty!(samples)
-    for (theta, entry) in cache
-        push!(samples, (theta, entry.payoff))
-    end
-    sort!(samples)
-    n = length(samples)
-    empty!(maxima)
-    for i in 1:n
-        isfinite(samples[i][2]) && samples[i][2] > status_payoff && push!(maxima, i)
-    end
-    sort!(maxima; lt=(i, j) -> _transfer_better(
-        samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
-    ))
-    objective(theta) = _transfer_eval!(cache, evaluate!, theta).payoff
-    for mi in 1:min(length(maxima), TRANSFER_MAX_REFINEMENTS)
-        refined = maxima[mi]
-        lo = samples[max(1, refined - 1)][1]
-        hi = samples[min(n, refined + 1)][1]
-        lo < hi || continue
-        _brent_maximize(objective, lo, hi, tol, TRANSFER_REFINE_MAX_ITER, samples[refined][1])
-    end
-    best_theta = NaN
-    best_payoff = -Inf
-    for (theta, entry) in cache
-        isfinite(entry.payoff) || continue
-        if _transfer_better(theta, entry.payoff, best_theta, best_payoff, theta0)
-            best_theta = theta
-            best_payoff = entry.payoff
-        end
-    end
-    return best_theta
+  end
+  return best_theta
 end
 
 """
@@ -1291,10 +1302,10 @@ scratch and run the identical bounded local driver. Returns the best
 cached transfer (see `MDR-0016`, `ADR-0021`).
 """
 function _transfer_local_search!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
-    theta0::Float64, tol::Float64
+  cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
+  theta0::Float64, tol::Float64
 )::Float64 where {F}
-    return _transfer_local_search!(TransferSearchScratch(cache), evaluate!, theta0, tol)
+  return _transfer_local_search!(TransferSearchScratch(cache), evaluate!, theta0, tol)
 end
 
 """
@@ -1360,7 +1371,7 @@ function bargain_transfer(
   uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
   um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
   hw_status, hm_status = theta0 === 0.0 ? (hw_out, hm_out) :
-    mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
+                         mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
   status_payoff = nash_product(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
   # Non-finite outside options make every `nash_product` value exactly
   # `-Inf` (neither gain is ever finite), so no candidate can beat the
@@ -1381,7 +1392,7 @@ function bargain_transfer(
       bound_w = _payoff_upper_bound(theta, pw, config)
       bound_m = _payoff_upper_bound(theta, pm, config)
       if (isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out) ||
-          (isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out)
+         (isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out)
         return TransferObjectiveValue(
           NaN, NaN, -Inf, NaN, NaN, bound_w - uw_out, bound_m - um_out
         )
@@ -1404,8 +1415,10 @@ function bargain_transfer(
   # household-bound closure is built here and passed per call, so the
   # scratch never holds a household's parameters or closures.
   best_theta = if search === :local
-    _transfer_local_search!(scratch, evaluate_transfer, theta0, tol;
-      scale_w=max(abs(uw_out), 1.0), scale_m=max(abs(um_out), 1.0))
+    _transfer_local_search!(
+      scratch, evaluate_transfer, theta0, tol;
+      scale_w=max(abs(uw_out), 1.0), scale_m=max(abs(um_out), 1.0)
+    )
   else
     slab_prunable = (lo::Float64, hi::Float64) ->
       _objective_interval_prunable(lo, hi, uw_out, um_out, pw, pm, config)
@@ -1439,7 +1452,7 @@ function bargain_transfer(
 end
 
 """
-    payoff_params(wage_self::Float64, wage_spouse::Float64, alpha::Float64, conformism::Float64, means, is_woman::Bool)
+    payoff_params(wage_self::Float64, wage_spouse::Float64, alpha::Float64, conformism::Float64, means, ::G) where {G<:Gender}
 
 Transient per-agent parameter bundle of NetLogo `set-theta` (ODD section
 Transfer bargaining (`set-theta`, `calculate-payoff`)); the perceived norms
@@ -1449,17 +1462,16 @@ an `AgentPayoffParams`.
 """
 function payoff_params(
   wage_self::Float64, wage_spouse::Float64, alpha::Float64,
-  conformism::Float64, means, is_woman::Bool
-)
-  return AgentPayoffParams(
-    wage_self=wage_self,
-    wage_spouse=wage_spouse,
-    alpha=alpha,
-    conformism=conformism,
+  conformism::Float64, means, ::G,
+) where {G<:Gender}
+  return AgentPayoffParams{G}(;
+    wage_self,
+    wage_spouse,
+    alpha,
+    conformism,
     N_h=means.division_of_labor,
     N_theta=means.transfer,
     N_h_spouse=means.division_of_labor_spouse,
-    is_woman=is_woman
   )
 end
 
@@ -1568,11 +1580,11 @@ function set_theta!(
 
         pw = payoff_params(
           wages[f].current, man_wage.current, preferences[f].current,
-          conformisms[f].amount, woman_norms, true
+          conformisms[f].amount, woman_norms, Female()
         )
         pm = payoff_params(
           man_wage.current, wages[f].current, man_preference.current,
-          man_conformism.amount, man_norms, false
+          man_conformism.amount, man_norms, Male()
         )
 
         theta, hw, hm = bargain_transfer(
@@ -1591,8 +1603,10 @@ function set_theta!(
     end
     chunks = collect(Iterators.partition(eachindex(entities), chunk))
     use_parallel = schedule === :parallel ||
-      (schedule === :auto && Threads.nthreads() > 1 &&
-        length(entities) > HOUSEHOLD_BARGAIN_SERIAL_CUTOFF)
+                   (
+      schedule === :auto && Threads.nthreads() > 1 &&
+      length(entities) > HOUSEHOLD_BARGAIN_SERIAL_CUTOFF
+    )
     if use_parallel
       # Bounded worker scheduling (`ADR-0023`): at most
       # `min(Threads.nthreads(), nchunks)` worker tasks replace the
@@ -1610,11 +1624,12 @@ function set_theta!(
       cursor = Threads.Atomic{Int}(0)
       @sync for _ in 1:min(Threads.nthreads(), nchunks)
         Threads.@spawn let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
-            scratch = TransferSearchScratch()
+          scratch = TransferSearchScratch()
+
           while true
             index = Threads.atomic_add!(cursor, 1)
             index < nchunks || break
-            process_chunk!(chunks[index + 1], spouse_seen, scratch)
+            process_chunk!(chunks[index+1], spouse_seen, scratch)
           end
         end
       end
@@ -1623,7 +1638,8 @@ function set_theta!(
       # no tasks and no cursor; an empty household group runs zero
       # chunks and returns cleanly.
       let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
-          scratch = TransferSearchScratch()
+        scratch = TransferSearchScratch()
+
         for chunk_range in chunks
           process_chunk!(chunk_range, spouse_seen, scratch)
         end
