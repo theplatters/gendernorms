@@ -3,9 +3,10 @@
 # model failure, empty metrics, mismatched lengths (excluded columns
 # with diagnostics), malformed TOML, a bad spec (cloning disabled but
 # visualization intact), non-finite values, UUID disagreement, scanning,
-# caching, and staged-record promotion (atomic rename into place, hidden
-# in-flight directories, cross-filesystem fallback, records preserved
-# when source cleanup fails, and cleanup on failure).
+# the cheap catalog change signature, caching, and staged-record
+# promotion (atomic rename into place, hidden in-flight directories,
+# cross-filesystem fallback, records preserved when source cleanup
+# fails, and cleanup on failure).
 
 @testset "records" begin
     @testset "success record loads cleanly" begin
@@ -157,6 +158,32 @@
         missing_index = DR.scan_records(joinpath(root, "does-not-exist"))
         @test isempty(missing_index.records)
         @test !isempty(missing_index.problems)
+    end
+
+    @testset "catalog_signature tracks the record set cheaply" begin
+        root = mktempdir()
+        @test DR.catalog_signature(joinpath(root, "does-not-exist")) == zero(UInt64)
+        empty_signature = DR.catalog_signature(root)
+
+        run_id = string(UUIDs.uuid4())
+        write_record_fixture(root, run_id)
+        write_record_fixture(joinpath(root, ".dashboard-staging", "job"), string(UUIDs.uuid4()))
+        with_record = DR.catalog_signature(root)
+        @test with_record != empty_signature
+
+        # unchanged content keeps the signature, so a caller can skip
+        # the full rescan; the same fingerprint is independent of the
+        # ignored dot-directories
+        @test DR.catalog_signature(root) == with_record
+
+        # a rewritten record changes it
+        write_record_fixture(root, run_id; ticks = [0, 1, 2, 3])
+        @test DR.catalog_signature(root) != with_record
+
+        # and so does a removed record
+        rewritten = DR.catalog_signature(root)
+        rm(joinpath(root, run_id); recursive = true)
+        @test DR.catalog_signature(root) != rewritten
     end
 
     @testset "read_record caches by path, size, and mtime" begin

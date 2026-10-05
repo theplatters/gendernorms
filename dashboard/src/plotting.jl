@@ -2,8 +2,8 @@
 #
 # `build_plot` turns the `PathSnapshot` views of the selected runs into
 # one PlotlyBase chart of individually selectable lines (one line is one
-# metric of one run): x = tick, session-stable run colors, and a stable
-# `uirevision` so zoom survives republishing. All plots share that
+# metric of one run): x = tick, session-stable per-line colors, and a
+# stable `uirevision` so zoom survives republishing. All plots share that
 # uirevision and the trace uids, so every trace is published with
 # explicit visibility and the legend is labels-only (item clicks
 # disabled): the per-plot line tickboxes alone decide what a chart
@@ -222,14 +222,15 @@ another.
 const PLOT_UIREVISION = "gendernorms-dashboard"
 
 """
-    RUN_PALETTE
+    LINE_PALETTE
 
-Trace colors assigned to runs in order of first appearance in a
-`RunPalette`. Ten distinguishable colors; runs beyond the palette cycle
-through it. All lines of one run share its color across metrics and
-plots.
+Trace colors assigned to plotted lines (one metric of one run) in order
+of first appearance in a `LinePalette`. Ten distinguishable colors;
+lines beyond the palette cycle through it. The assignment is keyed to
+the line identity (see `line_key`), so the same line keeps its color
+across tickbox changes, plot switches, and republishes of one session.
 """
-const RUN_PALETTE = [
+const LINE_PALETTE = [
     "#1f77b4",
     "#ff7f0e",
     "#2ca02c",
@@ -275,39 +276,40 @@ function RunSeries(;
 end
 
 """
-    RunPalette
+    LinePalette
 
-Session-stable run colors. Field `order` records the run keys in order
-of first appearance, field `colors` maps each known key to its assigned
-hex color. `color_for!` assigns a color when a run first appears and
-returns the same color on every later call, so a run keeps its color
-across all plots and republishes of one session.
+Session-stable line colors. Field `order` records the line identities in
+order of first appearance, field `colors` maps each known line identity
+(see `line_key`) to its assigned hex color. `color_for!` assigns a color
+when a line first appears and returns the same color on every later
+call, so a line keeps its color across tickbox changes, plot switches,
+and republishes of one session.
 """
-mutable struct RunPalette
+mutable struct LinePalette
     order::Vector{String}
     colors::Dict{String, String}
 end
 
 """
-    RunPalette()
+    LinePalette()
 
-Construct an empty run palette. Takes no arguments and returns the
+Construct an empty line palette. Takes no arguments and returns the
 palette.
 """
-RunPalette() = RunPalette(String[], Dict{String, String}())
+LinePalette() = LinePalette(String[], Dict{String, String}())
 
 """
-    color_for!(palette::RunPalette, key::AbstractString)::String
+    color_for!(palette::LinePalette, key::AbstractString)::String
 
-Return the session color of one run. Takes the palette and the
-session-stable run key, assigning the next palette color when the key is
-new (cycles through `RUN_PALETTE`). Returns the hex color, identical for
-the same key in the same palette.
+Return the session color of one plotted line. Takes the palette and the
+line identity (see `line_key`), assigning the next palette color when
+the line is new (cycles through `LINE_PALETTE`). Returns the hex color,
+identical for the same line identity in the same palette.
 """
-function color_for!(palette::RunPalette, key::AbstractString)::String
+function color_for!(palette::LinePalette, key::AbstractString)::String
     return get!(palette.colors, String(key)) do
         push!(palette.order, String(key))
-        return RUN_PALETTE[mod1(length(palette.order), length(RUN_PALETTE))]
+        return LINE_PALETTE[mod1(length(palette.order), length(LINE_PALETTE))]
     end
 end
 
@@ -476,7 +478,7 @@ end
     _series_trace(series::RunSeries, metric::AbstractString, color::AbstractString, indices::Vector{Int})
 
 Build one line trace of one plot. Takes the series, the metric name, the
-run color, and the row indices to show. Returns the line trace with
+line color, and the row indices to show. Returns the line trace with
 `uid` `"<run-uuid>:<metric>"`, the `run_label` plus metric title as
 legend name (labels-only, no legend group), explicit `visible = true`
 so every republish restores the tickbox-selected lines regardless of
@@ -507,15 +509,18 @@ function _series_trace(
 end
 
 """
-    build_plot(series::Vector{RunSeries}, palette::RunPalette, selected; max_points = PLOT_MAX_POINTS, uirevision = PLOT_UIREVISION)::PlotBuildResult
+    build_plot(series::Vector{RunSeries}, palette::LinePalette, selected; max_points = PLOT_MAX_POINTS, uirevision = PLOT_UIREVISION)::PlotBuildResult
 
 Build one dashboard plot from the selected runs and one plot's line
-selection. Takes the run series, the session palette, the selected line
-keys (see `line_key`), the per-plot display budget, and the stable
+selection. Takes the run series, the session line palette, the selected
+line keys (see `line_key`), the per-plot display budget, and the stable
 uirevision. One line trace per selected `(run, metric)` combination the
 run actually carries (a run without the metric gets no trace there,
 never a zero-filled one), x = tick; selected keys that match no run or
-metric are ignored. Traces share the `max_points` display budget,
+metric are ignored. Every line gets its own color from the session
+`LinePalette`, keyed to its `line_key` identity and therefore stable
+across tickbox changes, plot switches, and republishes (lines beyond the
+palette size cycle through it). Traces share the `max_points` display budget,
 reduced uniformly per trace with `downsample_indices` above it
 (endpoints and the newest point are kept) and reported in
 `PlotBuildResult.reduced`. Only selected lines get a trace and every
@@ -529,7 +534,7 @@ the build result; the plot never aliases the input data.
 """
 function build_plot(
         series::Vector{RunSeries},
-        palette::RunPalette,
+        palette::LinePalette,
         selected;
         max_points::Integer = PLOT_MAX_POINTS,
         uirevision::AbstractString = PLOT_UIREVISION,
@@ -552,7 +557,7 @@ function build_plot(
         values = entry.snapshot.metrics[metric]
         indices = DR.downsample_indices(length(values), quota)
         length(indices) < length(values) && (reduced = true)
-        color = color_for!(palette, entry.key)
+        color = color_for!(palette, line_key(entry.key, metric))
         trace, had_gaps = _series_trace(entry, metric, color, indices)
         if had_gaps
             nonfinite = true

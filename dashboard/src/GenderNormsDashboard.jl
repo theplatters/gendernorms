@@ -44,7 +44,7 @@ module DashboardUI
     # Explicit tag imports resolve the exported-name ambiguities between
     # Genie, Stipple, and PlotlyBase (`table` in particular).
     import Genie.Renderer.Html:
-        button, h1, h2, h4, input, li, p, span, table, tbody, td, th, thead, tr, ul
+        button, h1, h2, h4, input, label, li, p, span, table, tbody, td, th, thead, tr, ul
 
     using ..GenderNormsDashboard: DashboardRuntime
 

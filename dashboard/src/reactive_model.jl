@@ -30,6 +30,18 @@ last remaining plot cannot be deleted.
 const MAX_PLOTS = 8
 
 """
+    RECORDS_REFRESH_INTERVAL
+
+Seconds between two record-catalog change checks of the presentation
+task: 2.0. Each check hashes the record set with
+`DashboardRuntime.catalog_signature` (names, sizes, and timestamps
+only) and rescans the catalog only when the set changed or a job just
+reached a terminal outcome and promoted its record, so a running page
+picks up completed runs within seconds without hammering the disk.
+"""
+const RECORDS_REFRESH_INTERVAL = 2.0
+
+"""
     FORM_STRING_KEYS
 
 Flat form keys carried by the reactive string fields of `DashboardModel`
@@ -208,28 +220,41 @@ PlotState(id::Integer) = PlotState(Int(id), String[])
 
 Per-page presentation state. Field `model` is the page's
 `DashboardModel`, field `manager` the shared `RunManager`, field
-`palette` the session-stable run colors, field `cursors` the
+`palette` the session-stable line colors, field `cursors` the
 presentation cursors by run key (one cursor per run, shared by all
 plots that show the run), field `gate` the chart publish throttle,
-field `records` the cached record catalog, field `plots` the `PlotState`
-entries (at least one), field `active_plot_id` the id of the single
-visible plot, field `next_plot_id` the id of the next created plot,
-field `snap` whether the next update snaps every cursor to the newest
-row ("Jump to latest"), field `closed` detaches the presentation task
-(set on browser disconnect and on shutdown; runs are never cancelled
-here), and field `task` the presentation task.
+field `records` the cached record catalog, field `records_signature`
+the `DashboardRuntime.catalog_signature` of the last record rescan,
+field `records_checked_at` the time of the last record change check,
+field `terminal_jobs` the count of terminal jobs at the last check (a
+growth means a job just finished and promoted its record), field `plots`
+the `PlotState` entries (at least one), field `active_plot_id` the id of
+the single visible plot, field `next_plot_id` the id of the next created
+plot, field `snap` whether the next update snaps every cursor to the
+newest row ("Jump to latest"), field `client_ready` whether the client
+has been sent the full view state since it last (re)subscribed:
+`handle_client_resync!` clears it on every channel (re)subscription and
+`update_page!` sets it only after the full publish succeeded, so a sync
+consumed inside a throttle window stays pending, field `closed`
+detaches the presentation task (set on browser disconnect and on
+shutdown; runs are never cancelled here), and field `task` the
+presentation task.
 """
 mutable struct SessionState
     model::DashboardModel
     manager::DR.RunManager
-    palette::RunPalette
+    palette::LinePalette
     cursors::Dict{String, PresentationCursor}
     gate::PublishGate
     records::DR.RecordIndex
+    records_signature::UInt64
+    records_checked_at::Float64
+    terminal_jobs::Int
     plots::Vector{PlotState}
     active_plot_id::Int
     next_plot_id::Int
     snap::Bool
+    client_ready::Bool
     closed::Bool
     task::Union{Nothing, Task}
 end
@@ -239,21 +264,27 @@ end
 
 Construct the per-page session state. Takes the page model and the run
 manager and returns the state with an empty palette, no cursors, a
-fresh publish gate, an empty record catalog, and one empty plot
-(`PlotState` id 1) as the active plot.
+fresh publish gate, an empty record catalog (preloaded with the
+signature and terminal-job count of the current record root and job
+list, so the first presentation update rescans nothing), and one empty
+plot (`PlotState` id 1) as the active plot.
 """
 function SessionState(model::DashboardModel, manager::DR.RunManager)
     records = DR.RecordIndex(String(manager.runs_root), Dates.now(), DR.RunPath[], Dict{String, Vector{String}}())
     return SessionState(
         model,
         manager,
-        RunPalette(),
+        LinePalette(),
         Dict{String, PresentationCursor}(),
         PublishGate(),
         records,
+        DR.catalog_signature(String(manager.runs_root)),
+        time(),
+        count(summary -> DR.is_terminal_state(summary.state), DR.job_summaries(manager)),
         [PlotState(1)],
         1,
         2,
+        false,
         false,
         false,
         nothing,
@@ -770,32 +801,117 @@ function page_signature(session::SessionState, series::Vector{RunSeries})::UInt6
 end
 
 """
+    rescan_records!(session::SessionState; now::Real = time(), after_scan::Function = () -> nothing)::DashboardRuntime.RecordIndex
+
+Rescan the record catalog of one page session unconditionally. Takes
+the session, the current time, and an optional `after_scan` callback
+(injectable for tests) that runs after the directory scan and before
+the result is acknowledged. The change-check baseline
+(`DashboardRuntime.catalog_signature`) is captured *before* the scan,
+so a record another process promotes while the scan runs can never be
+acknowledged without being in the cached index: `records_signature` is
+never newer than `session.records`, and the periodic check of
+`refresh_records_if_changed!` therefore always notices such a racing
+promotion and rescans. Records the racing promotion added to the scan
+are covered by the older baseline and cost one redundant rescan, never
+permanent invisibility. Returns the new `RecordIndex`.
+"""
+function rescan_records!(
+        session::SessionState;
+        now::Real = time(),
+        after_scan::Function = () -> nothing,
+    )::DR.RecordIndex
+    signature = DR.catalog_signature(String(session.manager.runs_root))
+    index = DR.refresh_records!(session.manager)
+    after_scan()
+    session.records = index
+    session.records_signature = signature
+    session.records_checked_at = Float64(now)
+    return index
+end
+
+"""
+    refresh_records_if_changed!(session::SessionState, summaries::Vector{DashboardRuntime.JobSummary}; now::Real = time())::Bool
+
+Keep the cached record catalog fresh while the page runs. Takes the
+session, the current job summaries, and the current time, and rescans
+the catalog when a job just reached a terminal outcome (its record is
+promoted before the state turns terminal, so the rescan picks it up)
+or when the record set changed since the last check. The record set is
+compared with the cheap `DashboardRuntime.catalog_signature` at most
+once per `RECORDS_REFRESH_INTERVAL`, so unchanged catalogs cost one
+directory listing per interval and no record parsing. The baseline
+compared against is never newer than the cached index (see
+`rescan_records!`), so a promotion racing a rescan is always caught by
+a later check. Cursors, plot selections, and the active plot are never
+touched. Returns whether the catalog was rescanned.
+"""
+function refresh_records_if_changed!(
+        session::SessionState,
+        summaries::Vector{DR.JobSummary};
+        now::Real = time(),
+    )::Bool
+    terminal = count(summary -> DR.is_terminal_state(summary.state), summaries)
+    if terminal != session.terminal_jobs
+        session.terminal_jobs = terminal
+        rescan_records!(session; now)
+        return true
+    end
+    now - session.records_checked_at < RECORDS_REFRESH_INTERVAL && return false
+    session.records_checked_at = Float64(now)
+    signature = DR.catalog_signature(String(session.manager.runs_root))
+    signature == session.records_signature && return false
+    rescan_records!(session; now)
+    return true
+end
+
+"""
     update_page!(session::SessionState)::Bool
 
-Run one presentation update. Takes the session, refreshes the job and
+Run one presentation update. Takes the session, keeps the record
+catalog fresh (`refresh_records_if_changed!`), refreshes the job and
 run log rows and the plot tabs and line tickboxes when they changed,
 computes the active plot of the revealed rows, and writes the reactive
 chart fields exactly when the publish gate allows it (at most one
-publish per `PUBLISH_INTERVAL`, only on changed visible data). Only
-this function (the presentation task) writes the reactive view fields.
-Returns whether the chart was published.
+publish per `PUBLISH_INTERVAL`, only on changed visible data). On the
+first update after the page's client signals readiness, and after
+every channel (re)subscription (`handle_client_resync!`), the full
+view state (run rows, job rows, plot tabs, line groups, the chart and
+its axis label, and the status line) is (re)published even when
+unchanged: the browser connects after the page was rendered and a
+reconnecting browser missed every update of the disconnect window, so
+without this sync a view computed earlier would reach it only after
+some later change. The sync stays pending until the chart publish
+actually succeeds, so a readiness or resubscription signal inside a
+throttle window is retried on the next update instead of being
+silently consumed. Only this function (the presentation task) writes
+the reactive view fields. Returns whether the chart was published.
 """
 function update_page!(session::SessionState)::Bool
     model = session.model
-    series, labels = build_series!(session)
     summaries = DR.job_summaries(session.manager)
+    refresh_records_if_changed!(session, summaries)
+    series, labels = build_series!(session)
+    sync_client = model.isready[] && !session.client_ready
     job_rows = build_job_rows(session, summaries)
-    job_rows == model.job_rows[] || (model.job_rows[] = job_rows)
+    (sync_client || job_rows != model.job_rows[]) && (model.job_rows[] = job_rows)
     run_rows = build_run_rows(session, summaries, labels)
-    run_rows == model.run_rows[] || (model.run_rows[] = run_rows)
+    (sync_client || run_rows != model.run_rows[]) && (model.run_rows[] = run_rows)
     tabs = build_plot_tabs(session)
-    tabs == model.plot_tabs[] || (model.plot_tabs[] = tabs)
+    (sync_client || tabs != model.plot_tabs[]) && (model.plot_tabs[] = tabs)
     groups = build_line_groups(session, series)
-    groups == model.line_groups[] || (model.line_groups[] = groups)
+    (sync_client || groups != model.line_groups[]) && (model.line_groups[] = groups)
+    # The handlers write the status line, so only this forced republish
+    # carries it across a reconnect (self-assignment on purpose: it
+    # pushes the current value even when nothing changed).
+    sync_client && (model.status_line[] = model.status_line[])
 
     result = build_plot(series, session.palette, active_plot_state(session).lines)
     signature = page_signature(session, series)
-    can_publish!(session.gate, signature, time()) || return false
+    can_publish!(session.gate, signature, time(); force = sync_client) || return false
+    # The full view state reached the client only now; a sync rejected
+    # by the throttle above stays pending (see the docstring).
+    sync_client && (session.client_ready = true)
     model.active_plot[] = result.plot
     model.axis_label[] = axis_label(result.axis)
     model.display_reduced[] = result.reduced
@@ -950,15 +1066,15 @@ end
 """
     handle_refresh_records!(model::DashboardModel)
 
-Rescan the record catalog. Takes the page model, refreshes
-`DashboardRuntime.refresh_records!`, and reports the number of found
+Rescan the record catalog. Takes the page model, rescans via
+`rescan_records!` (which also refreshes the change-check baseline of
+`refresh_records_if_changed!`), and reports the number of found
 records. Returns nothing.
 """
 function handle_refresh_records!(model::DashboardModel)
     session = _session_of(model)
     session === nothing && return nothing
-    index = DR.refresh_records!(session.manager)
-    session.records = index
+    index = rescan_records!(session)
     problems = String[]
     for lines in values(index.problems)
         append!(problems, lines)
@@ -1249,6 +1365,26 @@ function handle_replay_run!(model::DashboardModel, event)
 end
 
 """
+    handle_client_resync!(model::DashboardModel)
+
+Client (re)subscription handler (the `client_resync` event of the
+page's resubscription hook, see `dashboard_layout`). Takes the page
+model and marks its session as not yet synced, so the next
+presentation update republishes the full view state even when nothing
+changed (see `update_page!`). The event fires on every channel
+(re)subscription: a reconnecting browser missed every update of the
+disconnect window, and Stipple suppresses repeated readiness updates of
+an already-ready model, so readiness alone can never resync it.
+Returns nothing.
+"""
+function handle_client_resync!(model::DashboardModel)
+    session = _session_of(model)
+    session === nothing && return nothing
+    session.client_ready = false
+    return nothing
+end
+
+"""
     handle_finalize(model::DashboardModel)
 
 Browser-disconnect handler (the Stipple `finalize` event). Takes the
@@ -1313,6 +1449,10 @@ end
 
 @event DashboardModel :replay_run begin
     handle_replay_run!(__model__, event)
+end
+
+@event DashboardModel :client_resync begin
+    handle_client_resync!(__model__)
 end
 
 @event DashboardModel :finalize begin

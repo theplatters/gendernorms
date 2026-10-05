@@ -182,13 +182,16 @@ end
     line_checkbox()
 
 One line tickbox of the active plot: a checkbox bound to the line's
-checked flag and its metric title. Clicking the box reaches
-`handle_toggle_line!` with the line key, the plot id the row was
-rendered for, and the desired checked state, so even a delayed event
-sets that line in its originating plot only. Returns the checkbox row.
+checked flag and its metric title inside a `<label>` row, so clicking
+the label text toggles the box exactly like clicking the box itself.
+Either click reaches `handle_toggle_line!` through the `@on`
+preprocessor with a plain payload carrying the line key, the plot id
+the row was rendered for, and the desired checked state read from the
+checkbox, so even a delayed event sets that line in its originating
+plot only. Returns the checkbox row.
 """
 function line_checkbox()
-    return htmldiv(
+    return label(
         [
             input(;
                 type = "checkbox",
@@ -197,7 +200,7 @@ function line_checkbox()
                 @on(
                     :click,
                     :toggle_line,
-                    "event.line = line.key; event.plot_id = line.plot_id; event.checked = event.target.checked"
+                    "event = { line: line.key, plot_id: line.plot_id, checked: event.target.checked }"
                 ),
             ),
             span("{{ line.label }}"; class = "gn-line-label"),
@@ -219,11 +222,13 @@ function line_selector()
         [line_checkbox()];
         class = "gn-line-items",
         @for("line in group.lines"),
+        Symbol(":key") => "line.key",
     )
     groups = htmldiv(
         [p("{{ group.label }}"; class = "gn-line-run"), items];
         class = "gn-line-group",
         @for("group in line_groups"),
+        Symbol(":key") => "group.key",
     )
     return htmldiv(
         [

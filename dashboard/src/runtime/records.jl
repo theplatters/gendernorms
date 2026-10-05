@@ -2,7 +2,9 @@
 #
 # `scan_records` discovers only direct `runs/<id>/run.toml` children of
 # the record root (ignoring dot-directories such as
-# `runs/.dashboard-staging`); `read_record` validates one record into a
+# `runs/.dashboard-staging`); `catalog_signature` fingerprints that same
+# set cheaply so callers can skip unchanged rescans; `read_record`
+# validates one record into a
 # `RunPath`. Malformed records become per-record diagnostics, never
 # exceptions that break the catalog: a bad or missing spec disables
 # cloning but not visualization. `promote_record!` promotes a staged run
@@ -363,6 +365,31 @@ function scan_records(
         push!(records, read_record(record_file, cache))
     end
     return RecordIndex(String(root), Dates.now(), records, problems)
+end
+
+"""
+    catalog_signature(root::AbstractString)::UInt64
+
+Lightweight signature of the record catalog under one record root.
+Takes the runs root and hashes the name, size, and modification time of
+every direct `runs/<id>/run.toml` child (dot-directories such as
+`runs/.dashboard-staging` are ignored), without reading any record
+content. Two equal signatures mean the catalog is unchanged, so a
+caller can skip a full `scan_records` rescan; the signature changes when
+a record appears, disappears, or is rewritten. Returns the signature
+(zero for a missing root).
+"""
+function catalog_signature(root::AbstractString)::UInt64
+    isdir(root) || return zero(UInt64)
+    signature = zero(UInt64)
+    for entry in sort!(readdir(root))
+        startswith(entry, ".") && continue
+        record_file = joinpath(root, entry, "run.toml")
+        isfile(record_file) || continue
+        info = stat(record_file)
+        signature = hash((entry, info.size, info.mtime), signature)
+    end
+    return signature
 end
 
 """

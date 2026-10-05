@@ -61,22 +61,31 @@ list with their row actions and notes.
   animates without ever slowing down. While catching up the run is
   labeled *replaying buffered metrics*; *Jump to latest* snaps the
   cursors to the newest rows. The reveal cursor is per run and shared
-  by every plot that shows the run; *Replay* restarts it per run.
+  by every plot that shows the run; *Replay* restarts it per run. A
+  browser whose connection drops catches up by itself on reconnect:
+  the page asks the server for a full resync of rows, charts, and
+  status, without a reload or a click.
 - **Plots and line selection.** Only one plot is visible at a time. The
   "+" button beside the plot tab strip creates further plots (at most
   8; each tab's "x" deletes one, the last plot stays). Every plot owns
   its own line selection: each line (one metric of one run) is shown or
-  hidden by its own tickbox under the chart, grouped by run. The chart
-  legend is labels-only (legend clicks do not hide lines), so the
-  tickboxes alone decide what a chart shows. The run list's
-  *Plot* action checks that run's lines in the active plot, *Unplot*
-  removes the run and its lines from every plot, and a new plot starts
-  with the available lines checked. Selecting runs is limited to 8 at
-  once.
+  hidden by its own tickbox under the chart (clicking the tickbox or
+  its label toggles it), grouped by run. Every plotted line has its own
+  color, assigned per line identity when it first appears in the
+  session and kept across tickbox changes, plot switches, and
+  republishes (a palette of ten distinguishable colors, cycled for
+  plots with more lines). The chart legend is labels-only (legend
+  clicks do not hide lines), so the tickboxes alone decide what a chart
+  shows. The run list's *Plot* action checks that run's lines in the
+  active plot, *Unplot* removes the run and its lines from every plot,
+  and a new plot starts with the available lines checked. Selecting
+  runs is limited to 8 at once.
 - **Loading and overlaying recorded runs.** The run log shows the live
-  jobs and the records under `runs/`. *Plot* adds a run to the charts
-  (at most 8 at once), *Load* reads a record by id, and *Replay* plays
-  a plotted run again from its first row.
+  jobs and the records under `runs/`; the record list keeps itself
+  fresh while the page runs, so a completed run shows up within seconds
+  without a manual refresh. *Plot* adds a run to the charts (at most 8
+  at once), *Load* reads a record by id, and *Replay* plays a plotted
+  run again from its first row.
 - **Cloning configurations.** *Clone* copies a run's model settings,
   seed, and metric selection into the form under a copied name for
   adaptation. Cloning needs the run's validated specification: records

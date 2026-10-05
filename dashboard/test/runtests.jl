@@ -20,6 +20,7 @@ using UUIDs
 
 import GenderNorms
 import Genie
+import Stipple
 
 const DR = GenderNormsDashboard.DashboardRuntime
 const UI = GenderNormsDashboard.DashboardUI

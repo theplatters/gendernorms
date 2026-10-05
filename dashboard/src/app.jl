@@ -5,7 +5,10 @@
 # status endpoint), and starts the Genie server; `stop_app!` detaches
 # the per-page presentation tasks and stops the server. `page_ready` is
 # the page-load hook that turns each page request into a dashboard
-# session. `bin/serve.jl` is the command-line entry point.
+# session, and `dashboard_layout` carries the client-side
+# resubscription hook that requests a full view-state resync on every
+# channel (re)subscription. `bin/serve.jl` is the command-line entry
+# point.
 
 """
     DASHBOARD_CSS
@@ -89,8 +92,12 @@ end
 
 Page layout of the dashboard: the Stipple app root and its asset
 scripts, the `dashboard_theme` stylesheets and the
-`/dashboard.css` stylesheet, the session token, and no footer. Takes no
-arguments and returns the layout template.
+`/dashboard.css` stylesheet, the session token, the resubscription
+hook, and no footer. The hook registers a Genie subscription handler
+(see `handle_client_resync!`): Genie runs it on the first channel
+subscription and again after every reconnect, so a browser that missed
+the updates of a disconnect window asks the server for a full
+view-state resync. Takes no arguments and returns the layout template.
 """
 function dashboard_layout()::String
     theme_links = join(dashboard_theme(), "\n    ")
@@ -115,6 +122,21 @@ function dashboard_layout()::String
               include_deps = true
             ) %>
         </div>
+        <script>
+          // Resubscription hook: Genie runs every subscription handler
+          // on the first channel subscription and again on every
+          // reconnect. Each run sends the client_resync event, so the
+          // server pushes the full view state to a browser that missed
+          // the updates of a disconnect window.
+          document.addEventListener('DOMContentLoaded', function () {
+            Genie.WebChannels.subscriptionHandlers.push(function () {
+              var app = window.GENIEMODEL;
+              if (app && typeof app.handle_event === 'function') {
+                app.handle_event({}, 'client_resync');
+              }
+            });
+          });
+        </script>
       </body>
     </html>
     """

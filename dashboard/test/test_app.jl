@@ -1,7 +1,10 @@
 # Headless HTTP smoke tests of the dashboard app.
 #
 # Starts the Genie app on a free loopback port with a temp record root,
-# checks `/healthz`, the page, and the stylesheet route, runs one tiny
+# checks `/healthz`, the page, and the stylesheet route, asserts the
+# line tickbox event binding emits the toggle payload the handler
+# reads and the page carries the resubscription hook that asks for a
+# full view-state resync on every channel (re)connection, runs one tiny
 # end-to-end run through the manager (streamed metrics equal a direct
 # `GenderNorms.run`, the promoted record loads equal), and shuts down
 # cleanly with no leaked presentation tasks.
@@ -67,15 +70,53 @@ end
             @test config.start < plots.start < log.start
 
             @test occursin("gn-add-plot", html)
-            @test occursin("toggle_line", html)
-            @test occursin("event.line = line.key", html)
-            @test occursin("event.plot_id = line.plot_id", html)
-            @test occursin("event.checked = event.target.checked", html)
             @test occursin("activate_plot", html)
             @test occursin("remove_plot", html)
             @test occursin("add_plot", html)
             @test occursin("line_groups", html)
             @test occursin("plot_tabs", html)
+        end
+
+        @testset "the line tickbox binding sends the toggle payload" begin
+            response = http_get("http://127.0.0.1:$port/")
+            @test response.status == 200
+            html = response.text
+
+            # the checkbox input carries the toggle_line binding and sends
+            # a plain payload of exactly the keys the handler reads: the
+            # line key, the plot id the row was rendered for, and the
+            # desired state read from the checkbox itself
+            box = match(r"<input type=\"checkbox\"[^>]*>", html)
+            @test box !== nothing
+            binding = String(box.match)
+            @test occursin("'toggle_line'", binding)
+            @test occursin("line: line.key", binding)
+            @test occursin("plot_id: line.plot_id", binding)
+            @test occursin("checked: event.target.checked", binding)
+
+            # the row is a label around the checkbox and its title, so
+            # clicking the title toggles the box like clicking the box
+            @test occursin(r"<label class=\"gn-line\">\s*<input type=\"checkbox\"", html)
+            @test count("gn-line-box", html) == 1
+
+            # the tickbox rows are keyed, so a republished list cannot
+            # reuse one row's checkbox state for another line
+            @test occursin(":key=\"line.key\"", html)
+            @test occursin(":key=\"group.key\"", html)
+        end
+
+        @testset "the page carries the resubscription hook" begin
+            response = http_get("http://127.0.0.1:$port/")
+            @test response.status == 200
+            html = response.text
+
+            # a Genie subscription handler sends the client_resync
+            # event on the first channel subscription and again on
+            # every reconnect (see handle_client_resync!), so a browser
+            # that missed updates while its WebSocket was down resyncs
+            @test occursin("Genie.WebChannels.subscriptionHandlers", html)
+            @test occursin("client_resync", html)
+            @test occursin("window.GENIEMODEL", html)
         end
 
         @testset "stylesheet is served" begin

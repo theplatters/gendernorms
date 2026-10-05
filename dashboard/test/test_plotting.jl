@@ -3,7 +3,8 @@
 # Covers `GenderNormsDashboard.DashboardUI` plot building: the metric
 # metadata table and its unknown-metric fallback, per-plot line
 # selection (tickbox state to traces), trace uids, labels, and
-# session-stable run colors, missing metrics without traces, non-finite
+# session-stable per-line colors (distinct for distinct lines, unchanged
+# by toggles and rebuilds), missing metrics without traces, non-finite
 # values as flagged gaps, the display budget with endpoint-preserving
 # downsampling, stable `uirevision`, the labels-only legend whose
 # disabled item clicks and explicit trace visibility keep Plotly-side UI
@@ -114,7 +115,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
             series_of("key-b", snapshot_b; name = "beta", seed = 7),
         ]
         selection = selected_lines(("key-a", "working_time_men"), ("key-b", "working_time_gap"))
-        result = UI.build_plot(series, UI.RunPalette(), selection)
+        result = UI.build_plot(series, UI.LinePalette(), selection)
 
         @test length(result.plot.data) == 2
         @test [trace[:uid] for trace in result.plot.data] ==
@@ -122,10 +123,10 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         @test result.plot.data[1][:name] == "alpha (seed 3, aaaaaaaa) - Working time (men)"
         @test result.plot.data[2][:name] == "beta (seed 7, bbbbbbbb) - Working time gap"
 
-        nothing_selected = UI.build_plot(series, UI.RunPalette(), String[])
+        nothing_selected = UI.build_plot(series, UI.LinePalette(), String[])
         @test isempty(nothing_selected.plot.data)
 
-        stale = UI.build_plot(series, UI.RunPalette(), selected_lines(("gone", "working_time_men")))
+        stale = UI.build_plot(series, UI.LinePalette(), selected_lines(("gone", "working_time_men")))
         @test isempty(stale.plot.data)
     end
 
@@ -141,7 +142,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
             ("key-b", "working_time_men"),
             ("key-a", "working_time_gap"),
         )
-        palette = UI.RunPalette()
+        palette = UI.LinePalette()
         first_result = UI.build_plot(series, palette, selection)
         men_colors = [trace[:line][:color] for trace in first_result.plot.data if endswith(trace[:uid], "working_time_men")]
         @test length(men_colors) == 2
@@ -151,7 +152,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         @test [trace[:line][:color] for trace in rebuilt.plot.data] ==
             [trace[:line][:color] for trace in first_result.plot.data]
 
-        fresh = UI.build_plot(series, UI.RunPalette(), selection)
+        fresh = UI.build_plot(series, UI.LinePalette(), selection)
         @test [trace[:line][:color] for trace in fresh.plot.data] ==
             [trace[:line][:color] for trace in first_result.plot.data]
 
@@ -159,6 +160,63 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         other_plot = UI.build_plot(series, palette, other_selection)
         @test other_plot.plot.data[1][:uid] == first_result.plot.data[2][:uid]
         @test other_plot.plot.data[1][:line][:color] == first_result.plot.data[2][:line][:color]
+    end
+
+    @testset "distinct lines get distinct colors" begin
+        snapshot_a = make_snapshot(run_id = "aaaaaaaa-1111", name = "alpha")
+        snapshot_b = make_snapshot(run_id = "bbbbbbbb-2222", name = "beta")
+        series_a = series_of("key-a", snapshot_a; name = "alpha", seed = 3)
+        series_b = series_of("key-b", snapshot_b; name = "beta", seed = 7)
+
+        # every metric line of one run is visually distinguishable
+        one_run = UI.build_plot(
+            [series_a],
+            UI.LinePalette(),
+            selected_lines(
+                ("key-a", "working_time_men"),
+                ("key-a", "working_time_women"),
+                ("key-a", "working_time_gap"),
+            ),
+        )
+        colors = [trace[:line][:color] for trace in one_run.plot.data]
+        @test length(unique(colors)) == 3
+
+        # and lines of different runs never share a color either
+        two_runs = UI.build_plot(
+            [series_a, series_b],
+            UI.LinePalette(),
+            selected_lines(
+                ("key-a", "working_time_men"),
+                ("key-a", "working_time_women"),
+                ("key-a", "working_time_gap"),
+                ("key-b", "working_time_men"),
+                ("key-b", "working_time_women"),
+                ("key-b", "working_time_gap"),
+            ),
+        )
+        all_colors = [trace[:line][:color] for trace in two_runs.plot.data]
+        @test length(unique(all_colors)) == 6
+
+        # toggling other lines never recolors a line: the assignment is
+        # keyed to the line identity and kept by the session palette
+        palette = UI.LinePalette()
+        full = UI.build_plot(
+            [series_a],
+            palette,
+            selected_lines(
+                ("key-a", "working_time_men"),
+                ("key-a", "working_time_women"),
+                ("key-a", "working_time_gap"),
+            ),
+        )
+        by_uid = Dict(trace[:uid] => trace[:line][:color] for trace in full.plot.data)
+        toggled = UI.build_plot(
+            [series_a],
+            palette,
+            selected_lines(("key-a", "working_time_gap"), ("key-a", "working_time_men")),
+        )
+        @test toggled.plot.data[1][:line][:color] == by_uid["aaaaaaaa-1111:working_time_men"]
+        @test toggled.plot.data[2][:line][:color] == by_uid["aaaaaaaa-1111:working_time_gap"]
     end
 
     @testset "missing metrics produce no trace, never zero-fill" begin
@@ -172,7 +230,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
             ("key", "working_time_women"),
             ("key", "working_time_gap"),
         )
-        result = UI.build_plot([series_of("key", snapshot)], UI.RunPalette(), selection)
+        result = UI.build_plot([series_of("key", snapshot)], UI.LinePalette(), selection)
         @test length(result.plot.data) == 1
         @test result.plot.data[1][:uid] == "run-1:working_time_men"
     end
@@ -186,7 +244,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
             ),
         )
         selection = selected_lines(("key", "working_time_men"))
-        result = UI.build_plot([series_of("key", snapshot)], UI.RunPalette(), selection)
+        result = UI.build_plot([series_of("key", snapshot)], UI.LinePalette(), selection)
         @test result.nonfinite
         @test !isempty(result.warnings)
         @test any(line -> occursin("non-finite", line), result.warnings)
@@ -197,7 +255,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         @test values[4] === nothing
         @test values[5] == 5.0
 
-        clean = UI.build_plot([series_of("key", make_snapshot())], UI.RunPalette(), selection)
+        clean = UI.build_plot([series_of("key", make_snapshot())], UI.LinePalette(), selection)
         @test !clean.nonfinite
         @test isempty(clean.warnings)
     end
@@ -216,7 +274,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         )
         one = UI.build_plot(
             [series_of("key-1", make_snapshot(run_id = "run-1", ticks = ticks, metrics = long_metrics))],
-            UI.RunPalette(),
+            UI.LinePalette(),
             all_three,
         )
         @test one.reduced
@@ -238,7 +296,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
                 series_of("key-1", make_snapshot(run_id = "run-1", ticks = ticks, metrics = long_metrics)),
                 series_of("key-2", make_snapshot(run_id = "run-2", ticks = ticks, metrics = long_metrics)),
             ],
-            UI.RunPalette(),
+            UI.LinePalette(),
             six,
         )
         @test two.reduced
@@ -246,7 +304,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
 
         small = UI.build_plot(
             [series_of("key-1", make_snapshot())],
-            UI.RunPalette(),
+            UI.LinePalette(),
             selected_lines(("key-1", "working_time_men")),
         )
         @test !small.reduced
@@ -261,7 +319,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
             ),
         )
         selection = selected_lines(("key", "working_time_men"), ("key", "preference_women"))
-        result = UI.build_plot([series_of("key", snapshot)], UI.RunPalette(), selection)
+        result = UI.build_plot([series_of("key", snapshot)], UI.LinePalette(), selection)
         @test result.axis === :proportion
         yaxis = result.plot.layout[:yaxis]
         @test yaxis[:range] == [0.0, 1.0]
@@ -282,7 +340,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         )
         mixed = UI.build_plot(
             [series_of("key", snapshot)],
-            UI.RunPalette(),
+            UI.LinePalette(),
             selected_lines(("key", "working_time_men"), ("key", "working_time_gap")),
         )
         @test mixed.axis === :signed_fraction
@@ -293,7 +351,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
 
         signed_only = UI.build_plot(
             [series_of("key", snapshot)],
-            UI.RunPalette(),
+            UI.LinePalette(),
             selected_lines(("key", "transfer_mean")),
         )
         @test signed_only.axis === :signed_fraction
@@ -309,7 +367,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         )
         result = UI.build_plot(
             [series_of("key", snapshot)],
-            UI.RunPalette(),
+            UI.LinePalette(),
             selected_lines(("key", "utility_men"), ("key", "working_time_men")),
         )
         @test result.axis === :value
@@ -328,7 +386,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         )
         result = UI.build_plot(
             [series_of("key", snapshot)],
-            UI.RunPalette(),
+            UI.LinePalette(),
             selected_lines(("key", "mystery_metric"), ("key", "working_time_men")),
         )
         @test result.axis === :value
@@ -340,8 +398,8 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
     @testset "uirevision and axis titles are stable" begin
         snapshot = make_snapshot()
         selection = selected_lines(("key", "working_time_men"))
-        first_result = UI.build_plot([series_of("key", snapshot)], UI.RunPalette(), selection)
-        second_result = UI.build_plot([series_of("key", snapshot)], UI.RunPalette(), selection)
+        first_result = UI.build_plot([series_of("key", snapshot)], UI.LinePalette(), selection)
+        second_result = UI.build_plot([series_of("key", snapshot)], UI.LinePalette(), selection)
         for result in (first_result, second_result)
             layout = result.plot.layout
             @test layout[:uirevision] == UI.PLOT_UIREVISION
@@ -361,7 +419,7 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         snapshot = make_snapshot()
         series = [series_of("key", snapshot)]
         selection = selected_lines(("key", "working_time_men"), ("key", "working_time_gap"))
-        result = UI.build_plot(series, UI.RunPalette(), selection)
+        result = UI.build_plot(series, UI.LinePalette(), selection)
 
         # legend item clicks are disabled and every trace publishes
         # explicitly visible: the tickboxes alone decide visibility
@@ -377,12 +435,12 @@ plot_points(plot) = sum(length(trace[:x]) for trace in plot.data; init = 0)
         for trace in result.plot.data
             trace[:visible] = "legendonly"
         end
-        republished = UI.build_plot(series, UI.RunPalette(), selection)
+        republished = UI.build_plot(series, UI.LinePalette(), selection)
         @test [trace[:visible] for trace in republished.plot.data] == [true, true]
 
         # an unchecked line gets no trace at all, so the chart shows
         # exactly the tickbox selection
-        reduced = UI.build_plot(series, UI.RunPalette(), selected_lines(("key", "working_time_gap")))
+        reduced = UI.build_plot(series, UI.LinePalette(), selected_lines(("key", "working_time_gap")))
         @test [trace[:uid] for trace in reduced.plot.data] == ["run-1:working_time_gap"]
         @test reduced.plot.data[1][:visible] == true
         @test reduced.plot.layout[:legend][:itemclick] == false

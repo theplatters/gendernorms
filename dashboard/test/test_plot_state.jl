@@ -136,7 +136,7 @@ end
             model, session = fresh_page(manager)
             UI.handle_select_run!(model, Dict{String, Any}("key" => old_id))
             series, = UI.build_series!(session)
-            result = UI.build_plot(series, UI.RunPalette(), UI.active_plot_state(session).lines)
+            result = UI.build_plot(series, UI.LinePalette(), UI.active_plot_state(session).lines)
             @test length(result.plot.data) == 3
             @test [trace[:uid] for trace in result.plot.data] == [
                 "$old_id:working_time_men",
