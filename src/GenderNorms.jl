@@ -9,13 +9,18 @@ import UUIDs
 using Distributions: Normal
 
 include("components.jl")
+
 include("resources/utility_functions.jl")
-include("systems/household_bargaining.jl")
 include("resources/social_network.jl")
 include("resources/observers.jl")
 include("resources/properties.jl")
 include("resources/shock.jl")
 
+include("optim/core.jl")
+include("optim/labour_optimization.jl")
+include("optim/transfer_optimization.jl")
+
+include("systems/household_bargaining.jl")
 include("systems/initialisation.jl")
 include("systems/statistics.jl")
 include("systems/shocks.jl")

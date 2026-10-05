@@ -198,7 +198,7 @@ mbr_sum(hours)::Float64 = hours[1] + hours[2]
     mbr_legacy(hw_init, hm_init, theta, pw, pm, config)
 
 Benchmark-local copy of the `mutual_best_response` alternation loop of
-`src/systems/household_bargaining.jl` (lines 35-53) with each best
+`src/optim/labour_optimization.jl` (lines 497-510) with each best
 response run through the legacy `MDR-0002` expression instead of the
 specialized solver.
 """

@@ -9,7 +9,8 @@ it must be implemented. Code cleanliness is enforced by review and by the
 
 - Julia package `GenderNorms`; module declared in `src/GenderNorms.jl`.
 - Include order in `src/GenderNorms.jl` is normative; respect the layers
-  `src/components.jl` -> `src/resources/` -> `src/systems/`.
+  `src/components.jl` -> `src/resources/` -> `src/optim/` ->
+  `src/systems/` -> `src/runtime/`.
 - `src/resources/shock.jl` is unwired (undefined `ShockType`/`SHOCK_NO`,
   not included); `src/main.jl` is empty. See `registry/model/discrepancies.md`.
 - Early-stage partial port: much of the ODD submodels is not yet ported.

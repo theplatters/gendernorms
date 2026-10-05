@@ -96,6 +96,16 @@ not supersede `ADR-0018`):
   reuses same-pass values and stored sign certificates instead of
   redundant acceptance evaluations.
 
+- Placement note (`ADR-0028`): the file placement stated above is
+  historical. The specialized `best_response_1d` method,
+  `_derivative_applicable`, `_derivative_seed_certificate`,
+  `_seed_certificate_probes`, `_derivative_response_accept`, and
+  `_derivative_best_response` and the constants
+  `DERIVATIVE_RESPONSE_TOL`, `DERIVATIVE_RESPONSE_MAX_ITER`, and
+  `CES_DERIVATIVE_MIN_BETA` now live in
+  `src/optim/labour_optimization.jl`; the derivative helpers stay in
+  `src/resources/utility_functions.jl`.
+
 ## References
 
 - `MDR-0002`, `MDR-0017`, `ADR-0003`, `ADR-0018`

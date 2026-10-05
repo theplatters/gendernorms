@@ -1,8 +1,10 @@
 ---
 id: ADR-0002
 title: Layered package structure with explicit include order
-status: accepted
+status: superseded
 date: 2026-09-19
+supersedes: ""
+superseded_by: ADR-0028
 ---
 
 # ADR-0002: Layered package structure with explicit include order

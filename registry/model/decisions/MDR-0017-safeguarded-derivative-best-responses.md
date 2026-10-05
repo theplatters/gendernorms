@@ -489,6 +489,12 @@ Changed:
   record is therefore solution quality (the de-anchoring above) and
   worst-case solve cost, with a modest kernel win on top.
 
+- Placement note (`ADR-0028`): the file ownership stated above is
+  historical; the specialized `best_response_1d` method and the solver
+  drivers now live in `src/optim/labour_optimization.jl` and the
+  derivative helpers stay in `src/resources/utility_functions.jl`.
+  Placement only, the solver semantics recorded here are unchanged.
+
 ## References
 
 - `odd_model_description.typ`, Material utility and conformity

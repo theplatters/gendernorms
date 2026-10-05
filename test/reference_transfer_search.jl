@@ -28,6 +28,12 @@
 # `test/reference_bargaining.jl`: not included in `test/runtests.jl`; a
 # test file `include`s it exactly once. See `MDR-0012`, `ADR-0016`, and
 # `ADR-0017`.
+#
+# Current-location mapping (addendum under `ADR-0028`; the frozen
+# provenance wording above stays as written and still names the file
+# the copy came from): the live `_transfer_eval!`, `_transfer_better`,
+# `_transfer_search!`, `bargain_transfer`, and the live `TRANSFER_*`
+# solver parameters now live in `src/optim/transfer_optimization.jl`.
 
 using GenderNorms: AgentPayoffParams, TransferObjectiveValue, UtilityConfig
 

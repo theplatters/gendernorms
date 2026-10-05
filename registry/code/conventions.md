@@ -19,9 +19,10 @@ unless a recorded ADR or MDR permits the deviation.
 - One concern per file. Do not mix network construction, payoff
   functions, observers, and dynamics in a single file.
 - Each file belongs to exactly one layer: `components`, `resources`,
-  or `systems`, plus the module root `src/GenderNorms.jl` and the
-  standalone entry point `src/main.jl`.
-- Dependency direction follows `components` -> `resources` -> `systems`.
+  `optim`, `systems`, or `runtime`, plus the module root
+  `src/GenderNorms.jl` and the standalone entry point `src/main.jl`.
+- Dependency direction follows `components` -> `resources` -> `optim`
+  -> `systems` -> `runtime`.
   Lower layers must not import from higher layers. No include cycles.
 - New files must be registered: add the `include(...)` line to
   `src/GenderNorms.jl` in layer order and add a row to the file-map

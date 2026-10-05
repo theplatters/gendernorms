@@ -27,7 +27,8 @@ which conventions it follows, and which architecture decisions were made.
   documentation, formatting, and dead-code rules plus enforcement.
 - `registry/code/decisions/ADR-0001-ark-ecs.md`: use Ark.jl ECS.
 - `registry/code/decisions/ADR-0002-layered-package-structure.md`:
-  `components` -> `resources` -> `systems` layering and include order.
+  `components` -> `resources` -> `systems` layering and include order
+  (superseded by `ADR-0028`).
 - `registry/code/decisions/ADR-0003-utility-dispatch.md`:
   `UtilitySpec` subtype dispatch for utility forms.
 - `registry/code/decisions/ADR-0004-registry-system.md`: this registry,
@@ -162,16 +163,26 @@ which conventions it follows, and which architecture decisions were made.
   `Project.toml`/`Manifest.toml`), format-all plus restage-only-staged
   semantics on every commit.
 
+- `registry/code/decisions/ADR-0028-optimization-layer-boundary.md`:
+  `optim` layer between `resources` and `systems` holding the solver
+  machinery (`core.jl`, `labour_optimization.jl`,
+  `transfer_optimization.jl`) under the five-layer dependency rules and
+  the exact include order, with the existing solver seam and scratch
+  ownership kept (supersedes `ADR-0002`; code motion only, the
+  placement statements of `ADR-0015`-`ADR-0023` become historical).
+
 ## How to add a new source file correctly
 
-1. Decide the layer for the file: `components`, `resources`, or `systems`.
+1. Decide the layer for the file: `components`, `resources`, `optim`,
+   `systems`, or `runtime`.
    The module root `src/GenderNorms.jl` holds the include list only.
    The standalone entry point `src/main.jl` is exempt from the include list.
 2. Use a `snake_case.jl` file name with one concern per file.
    Keep to the naming, docstring, and formatting rules in
    `registry/code/conventions.md`.
 3. Add the `include(...)` line to `src/GenderNorms.jl` in dependency order
-   (`components` -> `resources` -> `systems`, no cycles).
+   (`components` -> `resources` -> `optim` -> `systems` -> `runtime`,
+   no cycles).
    Every new `.jl` file under `src/`, except `src/main.jl`,
    must be added to the module include list.
 4. Add a row for the file to the file-map table in

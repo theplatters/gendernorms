@@ -1,6 +1,7 @@
 # Tests for the in-repo Brent maximizer `maximize_1d` (unseeded and seeded
-# variants over the `_brent_maximize` core) and the seeded `best_response_1d`
-# in `src/resources/utility_functions.jl` (see `MDR-0002` and `MDR-0005`).
+# variants over the `_brent_maximize` core) in `src/optim/core.jl` and the
+# seeded `best_response_1d` in `src/optim/labour_optimization.jl`
+# (see `MDR-0002` and `MDR-0005`).
 # The suite pins analytic maximizers, the non-finite-sample guards (including
 # the parabolic-fit regression guard), the `max_iter` cap, the seeded
 # early-return and window-fallback paths, and the zero-allocation contract.

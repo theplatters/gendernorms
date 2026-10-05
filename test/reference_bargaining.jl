@@ -25,6 +25,16 @@
 # world-facing and intentionally not copied. Helper file like
 # `test/threading_driver.jl`: not included in `test/runtests.jl`; a later
 # test file `include`s it exactly once. See `MDR-0002` and `MDR-0005`.
+#
+# Current-location mapping (addendum under `ADR-0028`; the frozen
+# provenance wording above stays as written and still names the files
+# the copy came from): the live `material`, `individual_utility`, and
+# the `UtilitySpec` types now live in `src/resources/utility_functions.jl`,
+# the live `_brent_maximize`, `maximize_1d`, `best_response_1d`, and
+# `mutual_best_response` in `src/optim/core.jl` and
+# `src/optim/labour_optimization.jl`, and the live `outside_options`,
+# `nash_product`, `equilibrium_payoff`, and `bargain_transfer` in
+# `src/optim/transfer_optimization.jl`.
 
 using GenderNorms: AgentPayoffParams, UtilityConfig, Additive, CES, Multiplicative, MultiplicativeWeighted
 

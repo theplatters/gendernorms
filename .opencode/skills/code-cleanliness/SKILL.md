@@ -18,7 +18,8 @@ code and files, when choosing architecture or module layering, or when
 - `registry/code/architecture.md` - module layout, include order, layers.
 - `registry/code/decisions/ADR-*.md` - Architecture Decision Records.
 - Package `GenderNorms`; include order in `src/GenderNorms.jl` is normative;
-  layers are `src/components.jl` -> `src/resources/` -> `src/systems/`.
+  layers are `src/components.jl` -> `src/resources/` -> `src/optim/` ->
+  `src/systems/` -> `src/runtime/`.
 
 ## Cleanliness rules
 
@@ -31,7 +32,8 @@ code and files, when choosing architecture or module layering, or when
 
 ## Add a file
 
-1. Place it in the correct layer (`components`, `resources`, or `systems`).
+1. Place it in the correct layer (`components`, `resources`, `optim`,
+   `systems`, or `runtime`).
 2. Add the `include(...)` in `src/GenderNorms.jl` at the right position.
 3. Register the file and its responsibility in `architecture.md`.
 4. Confirm `julia --project=. -e 'using GenderNorms'` still loads.

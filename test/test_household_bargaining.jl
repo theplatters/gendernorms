@@ -1,10 +1,11 @@
-# Tests for the household bargaining loop in
-# `src/systems/household_bargaining.jl`: the pure labour solver
+# Tests for the household bargaining loop: the pure labour solver
 # `mutual_best_response` (NetLogo `choose-bundle`, ODD section Labour best
-# response), the pure transfer helpers `outside_options`, `nash_product` and
-# `equilibrium_payoff` plus the transfer solver `bargain_transfer` (NetLogo
-# `set-theta` and `calculate-payoff`, ODD section Transfer bargaining,
-# `MDR-0016`), and the `Ark.Query`-based household extraction in `set_theta!`.
+# response) in `src/optim/labour_optimization.jl`, the pure transfer helpers
+# `outside_options`, `nash_product` and `equilibrium_payoff` plus the transfer
+# solver `bargain_transfer` (NetLogo `set-theta` and `calculate-payoff`, ODD
+# section Transfer bargaining, `MDR-0016`) in
+# `src/optim/transfer_optimization.jl`, and the `Ark.Query`-based household
+# extraction in `set_theta!` (`src/systems/household_bargaining.jl`).
 # Each world testset builds a small world with `initialize_household`,
 # overwrites the traits with known values, installs a controlled
 # `SocialNetwork` resource directly, and checks the solvers against
