@@ -27,7 +27,7 @@ Per-type parameters of the `[model.network]` table, keyed by the
 parameters of the active type into the spec dictionary; the type
 strings match the ones `GenderNorms` accepts.
 """
-const NETWORK_PARAMS = Dict{String,Vector{String}}(
+const NETWORK_PARAMS = Dict{String, Vector{String}}(
     "random" => ["p"],
     "watts_strogatz" => ["neighbors_per_side", "rewiring"],
     "preferential_attachment" => ["m"],
@@ -44,7 +44,7 @@ Form coercion kinds of the `[model.network]` parameters: `:int` for
 `neighbors_per_side` and `m`, `:string` for `trait`, and `:float` for
 `p` and `rewiring`. See `build_spec_dict`.
 """
-const NETWORK_PARAM_KINDS = Dict{String,Symbol}(
+const NETWORK_PARAM_KINDS = Dict{String, Symbol}(
     "p" => :float,
     "neighbors_per_side" => :int,
     "rewiring" => :float,
@@ -59,7 +59,7 @@ Per-type parameters of the `[model.utility]` table, keyed by the
 `utility_type` form value. `beta` is active only for `"ces"`; the
 weights are active for every type.
 """
-const UTILITY_PARAMS = Dict{String,Vector{String}}(
+const UTILITY_PARAMS = Dict{String, Vector{String}}(
     "additive" => ["w_self", "w_partner", "w_transfer"],
     "ces" => ["w_self", "w_partner", "w_transfer", "beta"],
     "multiplicative" => ["w_self", "w_partner", "w_transfer"],
@@ -117,12 +117,12 @@ table, the target key, the form, the form key, and the coercion kind of
 strings and missing keys leave the target unset. Returns nothing.
 """
 function _assign!(
-    table::Dict{String,Any},
-    target::String,
-    form::AbstractDict,
-    key::String,
-    kind::Symbol,
-)
+        table::Dict{String, Any},
+        target::String,
+        form::AbstractDict,
+        key::String,
+        kind::Symbol,
+    )
     value = _form_value(form, key, kind)
     value === nothing || (table[target] = value)
     return nothing
@@ -147,20 +147,20 @@ reach the model. `[logging] outputs` carries the dashboard-managed
 `clone_form`), and no outputs otherwise. Unknown form keys are
 ignored. Returns the dictionary accepted by `GenderNorms.parse_spec`.
 """
-function build_spec_dict(form::AbstractDict)::Dict{String,Any}
-    flat = Dict{String,Any}(string(key) => value for (key, value) in form)
+function build_spec_dict(form::AbstractDict)::Dict{String, Any}
+    flat = Dict{String, Any}(string(key) => value for (key, value) in form)
 
-    run = Dict{String,Any}()
+    run = Dict{String, Any}()
     _assign!(run, "name", flat, "name", :string)
     _assign!(run, "seed", flat, "seed", :int)
 
-    model = Dict{String,Any}("name" => "gender_norms")
+    model = Dict{String, Any}("name" => "gender_norms")
     _assign!(model, "agents_per_gender", flat, "agents_per_gender", :int)
     _assign!(model, "std_dev", flat, "std_dev", :float)
     _assign!(model, "initial_transfer", flat, "initial_transfer", :float)
     _assign!(model, "initial_lambda", flat, "initial_lambda", :float)
 
-    network = Dict{String,Any}()
+    network = Dict{String, Any}()
     _assign!(network, "type", flat, "network_type", :string)
     if get(network, "type", nothing) isa AbstractString
         for param in get(NETWORK_PARAMS, network["type"], String[])
@@ -169,7 +169,7 @@ function build_spec_dict(form::AbstractDict)::Dict{String,Any}
     end
     isempty(network) || (model["network"] = network)
 
-    utility = Dict{String,Any}()
+    utility = Dict{String, Any}()
     _assign!(utility, "type", flat, "utility_type", :string)
     if get(utility, "type", nothing) isa AbstractString
         for param in get(UTILITY_PARAMS, utility["type"], String[])
@@ -179,13 +179,13 @@ function build_spec_dict(form::AbstractDict)::Dict{String,Any}
     isempty(utility) || (model["utility"] = utility)
 
     for (table_name, prefix) in GENDER_PAIR_TABLES
-        pair = Dict{String,Any}()
+        pair = Dict{String, Any}()
         _assign!(pair, "men", flat, prefix * "_men", :float)
         _assign!(pair, "women", flat, prefix * "_women", :float)
         isempty(pair) || (model[table_name] = pair)
     end
 
-    logging = Dict{String,Any}()
+    logging = Dict{String, Any}()
     if haskey(flat, "metrics")
         metrics = flat["metrics"]
         logging["metrics"] = metrics isa AbstractVector ? Any[entry for entry in metrics] : metrics
@@ -194,13 +194,13 @@ function build_spec_dict(form::AbstractDict)::Dict{String,Any}
     logging["outputs"] = if directory === nothing
         Any[]
     else
-        Any[Dict{String,Any}("type" => "toml", "directory" => directory)]
+        Any[Dict{String, Any}("type" => "toml", "directory" => directory)]
     end
 
-    runtime = Dict{String,Any}()
+    runtime = Dict{String, Any}()
     _assign!(runtime, "ticks", flat, "ticks", :int)
 
-    return Dict{String,Any}(
+    return Dict{String, Any}(
         "run" => run,
         "model" => model,
         "runtime" => runtime,
@@ -217,7 +217,7 @@ with `build_spec_dict`, and validates it with
 on valid input, or the aggregated `RunSpecError.problems` vector
 unchanged on invalid input. Other exceptions propagate.
 """
-function validate_form(form::AbstractDict)::Union{GN.RunSpec,Vector{String}}
+function validate_form(form::AbstractDict)::Union{GN.RunSpec, Vector{String}}
     try
         return GN.parse_spec(build_spec_dict(form))
     catch err
@@ -238,10 +238,10 @@ otherwise the key is absent and `build_spec_dict` emits no outputs.
 The result re-validates to an equivalent spec through
 `build_spec_dict`.
 """
-function form_from_spec(spec::GN.RunSpec)::Dict{String,Any}
+function form_from_spec(spec::GN.RunSpec)::Dict{String, Any}
     dict = GN.spec_to_dict(spec)
     model = dict["model"]
-    form = Dict{String,Any}()
+    form = Dict{String, Any}()
     form["name"] = String(dict["run"]["name"])
     form["seed"] = Int(dict["run"]["seed"])
     form["ticks"] = Int(dict["runtime"]["ticks"])
@@ -290,11 +290,11 @@ only) through `GenderNorms.parse_spec`, `GenderNorms.spec_to_dict`,
 and `form_from_spec`, so all model defaults come from `GenderNorms`.
 Returns the flat form dictionary, which validates with `validate_form`.
 """
-function default_form()::Dict{String,Any}
-    minimal = Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "dashboard-run", "seed" => 0),
-        "model" => Dict{String,Any}("name" => "gender_norms"),
-        "runtime" => Dict{String,Any}("ticks" => 50),
+function default_form()::Dict{String, Any}
+    minimal = Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "dashboard-run", "seed" => 0),
+        "model" => Dict{String, Any}("name" => "gender_norms"),
+        "runtime" => Dict{String, Any}("ticks" => 50),
     )
     return form_from_spec(GN.parse_spec(minimal))
 end
@@ -325,9 +325,9 @@ when the run has no valid spec (cloning disabled). Returns the flat
 form dictionary.
 """
 function clone_form(
-    source;
-    staging_dir::AbstractString = DEFAULT_RECORD_DIRECTORY,
-)::Dict{String,Any}
+        source;
+        staging_dir::AbstractString = DEFAULT_RECORD_DIRECTORY,
+    )::Dict{String, Any}
     path = source isa RunPath ? source : read_record(String(source))
     if path.spec === nothing
         detail =

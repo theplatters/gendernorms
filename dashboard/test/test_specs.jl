@@ -106,7 +106,7 @@
         spec_dict = fixture_spec_dict(
             name = "legacy",
             metrics = ["working_time_gap", "working_time_men"],
-            outputs = [Dict{String,Any}("type" => "toml", "directory" => "runs")],
+            outputs = [Dict{String, Any}("type" => "toml", "directory" => "runs")],
         )
         record_path = write_record_fixture(
             root,
@@ -123,7 +123,7 @@
         @test Set(clone["metrics"]) == Set(["working_time_gap", "working_time_men"])
         dict = DR.build_spec_dict(clone)
         @test dict["logging"]["outputs"] == Any[
-            Dict{String,Any}("type" => "toml", "directory" => DR.DEFAULT_RECORD_DIRECTORY),
+            Dict{String, Any}("type" => "toml", "directory" => DR.DEFAULT_RECORD_DIRECTORY),
         ]
         first = GN.spec_to_dict(GN.parse_spec(dict))
         second = GN.spec_to_dict(GN.parse_spec(first))
@@ -132,7 +132,7 @@
 
         custom = DR.clone_form(path; staging_dir = "tmp/staging")
         @test DR.build_spec_dict(custom)["logging"]["outputs"] ==
-            Any[Dict{String,Any}("type" => "toml", "directory" => "tmp/staging")]
+            Any[Dict{String, Any}("type" => "toml", "directory" => "tmp/staging")]
     end
 
     @testset "cloning is disabled without a valid spec" begin

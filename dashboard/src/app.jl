@@ -29,7 +29,7 @@ const DASHBOARD_VERSION = String(TOML.parsefile(joinpath(DR.DASHBOARD_ROOT, "Pro
 Run manager of the running dashboard app, set by `start_app!` and read
 by the page-load hook and `/healthz`.
 """
-const APP_MANAGER = Ref{Union{Nothing,DR.RunManager}}(nothing)
+const APP_MANAGER = Ref{Union{Nothing, DR.RunManager}}(nothing)
 
 """
     ROUTES_REGISTERED
@@ -46,10 +46,10 @@ Build the `/healthz` response. Takes no arguments and returns the
 dashboard name, `DASHBOARD_VERSION`, and the current queue depth and
 job count of the run manager.
 """
-function health_status()::Dict{String,Any}
+function health_status()::Dict{String, Any}
     manager = APP_MANAGER[]
     summaries = manager === nothing ? DR.JobSummary[] : DR.job_summaries(manager)
-    return Dict{String,Any}(
+    return Dict{String, Any}(
         "name" => "gendernorms-dashboard",
         "version" => DASHBOARD_VERSION,
         "queue_depth" => count(summary -> summary.state == DR.JOB_QUEUED, summaries),
@@ -75,7 +75,7 @@ function dashboard_theme()::Vector{String}
     ]
     for entry in sources
         value = entry()
-        if value isa Union{Vector,Tuple}
+        if value isa Union{Vector, Tuple}
             append!(links, String[String(item) for item in value])
         else
             push!(links, String(value))
@@ -179,10 +179,10 @@ registers the routes, and starts the Genie server asynchronously
 without opening a browser. Returns nothing.
 """
 function start_app!(
-    manager::DR.RunManager;
-    host::AbstractString = "127.0.0.1",
-    port::Integer = 8000,
-)
+        manager::DR.RunManager;
+        host::AbstractString = "127.0.0.1",
+        port::Integer = 8000,
+    )
     APP_MANAGER[] = manager
     register_routes!()
     Genie.up(Int(port), String(host); async = true, open_browser = false)

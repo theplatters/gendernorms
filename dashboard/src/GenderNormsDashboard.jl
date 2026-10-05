@@ -21,48 +21,50 @@ include("runtime.jl")
     DashboardUI
 
 Genie/Stipple/StipplePlotly UI layer of the dashboard (see `ADR-0025`):
-plot construction (`build_plots`), the presentation cursor and publish
-throttle (`PresentationCursor`, `PublishGate`), the per-page reactive
-model and its handlers (`DashboardModel`), the single-page view (`ui`),
-and the Genie application (`start_app!`, `stop_app!`).
+metric metadata and per-plot line construction (`build_plot`,
+`METRIC_META`), the presentation cursor and publish throttle
+(`PresentationCursor`, `PublishGate`), the per-page reactive model and
+its handlers (`DashboardModel`), the single-page view (`ui`), and the
+Genie application (`start_app!`, `stop_app!`).
 """
 module DashboardUI
 
-import Dates
-import GenderNorms
-import TOML
-import UUIDs
+    import Dates
+    import GenderNorms
+    import TOML
+    import UUIDs
 
-using Genie
-using PlotlyBase
-using Stipple
-using Stipple.ReactiveTools
-using StipplePlotly
-using StippleUI
+    using Genie
+    using PlotlyBase
+    using Stipple
+    using Stipple.ReactiveTools
+    using StipplePlotly
+    using StippleUI
 
-# Explicit tag imports resolve the exported-name ambiguities between
-# Genie, Stipple, and PlotlyBase (`table` in particular).
-import Genie.Renderer.Html: button, h1, h2, h4, li, p, span, table, tbody, td, th, thead, tr, ul
+    # Explicit tag imports resolve the exported-name ambiguities between
+    # Genie, Stipple, and PlotlyBase (`table` in particular).
+    import Genie.Renderer.Html:
+        button, h1, h2, h4, input, li, p, span, table, tbody, td, th, thead, tr, ul
 
-using ..GenderNormsDashboard: DashboardRuntime
+    using ..GenderNormsDashboard: DashboardRuntime
 
-const DR = DashboardRuntime
-const GN = GenderNorms
+    const DR = DashboardRuntime
+    const GN = GenderNorms
 
-function __init__()
-    # The model is not serializable (it carries the run manager and the
-    # presentation task in private fields) and every page load builds a
-    # fresh per-page session, so Stipple's session model storage stays
-    # off. Channels are then also isolated per window.
-    Stipple.enable_model_storage(false)
-    return nothing
-end
+    function __init__()
+        # The model is not serializable (it carries the run manager and the
+        # presentation task in private fields) and every page load builds a
+        # fresh per-page session, so Stipple's session model storage stays
+        # off. Channels are then also isolated per window.
+        Stipple.enable_model_storage(false)
+        return nothing
+    end
 
-include("plotting.jl")
-include("presentation.jl")
-include("reactive_model.jl")
-include("ui.jl")
-include("app.jl")
+    include("plotting.jl")
+    include("presentation.jl")
+    include("reactive_model.jl")
+    include("ui.jl")
+    include("app.jl")
 
 end
 

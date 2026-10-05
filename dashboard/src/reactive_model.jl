@@ -3,20 +3,31 @@
 # `DashboardModel` holds the configuration form (all knobs as reactive
 # fields, strings throughout so the server-side parsing of
 # `DashboardRuntime.build_spec_dict` stays the single coercion point),
-# the job table and run selection views, the three panel plots, and the
-# status and problem displays. One model instance is created per page
-# load; `page_ready` attaches the run manager and starts the per-page
-# presentation task, which alone writes the reactive plot fields.
-# Handlers validate and enqueue, cancel, load records, clone
-# configurations, and toggle selection; they never execute model ticks.
+# the job table and run log views, the plot tab strip and per-plot line
+# tickboxes, the single visible chart, and the status and problem
+# displays. One model instance is created per page load; `page_ready`
+# attaches the run manager and starts the per-page presentation task,
+# which alone writes the reactive view fields (tables, plot tabs, line
+# tickboxes, and the chart). Handlers validate and enqueue, cancel,
+# load records, clone configurations, and manage run and plot
+# selections; they never execute model ticks.
 
 """
     MAX_SELECTED_RUNS
 
-Maximum number of runs plotted across the panels at once: 8. Selecting
+Maximum number of runs whose lines can be plotted at once: 8. Selecting
 another run is refused with a status message until one is deselected.
 """
 const MAX_SELECTED_RUNS = 8
+
+"""
+    MAX_PLOTS
+
+Maximum number of plots one page session holds at once: 8. Creating
+another plot is refused with a status message until one is deleted; the
+last remaining plot cannot be deleted.
+"""
+const MAX_PLOTS = 8
 
 """
     FORM_STRING_KEYS
@@ -80,7 +91,7 @@ const UTILITY_TYPE_OPTIONS = sort!(collect(keys(DR.UTILITY_PARAMS)))
     @in seed::String = "0"
     @in ticks::String = "50"
     @in agents_per_gender::String = "50"
-    @in metrics::Vector{String} = copy(PANEL_METRICS)
+    @in metrics::Vector{String} = copy(KNOWN_METRICS)
 
     @in network_type::String = "watts_strogatz"
     @in network_p::String = ""
@@ -111,15 +122,15 @@ const UTILITY_TYPE_OPTIONS = sort!(collect(keys(DR.UTILITY_PARAMS)))
 
     @out problems::Vector{String} = String[]
     @out status_line::String = "ready"
-    @out job_rows::Vector{Dict{String,Any}} = Dict{String,Any}[]
-    @out run_rows::Vector{Dict{String,Any}} = Dict{String,Any}[]
+    @out job_rows::Vector{Dict{String, Any}} = Dict{String, Any}[]
+    @out run_rows::Vector{Dict{String, Any}} = Dict{String, Any}[]
     @out selected_runs::Vector{String} = String[]
-    @out hidden_runs::Vector{String} = String[]
+    @out plot_tabs::Vector{Dict{String, Any}} = Dict{String, Any}[]
+    @out line_groups::Vector{Dict{String, Any}} = Dict{String, Any}[]
     @out display_reduced::Bool = false
     @out data_warnings::Vector{String} = String[]
-    @out men_plot::PlotlyBase.Plot = empty_panel(PANEL_METRICS[1])
-    @out women_plot::PlotlyBase.Plot = empty_panel(PANEL_METRICS[2])
-    @out gap_plot::PlotlyBase.Plot = empty_panel(PANEL_METRICS[3])
+    @out axis_label::String = ""
+    @out active_plot::PlotlyBase.Plot = empty_plot()
 
     @private manager::Any = nothing
     @private session::Any = nothing
@@ -134,7 +145,7 @@ seed in run labels and for cloning the configuration of live runs (the
 live `RunPath` carries no spec). Entries are small and follow the job
 records of the run manager.
 """
-const JOB_SPECS = Dict{String,GN.RunSpec}()
+const JOB_SPECS = Dict{String, GN.RunSpec}()
 
 """
     JOB_SPECS_LOCK
@@ -170,28 +181,57 @@ function job_spec(key::AbstractString)
 end
 
 """
+    PlotState
+
+Selection state of one dashboard plot. Field `id` is the stable plot
+number (the tab label is `"Plot <id>"`), field `lines` the selected line
+keys of this plot (see `line_key`). Every plot owns its selection:
+changing one plot's tickboxes never touches another plot. The line keys
+of a deselected run are dropped from every plot (see
+`drop_run_lines!`).
+"""
+struct PlotState
+    id::Int
+    lines::Vector{String}
+end
+
+"""
+    PlotState(id::Integer)
+
+Construct one plot state. Takes the stable plot number and returns the
+state with an empty line selection.
+"""
+PlotState(id::Integer) = PlotState(Int(id), String[])
+
+"""
     SessionState
 
 Per-page presentation state. Field `model` is the page's
 `DashboardModel`, field `manager` the shared `RunManager`, field
 `palette` the session-stable run colors, field `cursors` the
-presentation cursors by run key, field `gate` the chart publish
-throttle, field `records` the cached record catalog, field `snap`
-whether the next update snaps every cursor to the newest row ("Jump to
-latest"), field `closed` detaches the presentation task (set on browser
-disconnect and on shutdown; runs are never cancelled here), and field
-`task` the presentation task.
+presentation cursors by run key (one cursor per run, shared by all
+plots that show the run), field `gate` the chart publish throttle,
+field `records` the cached record catalog, field `plots` the `PlotState`
+entries (at least one), field `active_plot_id` the id of the single
+visible plot, field `next_plot_id` the id of the next created plot,
+field `snap` whether the next update snaps every cursor to the newest
+row ("Jump to latest"), field `closed` detaches the presentation task
+(set on browser disconnect and on shutdown; runs are never cancelled
+here), and field `task` the presentation task.
 """
 mutable struct SessionState
     model::DashboardModel
     manager::DR.RunManager
     palette::RunPalette
-    cursors::Dict{String,PresentationCursor}
+    cursors::Dict{String, PresentationCursor}
     gate::PublishGate
     records::DR.RecordIndex
+    plots::Vector{PlotState}
+    active_plot_id::Int
+    next_plot_id::Int
     snap::Bool
     closed::Bool
-    task::Union{Nothing,Task}
+    task::Union{Nothing, Task}
 end
 
 """
@@ -199,17 +239,21 @@ end
 
 Construct the per-page session state. Takes the page model and the run
 manager and returns the state with an empty palette, no cursors, a
-fresh publish gate, and an empty record catalog.
+fresh publish gate, an empty record catalog, and one empty plot
+(`PlotState` id 1) as the active plot.
 """
 function SessionState(model::DashboardModel, manager::DR.RunManager)
-    records = DR.RecordIndex(String(manager.runs_root), Dates.now(), DR.RunPath[], Dict{String,Vector{String}}())
+    records = DR.RecordIndex(String(manager.runs_root), Dates.now(), DR.RunPath[], Dict{String, Vector{String}}())
     return SessionState(
         model,
         manager,
         RunPalette(),
-        Dict{String,PresentationCursor}(),
+        Dict{String, PresentationCursor}(),
         PublishGate(),
         records,
+        [PlotState(1)],
+        1,
+        2,
         false,
         false,
         nothing,
@@ -267,8 +311,8 @@ knobs of `FORM_STRING_KEYS` verbatim (blank values are omitted there),
 the `metrics` selection, and `record_directory` set to the dashboard
 staging policy exactly when the recording checkbox is on.
 """
-function form_from_model(model::DashboardModel)::Dict{String,Any}
-    form = Dict{String,Any}()
+function form_from_model(model::DashboardModel)::Dict{String, Any}
+    form = Dict{String, Any}()
     for key in FORM_STRING_KEYS
         form[key] = String(getproperty(model, Symbol(key))[])
     end
@@ -309,6 +353,27 @@ function _event_field(event, name::AbstractString)::String
     value = get(event, name, nothing)
     value === nothing && return ""
     return string(value)
+end
+
+"""
+    _event_bool(event, name::AbstractString)::Union{Bool,Nothing}
+
+Read one boolean field of a UI event payload. Takes the decoded event
+dictionary and the field name and returns the boolean, accepting JSON
+booleans and their `"true"`/`"false"` string spellings, or `nothing`
+when the payload is missing the field or carries no boolean. Used for
+the absolute desired state of a tickbox event (see
+`handle_toggle_line!`).
+"""
+function _event_bool(event, name::AbstractString)::Union{Bool, Nothing}
+    event isa AbstractDict || return nothing
+    value = get(event, name, nothing)
+    value isa Bool && return value
+    value isa AbstractString || return nothing
+    text = lowercase(strip(String(value)))
+    text == "true" && return true
+    text == "false" && return false
+    return nothing
 end
 
 """
@@ -372,16 +437,16 @@ state label, queue position, progress label, and cancel and clone
 flags.
 """
 function build_job_rows(
-    session::SessionState,
-    summaries::Vector{DR.JobSummary},
-)::Vector{Dict{String,Any}}
-    rows = Dict{String,Any}[]
+        session::SessionState,
+        summaries::Vector{DR.JobSummary},
+    )::Vector{Dict{String, Any}}
+    rows = Dict{String, Any}[]
     for summary in summaries
         key = string(summary.job_id)
         percent = round(Int, 100 * summary.progress)
         push!(
             rows,
-            Dict{String,Any}(
+            Dict{String, Any}(
                 "key" => key,
                 "name" => summary.name,
                 "state" => state_label(summary.state),
@@ -398,30 +463,28 @@ end
 """
     build_run_rows(session::SessionState, summaries::Vector{DashboardRuntime.JobSummary}, labels::Dict{String,String})::Vector{Dict{String,Any}}
 
-Render the run selection rows. Takes the session, the job summaries, and
-the per-run presentation status labels of the current update, and
-returns one row per live job plus one row per recorded run not already
-covered by a live job. Rows carry the run key, label, source, seed,
-status, selection and visibility labels, and the clone, load, and replay
-flags; a record's notes surface its record-structure diagnostics and,
-when the spec is missing or invalid, its spec problems (cloning is
-disabled then).
+Render the run log rows. Takes the session, the job summaries, and the
+per-run presentation status labels of the current update, and returns
+one row per live job plus one row per recorded run not already covered
+by a live job. Rows carry the run key, label, source, seed, status, and
+the selection, load, replay, and clone flags; a record's notes surface
+its record-structure diagnostics and, when the spec is missing or
+invalid, its spec problems (cloning is disabled then).
 """
 function build_run_rows(
-    session::SessionState,
-    summaries::Vector{DR.JobSummary},
-    labels::Dict{String,String},
-)::Vector{Dict{String,Any}}
+        session::SessionState,
+        summaries::Vector{DR.JobSummary},
+        labels::Dict{String, String},
+    )::Vector{Dict{String, Any}}
     model = session.model
     selected = model.selected_runs[]
-    hidden = model.hidden_runs[]
     live_ids = Set{String}(summary.run_id for summary in summaries if !isempty(summary.run_id))
-    rows = Dict{String,Any}[]
+    rows = Dict{String, Any}[]
     for summary in summaries
         key = string(summary.job_id)
         push!(
             rows,
-            Dict{String,Any}(
+            Dict{String, Any}(
                 "key" => key,
                 "label" => run_label(summary.name, run_seed(session, key), summary.run_id),
                 "source" => "live",
@@ -429,7 +492,6 @@ function build_run_rows(
                 "state" => get(labels, key, state_label(summary.state)),
                 "selected" => key in selected,
                 "select_label" => key in selected ? "Unplot" : "Plot",
-                "visibility_label" => key in hidden ? "Show" : "Hide",
                 "can_load" => false,
                 "can_clone" => haskey(JOB_SPECS, key),
                 "can_replay" => key in selected,
@@ -442,7 +504,7 @@ function build_run_rows(
         key = record.run_id
         push!(
             rows,
-            Dict{String,Any}(
+            Dict{String, Any}(
                 "key" => key,
                 "label" => run_label(record.name, record.seed, record.run_id),
                 "source" => "recorded",
@@ -450,7 +512,6 @@ function build_run_rows(
                 "state" => get(labels, key, state_label(record.state)),
                 "selected" => key in selected,
                 "select_label" => key in selected ? "Unplot" : "Plot",
-                "visibility_label" => key in hidden ? "Show" : "Hide",
                 "can_load" => true,
                 "can_clone" => record.spec !== nothing,
                 "can_replay" => key in selected,
@@ -462,13 +523,169 @@ function build_run_rows(
 end
 
 """
+    active_plot_state(session::SessionState)::PlotState
+
+Selection state of the single visible plot. Takes the session and
+returns its `PlotState` with `id == session.active_plot_id`, falling
+back to the first plot when the active id is stale. Session states
+always hold at least one plot.
+"""
+function active_plot_state(session::SessionState)::PlotState
+    for state in session.plots
+        state.id == session.active_plot_id && return state
+    end
+    return session.plots[1]
+end
+
+"""
+    plot_state_by_id(session::SessionState, plot_id::Integer)
+
+Resolve one plot by its stable id. Takes the session and the plot id
+and returns that plot's `PlotState`, or `nothing` when no live plot has
+that id. Unlike `active_plot_state` this never falls back to another
+plot, so a stale UI event is rejected instead of touching an unrelated
+plot (see `handle_toggle_line!`).
+"""
+function plot_state_by_id(session::SessionState, plot_id::Integer)
+    index = findfirst(state -> state.id == plot_id, session.plots)
+    return index === nothing ? nothing : session.plots[index]
+end
+
+"""
+    run_metric_names(session::SessionState, key::AbstractString)::Vector{String}
+
+Metric names one run offers as lines. Takes the session and the run key
+and returns the metric names of the run's received rows (including only
+what a record actually carries, so a record with an excluded column
+offers no line for it), falling back to the validated spec's metric
+selection for a live run that has not streamed rows yet. Returns the
+empty vector for unknown runs.
+"""
+function run_metric_names(session::SessionState, key::AbstractString)::Vector{String}
+    probe = try
+        DR.path_snapshot(session.manager, key; visible_rows = 0, max_points = 1)
+    catch
+        return String[]
+    end
+    isempty(probe.metric_names) || return copy(probe.metric_names)
+    spec = job_spec(key)
+    spec === nothing && return String[]
+    return copy(spec.logging.metrics)
+end
+
+"""
+    enable_run_lines!(session::SessionState, key::AbstractString)
+
+Check one run's lines in the active plot. Takes the session and the run
+key and adds the `line_key` of every metric the run offers (see
+`run_metric_names`, in `metric_display_order`) to the active plot's
+selection unless it is already selected. Other plots are never touched.
+Returns nothing.
+"""
+function enable_run_lines!(session::SessionState, key::AbstractString)
+    state = active_plot_state(session)
+    for metric in metric_display_order(run_metric_names(session, key))
+        line = line_key(key, metric)
+        line in state.lines || push!(state.lines, line)
+    end
+    return nothing
+end
+
+"""
+    drop_run_lines!(session::SessionState, key::AbstractString)
+
+Drop one run's lines from every plot. Takes the session and the run key
+and removes every selected line key with the run's `"<run key>:"`
+prefix (run keys never contain `":"`, so the prefix identifies the run)
+from all plots. Returns nothing.
+"""
+function drop_run_lines!(session::SessionState, key::AbstractString)
+    prefix = string(key, ":")
+    for state in session.plots
+        filter!(line -> !startswith(line, prefix), state.lines)
+    end
+    return nothing
+end
+
+"""
+    build_plot_tabs(session::SessionState)::Vector{Dict{String,Any}}
+
+Render the plot tab strip rows. Takes the session and returns one row
+per plot in creation order with the tab id, the `"Plot <id>"` label,
+the active flag (exactly one tab is active), and the close flag (true
+except on the last remaining plot).
+"""
+function build_plot_tabs(session::SessionState)::Vector{Dict{String, Any}}
+    can_close = length(session.plots) > 1
+    return [
+        Dict{String, Any}(
+                "id" => string(state.id),
+                "label" => "Plot $(state.id)",
+                "active" => state.id == session.active_plot_id,
+                "can_close" => can_close,
+            ) for state in session.plots
+    ]
+end
+
+"""
+    build_line_groups(session::SessionState, series::Vector{RunSeries})::Vector{Dict{String,Any}}
+
+Render the line tickbox rows of the active plot. Takes the session and
+the run series and returns one group per plotted run with the run label
+and one row per metric the run actually carries (in
+`metric_display_order`, never a row for a missing column): each line
+row has its `line_key`, its metric title, and the checked flag from the
+active plot's selection. Every group and line row also carries the
+`plot_id` of the plot it was rendered for, so a delayed tickbox event
+can resolve its originating plot instead of hitting whatever plot is
+active when it arrives (see `handle_toggle_line!`). A plot's tickboxes
+therefore offer exactly the run's existing lines and reflect only that
+plot's selection. Groups follow the run series order.
+"""
+function build_line_groups(
+        session::SessionState,
+        series::Vector{RunSeries},
+    )::Vector{Dict{String, Any}}
+    state = active_plot_state(session)
+    plot_id = string(state.id)
+    selected = Set{String}(state.lines)
+    groups = Dict{String, Any}[]
+    for entry in series
+        lines = Dict{String, Any}[]
+        for metric in metric_display_order(entry.snapshot.metric_names)
+            key = line_key(entry.key, metric)
+            push!(
+                lines,
+                Dict{String, Any}(
+                    "key" => key,
+                    "label" => metric_title(metric),
+                    "checked" => key in selected,
+                    "plot_id" => plot_id,
+                ),
+            )
+        end
+        isempty(lines) && continue
+        push!(
+            groups,
+            Dict{String, Any}(
+                "key" => entry.key,
+                "label" => run_label(entry.name, entry.seed, entry.snapshot.run_id),
+                "plot_id" => plot_id,
+                "lines" => lines,
+            ),
+        )
+    end
+    return groups
+end
+
+"""
     build_series!(session::SessionState)::Tuple{Vector{RunSeries},Dict{String,String}}
 
 Collect the chart input of the selected runs. Takes the session, reads
 the executed rows of every selected run through
 `DashboardRuntime.path_snapshot`, advances its presentation cursor by
 one reveal quota (or snaps it to the newest row after "Jump to latest"),
-and returns the `RunSeries` for `build_plots` together with the
+and returns the `RunSeries` for `build_plot` together with the
 presentation status label per run key. A run's cursor is created on
 first sight: complete for recorded and finished runs, at zero for live
 runs so they animate in. Unknown or disappearing run keys are skipped,
@@ -476,9 +693,8 @@ never breaking the presentation loop.
 """
 function build_series!(session::SessionState)
     model = session.model
-    hidden = Set{String}(model.hidden_runs[])
     series = RunSeries[]
-    labels = Dict{String,String}()
+    labels = Dict{String, String}()
     for key in model.selected_runs[]
         length(series) >= MAX_SELECTED_RUNS && break
         probe = try
@@ -495,7 +711,7 @@ function build_series!(session::SessionState)
         visible = advance_cursor!(cursor, probe.rows_total, probe.ticks_requested; snap = session.snap)
         labels[key] = status_label(probe.state, is_lagging(cursor, probe.rows_total))
         snapshot = try
-            DR.path_snapshot(session.manager, key; visible_rows = visible, max_points = PANEL_MAX_POINTS)
+            DR.path_snapshot(session.manager, key; visible_rows = visible, max_points = PLOT_MAX_POINTS)
         catch
             continue
         end
@@ -506,7 +722,6 @@ function build_series!(session::SessionState)
                 snapshot,
                 name = snapshot.name,
                 seed = run_seed(session, key),
-                visible = !(key in hidden),
             ),
         )
     end
@@ -519,9 +734,9 @@ end
 
 Signature of the currently visible chart data. Takes the run series and
 returns a hash over the run keys, the revealed and executed row counts,
-the metric names, the data revisions (so reloading a record with changed
-content always republishes), and the visibility flags; `PublishGate`
-publishes only when this signature changed.
+the metric names, and the data revisions (so reloading a record with
+changed content always republishes); `PublishGate` publishes only when
+the full `page_signature` changed.
 """
 function series_signature(series::Vector{RunSeries})::UInt64
     signature = zero(UInt64)
@@ -530,7 +745,6 @@ function series_signature(series::Vector{RunSeries})::UInt64
         signature = hash(
             (
                 entry.key,
-                entry.visible,
                 snapshot.rows_total,
                 snapshot.visible_rows,
                 snapshot.metric_names,
@@ -543,14 +757,28 @@ function series_signature(series::Vector{RunSeries})::UInt64
 end
 
 """
+    page_signature(session::SessionState, series::Vector{RunSeries})::UInt64
+
+Signature of everything the chart shows. Takes the session and the run
+series and returns the `series_signature` hashed with the active plot
+id and every plot's selection, so switching plots or toggling a line
+republishes even when the data itself is unchanged.
+"""
+function page_signature(session::SessionState, series::Vector{RunSeries})::UInt64
+    selections = Tuple{Int, Vector{String}}[(state.id, copy(state.lines)) for state in session.plots]
+    return hash((session.active_plot_id, selections), series_signature(series))
+end
+
+"""
     update_page!(session::SessionState)::Bool
 
 Run one presentation update. Takes the session, refreshes the job and
-run tables when they changed, computes the panel plots of the revealed
-rows, and writes the reactive plot fields exactly when the publish gate
-allows it (at most one publish per `PUBLISH_INTERVAL`, only on changed
-visible data). Only this function (the presentation task) writes the
-plot fields. Returns whether the plots were published.
+run log rows and the plot tabs and line tickboxes when they changed,
+computes the active plot of the revealed rows, and writes the reactive
+chart fields exactly when the publish gate allows it (at most one
+publish per `PUBLISH_INTERVAL`, only on changed visible data). Only
+this function (the presentation task) writes the reactive view fields.
+Returns whether the chart was published.
 """
 function update_page!(session::SessionState)::Bool
     model = session.model
@@ -560,13 +788,16 @@ function update_page!(session::SessionState)::Bool
     job_rows == model.job_rows[] || (model.job_rows[] = job_rows)
     run_rows = build_run_rows(session, summaries, labels)
     run_rows == model.run_rows[] || (model.run_rows[] = run_rows)
+    tabs = build_plot_tabs(session)
+    tabs == model.plot_tabs[] || (model.plot_tabs[] = tabs)
+    groups = build_line_groups(session, series)
+    groups == model.line_groups[] || (model.line_groups[] = groups)
 
-    result = build_plots(series, session.palette)
-    signature = series_signature(series)
+    result = build_plot(series, session.palette, active_plot_state(session).lines)
+    signature = page_signature(session, series)
     can_publish!(session.gate, signature, time()) || return false
-    model.men_plot[] = result.plots[PANEL_METRICS[1]]
-    model.women_plot[] = result.plots[PANEL_METRICS[2]]
-    model.gap_plot[] = result.plots[PANEL_METRICS[3]]
+    model.active_plot[] = result.plot
+    model.axis_label[] = axis_label(result.axis)
     model.display_reduced[] = result.reduced
     model.data_warnings[] = result.warnings
     return true
@@ -710,7 +941,7 @@ function handle_cancel_active!(model::DashboardModel)
     manager === nothing && return nothing
     for summary in DR.job_summaries(manager)
         summary.state in (DR.JOB_STARTING, DR.JOB_RUNNING) || continue
-        return handle_cancel_job!(model, Dict{String,Any}("job_id" => string(summary.job_id)))
+        return handle_cancel_job!(model, Dict{String, Any}("job_id" => string(summary.job_id)))
     end
     model.status_line[] = "no running job to cancel"
     return nothing
@@ -825,10 +1056,11 @@ end
 """
     handle_select_run!(model::DashboardModel, event)
 
-Toggle one run in the plot selection. Takes the page model and the UI
-event carrying the run key: selected runs are unselected (and shown
-again), other runs are selected up to `MAX_SELECTED_RUNS` after loading
-their record by id. Returns nothing.
+Toggle one run in the plotted run selection. Takes the page model and
+the UI event carrying the run key: selected runs are unselected (their
+line keys are dropped from every plot), other runs are selected up to
+`MAX_SELECTED_RUNS` after loading their record by id and their lines
+are checked in the active plot only. Returns nothing.
 """
 function handle_select_run!(model::DashboardModel, event)
     session = _session_of(model)
@@ -840,9 +1072,9 @@ function handle_select_run!(model::DashboardModel, event)
     selected = String[String(entry) for entry in model.selected_runs[]]
     if key in selected
         filter!(entry -> entry != key, selected)
-        model.hidden_runs[] = String[String(entry) for entry in model.hidden_runs[] if entry != key]
+        drop_run_lines!(session, key)
         model.selected_runs[] = selected
-        model.status_line[] = "run $(short_run_id(key)) removed from the panels"
+        model.status_line[] = "run $(short_run_id(key)) removed from the plots"
         return nothing
     end
     if length(selected) >= MAX_SELECTED_RUNS
@@ -865,29 +1097,120 @@ function handle_select_run!(model::DashboardModel, event)
     end
     push!(selected, key)
     model.selected_runs[] = selected
-    model.status_line[] = "run $(short_run_id(key)) added to the panels"
+    enable_run_lines!(session, key)
+    model.status_line[] = "run $(short_run_id(key)) added to the plots"
     return nothing
 end
 
 """
-    handle_toggle_visibility!(model::DashboardModel, event)
+    handle_toggle_line!(model::DashboardModel, event)
 
-Toggle one selected run's visibility across all panels. Takes the page
-model and the UI event carrying the run key and moves the key between
-the visible selection and `hidden_runs`. Returns nothing.
+Apply one line tickbox change to its originating plot. Takes the page
+model and the UI event carrying the line key (see `line_key`), the
+`plot_id` the tickbox row was rendered for (see `build_line_groups`),
+and the desired `checked` state, and sets that line in that plot's
+selection absolutely, never as a blind toggle. A delayed event
+therefore always resolves the plot it came from, even when the page has
+switched plots in the meantime; events whose plot was deleted (or never
+existed) or whose payload lacks a line key, a parseable plot id, or a
+boolean state are rejected without touching any plot. Other plots and
+the run selection are never touched. Returns nothing.
 """
-function handle_toggle_visibility!(model::DashboardModel, event)
-    key = _event_field(event, "key")
-    key in model.selected_runs[] || return nothing
-    hidden = String[String(entry) for entry in model.hidden_runs[]]
-    if key in hidden
-        filter!(entry -> entry != key, hidden)
-        model.status_line[] = "run $(short_run_id(key)) shown"
+function handle_toggle_line!(model::DashboardModel, event)
+    session = _session_of(model)
+    line = _event_field(event, "line")
+    (session === nothing || isempty(line)) && return nothing
+    plot_id = tryparse(Int, _event_field(event, "plot_id"))
+    checked = _event_bool(event, "checked")
+    (plot_id === nothing || checked === nothing) && return nothing
+    state = plot_state_by_id(session, plot_id)
+    state === nothing && return nothing
+    if checked
+        line in state.lines || push!(state.lines, line)
     else
-        push!(hidden, key)
-        model.status_line[] = "run $(short_run_id(key)) hidden in all panels"
+        filter!(entry -> entry != line, state.lines)
     end
-    model.hidden_runs[] = hidden
+    return nothing
+end
+
+"""
+    handle_add_plot!(model::DashboardModel)
+
+Add one plot. Takes the page model, appends a new `PlotState` (up to
+`MAX_PLOTS`) whose lines are the currently available lines of the
+selected runs (see `run_metric_names`), and switches to it; when no run
+is selected the new plot starts empty. Returns nothing.
+"""
+function handle_add_plot!(model::DashboardModel)
+    session = _session_of(model)
+    if session === nothing
+        model.status_line[] = "no page session"
+        return nothing
+    end
+    if length(session.plots) >= MAX_PLOTS
+        model.status_line[] = "at most $MAX_PLOTS plots; delete one first"
+        return nothing
+    end
+    state = PlotState(session.next_plot_id)
+    session.next_plot_id += 1
+    for key in model.selected_runs[]
+        for metric in metric_display_order(run_metric_names(session, key))
+            push!(state.lines, line_key(key, metric))
+        end
+    end
+    push!(session.plots, state)
+    session.active_plot_id = state.id
+    model.status_line[] = "plot $(state.id) created"
+    return nothing
+end
+
+"""
+    handle_remove_plot!(model::DashboardModel, event)
+
+Delete one plot. Takes the page model and the UI event carrying the
+plot id and removes that plot; the last remaining plot cannot be
+deleted, and deleting the active plot activates its closest remaining
+neighbor. Returns nothing.
+"""
+function handle_remove_plot!(model::DashboardModel, event)
+    session = _session_of(model)
+    plot_id = tryparse(Int, _event_field(event, "plot_id"))
+    if session === nothing || plot_id === nothing
+        model.status_line[] = "no plot to delete"
+        return nothing
+    end
+    if length(session.plots) <= 1
+        model.status_line[] = "the last plot cannot be deleted"
+        return nothing
+    end
+    index = findfirst(state -> state.id == plot_id, session.plots)
+    if index === nothing
+        model.status_line[] = "plot $plot_id unknown"
+        return nothing
+    end
+    deleteat!(session.plots, index)
+    if session.active_plot_id == plot_id
+        session.active_plot_id = session.plots[min(index, length(session.plots))].id
+    end
+    model.status_line[] = "plot $plot_id deleted"
+    return nothing
+end
+
+"""
+    handle_activate_plot!(model::DashboardModel, event)
+
+Switch the visible plot. Takes the page model and the UI event carrying
+the plot id and makes that plot the single active one (unknown ids leave
+the selection unchanged). The chart follows within one publish
+interval. Returns nothing.
+"""
+function handle_activate_plot!(model::DashboardModel, event)
+    session = _session_of(model)
+    plot_id = tryparse(Int, _event_field(event, "plot_id"))
+    (session === nothing || plot_id === nothing) && return nothing
+    any(state -> state.id == plot_id, session.plots) || return nothing
+    session.active_plot_id = plot_id
+    model.status_line[] = "showing plot $plot_id"
     return nothing
 end
 
@@ -968,8 +1291,20 @@ end
     handle_select_run!(__model__, event)
 end
 
-@event DashboardModel :toggle_visibility begin
-    handle_toggle_visibility!(__model__, event)
+@event DashboardModel :toggle_line begin
+    handle_toggle_line!(__model__, event)
+end
+
+@event DashboardModel :add_plot begin
+    handle_add_plot!(__model__)
+end
+
+@event DashboardModel :remove_plot begin
+    handle_remove_plot!(__model__, event)
+end
+
+@event DashboardModel :activate_plot begin
+    handle_activate_plot!(__model__, event)
 end
 
 @event DashboardModel :jump_latest begin

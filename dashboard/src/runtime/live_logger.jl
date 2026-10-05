@@ -95,8 +95,8 @@ model loop is never blocked.
 mutable struct LiveLogger <: GN.RunLogger
     buffer::MetricBuffer
     lifecycle::Channel{Any}
-    info::Union{Nothing,GN.RunInfo}
-    finished::Union{Nothing,GN.RunResult}
+    info::Union{Nothing, GN.RunInfo}
+    finished::Union{Nothing, GN.RunResult}
 end
 
 """
@@ -134,7 +134,7 @@ row count as the release-style publication barrier. Rows beyond the
 requested tick budget are dropped. No serialization, plotting, I/O, or
 waiting happens here. Returns nothing.
 """
-function GN.metrics_recorded!(logger::LiveLogger, tick::Int, values::Dict{String,Float64})
+function GN.metrics_recorded!(logger::LiveLogger, tick::Int, values::Dict{String, Float64})
     buffer = logger.buffer
     row = buffer.published[] + 1
     row <= length(buffer.ticks) || return nothing
@@ -181,7 +181,7 @@ mutable struct StreamWriter
     lock::ReentrantLock
     stopped::Threads.Atomic{Int}
     started_sent::Bool
-    task::Union{Nothing,Task}
+    task::Union{Nothing, Task}
 end
 
 """
@@ -194,11 +194,11 @@ seconds. Returns the writer with cursor 0 and no task; call
 below 1 or a non-positive poll interval.
 """
 function StreamWriter(
-    io::IO,
-    logger::LiveLogger;
-    batch_size::Integer = 128,
-    poll_interval::Real = 0.05,
-)
+        io::IO,
+        logger::LiveLogger;
+        batch_size::Integer = 128,
+        poll_interval::Real = 0.05,
+    )
     batch_size >= 1 || throw(ArgumentError("batch_size must be >= 1, got $batch_size"))
     poll_interval > 0 || throw(ArgumentError("poll_interval must be > 0, got $poll_interval"))
     return StreamWriter(
@@ -280,7 +280,7 @@ function stream_rows!(writer::StreamWriter)::Int
         count = min(available, writer.batch_size)
         first = writer.cursor + 1
         last = writer.cursor + count
-        metrics = Dict{String,Vector{Float64}}(
+        metrics = Dict{String, Vector{Float64}}(
             name => buffer.columns[i][first:last] for (i, name) in enumerate(buffer.names)
         )
         write_message!(writer, rows_message(buffer.ticks[first:last], metrics))

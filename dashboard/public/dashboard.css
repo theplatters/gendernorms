@@ -1,9 +1,10 @@
 /* Restrained styling for the GenderNorms dashboard page.
  *
- * Two-column layout for the configuration form and the job/run tables,
- * a three-column grid for the metric panels, and plain typography for
- * sections, tables, and status displays. Everything else stays on the
- * Stipple core theme. */
+ * Two-column top row with the configuration form (narrow) beside the
+ * dominant plot area (wide: plot switcher, tall chart, line tickboxes),
+ * a full-width run log below, and plain typography for sections,
+ * tables, and status displays. Everything else stays on the Stipple
+ * core theme. */
 
 .gn-page,
 body > .container {
@@ -33,14 +34,15 @@ body > .container {
 
 .gn-columns {
     display: grid;
-    grid-template-columns: minmax(360px, 5fr) 7fr;
+    grid-template-columns: minmax(320px, 5fr) 10fr;
     gap: 16px;
     align-items: start;
 }
 
-.gn-side {
+.gn-run-log {
     display: grid;
     gap: 16px;
+    margin-top: 16px;
 }
 
 .gn-form,
@@ -141,29 +143,95 @@ body > .container {
     margin: 0;
 }
 
-.gn-panels {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+.gn-plot-tabs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
 }
 
-.gn-panel {
+.gn-tab-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+button.gn-tab {
+    font-size: 12px;
+    padding: 4px 12px;
+    border: 1px solid #b9c2d0;
+    border-radius: 4px;
+    background: #f6f8fb;
+    color: #2c3852;
+    cursor: pointer;
+}
+
+button.gn-tab-active {
+    border-color: #2c3852;
+    background: #dde5f0;
+    font-weight: 600;
+}
+
+button.gn-tab-close {
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid #b9c2d0;
+    border-radius: 4px;
     background: #fff;
-    border: 1px solid #d8dee6;
-    border-radius: 6px;
-    padding: 8px 8px 4px;
-    min-width: 0;
+    color: #6b7688;
+    cursor: pointer;
 }
 
-.gn-panel h4 {
-    font-size: 13px;
-    color: #38415c;
-    margin: 2px 8px 4px;
+.gn-add-plot {
+    font-weight: 700;
 }
 
-.gn-panel plotly {
+.gn-plot-canvas {
+    width: 100%;
+}
+
+.gn-plot-canvas plotly {
     display: block;
-    min-height: 320px;
+    min-height: 560px;
+}
+
+.gn-axis {
+    margin: 2px 0 0;
+}
+
+.gn-lines {
+    border-top: 1px solid #e6eaf0;
+    margin-top: 10px;
+    padding-top: 4px;
+}
+
+.gn-line-group {
+    margin-bottom: 6px;
+}
+
+.gn-line-run {
+    font-size: 12px;
+    font-weight: 600;
+    color: #38415c;
+    margin: 6px 0 2px;
+}
+
+.gn-line-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 16px;
+}
+
+.gn-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.gn-line-label {
+    color: #2c3852;
 }
 
 .gn-problems {

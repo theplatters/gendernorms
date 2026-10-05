@@ -18,7 +18,7 @@ is recorded to a TOML record.
 """
 struct WorkerJob
     job_id::UUIDs.UUID
-    spec_dict::Dict{String,Any}
+    spec_dict::Dict{String, Any}
     staging_dir::String
     record::Bool
 end
@@ -33,11 +33,11 @@ directory, and the record flag (`Bool` or the strings `"true"` and
 UUID or record flag.
 """
 function WorkerJob(;
-    job_id,
-    spec_dict::AbstractDict,
-    staging_dir::AbstractString,
-    record::Union{Bool,AbstractString},
-)::WorkerJob
+        job_id,
+        spec_dict::AbstractDict,
+        staging_dir::AbstractString,
+        record::Union{Bool, AbstractString},
+    )::WorkerJob
     id = job_id isa UUIDs.UUID ? job_id : UUIDs.UUID(string(job_id))
     flag = if record isa Bool
         record
@@ -50,7 +50,7 @@ function WorkerJob(;
     end
     return WorkerJob(
         id,
-        Dict{String,Any}(string(key) => value for (key, value) in spec_dict),
+        Dict{String, Any}(string(key) => value for (key, value) in spec_dict),
         String(staging_dir),
         flag,
     )
@@ -74,8 +74,8 @@ dashes in keys are normalized to underscores, so `--job-id` and
 are not `--key=value`, on unknown or duplicate keys
 (`WORKER_OPTION_KEYS`), and on empty keys.
 """
-function parse_worker_options(args)::Dict{String,String}
-    options = Dict{String,String}()
+function parse_worker_options(args)::Dict{String, String}
+    options = Dict{String, String}()
     for arg in args
         text = String(arg)
         (startswith(text, "--") && occursin('=', text)) ||
@@ -104,16 +104,16 @@ dashboard-managed policy: one `toml` output into `staging_dir` when the
 job records, and no outputs otherwise. Submitted logging outputs are
 never reused, so recorded output directories cannot leak into new runs.
 """
-function execution_spec_dict(job::WorkerJob)::Dict{String,Any}
-    dict = Dict{String,Any}(string(key) => value for (key, value) in job.spec_dict)
+function execution_spec_dict(job::WorkerJob)::Dict{String, Any}
+    dict = Dict{String, Any}(string(key) => value for (key, value) in job.spec_dict)
     logging = get(dict, "logging", nothing)
     table = if logging isa AbstractDict
-        Dict{String,Any}(string(key) => value for (key, value) in logging)
+        Dict{String, Any}(string(key) => value for (key, value) in logging)
     else
-        Dict{String,Any}()
+        Dict{String, Any}()
     end
     table["outputs"] = if job.record
-        Any[Dict{String,Any}("type" => "toml", "directory" => job.staging_dir)]
+        Any[Dict{String, Any}("type" => "toml", "directory" => job.staging_dir)]
     else
         Any[]
     end

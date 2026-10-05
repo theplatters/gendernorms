@@ -51,18 +51,37 @@ end
         @testset "page renders the dashboard components" begin
             response = http_get("http://127.0.0.1:$port/")
             @test response.status == 200
-            @test occursin("<plotly", response.text)
-            @test occursin("men_plot", response.text)
-            @test occursin("women_plot", response.text)
-            @test occursin("gap_plot", response.text)
-            @test occursin("/dashboard.css", response.text)
-            @test occursin("job_rows", response.text)
+            html = response.text
+            @test count("<plotly", html) == 1
+            @test occursin("active_plot", html)
+            @test occursin("/dashboard.css", html)
+            @test occursin("job_rows", html)
+            @test occursin("run_rows", html)
+
+            config = findfirst("gn-config", html)
+            plots = findfirst("gn-plot-area", html)
+            log = findfirst("gn-run-log", html)
+            @test config !== nothing
+            @test plots !== nothing
+            @test log !== nothing
+            @test config.start < plots.start < log.start
+
+            @test occursin("gn-add-plot", html)
+            @test occursin("toggle_line", html)
+            @test occursin("event.line = line.key", html)
+            @test occursin("event.plot_id = line.plot_id", html)
+            @test occursin("event.checked = event.target.checked", html)
+            @test occursin("activate_plot", html)
+            @test occursin("remove_plot", html)
+            @test occursin("add_plot", html)
+            @test occursin("line_groups", html)
+            @test occursin("plot_tabs", html)
         end
 
         @testset "stylesheet is served" begin
             response = http_get("http://127.0.0.1:$port/dashboard.css")
             @test response.status == 200
-            @test occursin("gn-panels", response.text)
+            @test occursin("gn-plot-canvas", response.text)
         end
 
         @testset "a tiny run completes and records match a direct run" begin

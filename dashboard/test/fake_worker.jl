@@ -40,7 +40,7 @@ const DR = DashboardRuntime
 function write_staged_record(staging_dir, run_id, spec_dict, status, ticks, metrics)
     directory = joinpath(staging_dir, run_id)
     mkpath(directory)
-    run_table = Dict{String,Any}(
+    run_table = Dict{String, Any}(
         "id" => run_id,
         "name" => spec_dict["run"]["name"],
         "model" => spec_dict["model"]["name"],
@@ -51,11 +51,11 @@ function write_staged_record(staging_dir, run_id, spec_dict, status, ticks, metr
         "ticks_executed" => length(ticks),
     )
     status == "failure" && (run_table["error"] = "ErrorException: scripted model failure")
-    metric_table = Dict{String,Any}("tick" => copy(ticks))
+    metric_table = Dict{String, Any}("tick" => copy(ticks))
     for (name, values) in metrics
         metric_table[name] = values
     end
-    record = Dict{String,Any}(
+    record = Dict{String, Any}(
         "run" => run_table,
         "spec" => spec_dict,
         "metrics" => metric_table,
@@ -90,7 +90,7 @@ function main(args, input, out, err)
     name = spec_dict["run"]["name"]
     model_name = spec_dict["model"]["name"]
     ticks_requested = spec_dict["runtime"]["ticks"]
-    metrics = Dict{String,Vector{Float64}}(
+    metrics = Dict{String, Vector{Float64}}(
         metric => Float64[] for metric in spec_dict["logging"]["metrics"]
     )
     ticks = collect(0:(ticks_requested - 1))

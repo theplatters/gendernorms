@@ -63,10 +63,10 @@ initially visible row count and replay flag. Recorded runs start with
 start at 0 and reveal over time. Returns the cursor.
 """
 function PresentationCursor(
-    run_key::AbstractString;
-    rows::Integer = 0,
-    replay::Bool = false,
-)
+        run_key::AbstractString;
+        rows::Integer = 0,
+        replay::Bool = false,
+    )
     return PresentationCursor(String(run_key), max(0, Int(rows)), replay)
 end
 
@@ -80,11 +80,11 @@ control) the cursor jumps to the newest row. Returns the new visible row
 count, clamped to `rows_available`.
 """
 function advance_cursor!(
-    cursor::PresentationCursor,
-    rows_available::Integer,
-    ticks_requested::Integer;
-    snap::Bool = false,
-)
+        cursor::PresentationCursor,
+        rows_available::Integer,
+        ticks_requested::Integer;
+        snap::Bool = false,
+    )
     available = max(0, Int(rows_available))
     target = snap ? available : min(available, cursor.visible_rows + reveal_quota(ticks_requested))
     cursor.visible_rows = target
@@ -184,11 +184,11 @@ publish time and signature on success; otherwise returns false without
 touching the gate, so a pending change publishes in a later window.
 """
 function can_publish!(
-    gate::PublishGate,
-    signature::UInt64,
-    now::Real;
-    force::Bool = false,
-)
+        gate::PublishGate,
+        signature::UInt64,
+        now::Real;
+        force::Bool = false,
+    )
     now - gate.last_publish < gate.interval && return false
     (!force && signature == gate.last_signature) && return false
     gate.last_publish = Float64(now)

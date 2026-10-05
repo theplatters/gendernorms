@@ -53,13 +53,13 @@
                 root,
                 run_id;
                 ticks = Int[],
-                metrics = Dict{String,Any}(),
+                metrics = Dict{String, Any}(),
                 ticks_executed = 0,
             ),
         )
         @test isempty(path.diagnostics)
         @test path.ticks == Int[]
-        @test path.metrics == Dict{String,Vector{Float64}}()
+        @test path.metrics == Dict{String, Vector{Float64}}()
         @test path.ticks_executed == 0
     end
 
@@ -69,7 +69,7 @@
             write_record_fixture(
                 root,
                 string(UUIDs.uuid4());
-                metrics = Dict{String,Any}(
+                metrics = Dict{String, Any}(
                     "working_time_gap" => [0.1, 0.2, 0.3],
                     "paid_time_men" => [0.7],
                 ),
@@ -118,7 +118,7 @@
             write_record_fixture(
                 root,
                 string(UUIDs.uuid4());
-                metrics = Dict{String,Any}("working_time_gap" => [NaN, Inf, -Inf]),
+                metrics = Dict{String, Any}("working_time_gap" => [NaN, Inf, -Inf]),
                 ticks = [0, 1, 2],
             ),
         )
@@ -226,7 +226,7 @@
                 root,
                 run_id;
                 ticks = [0, 1, 2],
-                metrics = Dict{String,Any}(
+                metrics = Dict{String, Any}(
                     "working_time_gap" => [0.1, 0.2, 0.3],
                     "short_column" => [0.5],
                 ),

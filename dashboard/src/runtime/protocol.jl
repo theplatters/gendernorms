@@ -58,9 +58,9 @@ to its required fields with their kinds: `:string`, `:int`,
 `:string_vector`, `:int_vector`, or `:metric_table`. Unknown fields and
 unknown types are rejected by `validate_message`.
 """
-const MESSAGE_SCHEMAS = Dict{String,Dict{String,Symbol}}(
-    "handshake" => Dict{String,Symbol}("protocol_version" => :int, "job_id" => :string),
-    "started" => Dict{String,Symbol}(
+const MESSAGE_SCHEMAS = Dict{String, Dict{String, Symbol}}(
+    "handshake" => Dict{String, Symbol}("protocol_version" => :int, "job_id" => :string),
+    "started" => Dict{String, Symbol}(
         "run_id" => :string,
         "name" => :string,
         "model_name" => :string,
@@ -68,16 +68,16 @@ const MESSAGE_SCHEMAS = Dict{String,Dict{String,Symbol}}(
         "started_at" => :string,
         "ticks_requested" => :int,
     ),
-    "rows" => Dict{String,Symbol}("ticks" => :int_vector, "metrics" => :metric_table),
-    "finished" => Dict{String,Symbol}(
+    "rows" => Dict{String, Symbol}("ticks" => :int_vector, "metrics" => :metric_table),
+    "finished" => Dict{String, Symbol}(
         "run_id" => :string,
         "outcome" => :string,
         "error" => :string,
         "ticks_executed" => :int,
         "finished_at" => :string,
     ),
-    "failed" => Dict{String,Symbol}("error" => :string, "stage" => :string),
-    "cancelled" => Dict{String,Symbol}("run_id" => :string),
+    "failed" => Dict{String, Symbol}("error" => :string, "stage" => :string),
+    "cancelled" => Dict{String, Symbol}("run_id" => :string),
 )
 
 """
@@ -160,7 +160,7 @@ function validate_message(msg::AbstractDict)::Vector{String}
         push!(
             problems,
             "[message] unknown type $(repr(kind)) " *
-            "(known: $(join(sort!(collect(keys(MESSAGE_SCHEMAS))), ", ")))",
+                "(known: $(join(sort!(collect(keys(MESSAGE_SCHEMAS))), ", ")))",
         )
         return problems
     end
@@ -181,15 +181,15 @@ function validate_message(msg::AbstractDict)::Vector{String}
         end
     end
     if kind == "rows" && _check_field_kind(get(msg, "ticks", nothing), :int_vector) &&
-       _check_field_kind(get(msg, "metrics", nothing), :metric_table)
+            _check_field_kind(get(msg, "metrics", nothing), :metric_table)
         ticks = msg["ticks"]
         for name in sort!(String[string(key) for key in keys(msg["metrics"])])
             series = msg["metrics"][name]
             length(series) == length(ticks) ||
                 push!(
-                    problems,
-                    "[rows] metric \"$name\" has $(length(series)) values but ticks has $(length(ticks))",
-                )
+                problems,
+                "[rows] metric \"$name\" has $(length(series)) values but ticks has $(length(ticks))",
+            )
         end
     end
     if kind == "finished" && haskey(msg, "outcome") && msg["outcome"] isa AbstractString
@@ -197,7 +197,7 @@ function validate_message(msg::AbstractDict)::Vector{String}
         outcome in FINISHED_OUTCOMES || push!(
             problems,
             "[finished] key \"outcome\" must be one of " *
-            "$(join((repr(o) for o in FINISHED_OUTCOMES), ", ")), got $(repr(outcome))",
+                "$(join((repr(o) for o in FINISHED_OUTCOMES), ", ")), got $(repr(outcome))",
         )
     end
     if kind == "handshake" && _is_int_value(get(msg, "protocol_version", nothing))
@@ -224,7 +224,7 @@ function _encode_value(value)
         return value > 0 ? "Inf" : "-Inf"
     end
     value isa AbstractDict &&
-        return Dict{String,Any}(string(key) => _encode_value(entry) for (key, entry) in value)
+        return Dict{String, Any}(string(key) => _encode_value(entry) for (key, entry) in value)
     value isa AbstractVector && return Any[_encode_value(entry) for entry in value]
     return value
 end
@@ -252,8 +252,8 @@ as `Vector{String}`, tick vectors as `Vector{Int}`, and metric tables
 as `Dict{String,Vector{Float64}}` with `NONFINITE_TOKENS` decoded.
 Helper of `decode_message`.
 """
-function _decode_message(msg::Dict)::Dict{String,Any}
-    out = Dict{String,Any}()
+function _decode_message(msg::Dict)::Dict{String, Any}
+    out = Dict{String, Any}()
     for (key, value) in msg
         name = string(key)
         kind = get(MESSAGE_SCHEMAS[msg["type"]], name, :string)
@@ -264,9 +264,9 @@ function _decode_message(msg::Dict)::Dict{String,Any}
         elseif kind === :string_vector
             out[name] = String[String(entry) for entry in value]
         elseif kind === :metric_table
-            out[name] = Dict{String,Vector{Float64}}(
+            out[name] = Dict{String, Vector{Float64}}(
                 string(metric) => Float64[_decode_metric_value(entry) for entry in series] for
-                (metric, series) in value
+                    (metric, series) in value
             )
         else
             out[name] = value isa AbstractString ? String(value) : value
@@ -298,7 +298,7 @@ the normalized message dictionary. Throws `ProtocolError` when the line
 is not a JSON object, when `validate_message` reports problems, or
 when a `handshake` carries a version other than `PROTOCOL_VERSION`.
 """
-function decode_message(line::AbstractString)::Dict{String,Any}
+function decode_message(line::AbstractString)::Dict{String, Any}
     msg = try
         JSON.parse(line)
     catch err
@@ -308,7 +308,7 @@ function decode_message(line::AbstractString)::Dict{String,Any}
         throw(ProtocolError(["[message] must be a JSON object, got $(repr(line))"]))
     problems = validate_message(msg)
     isempty(problems) || throw(ProtocolError(problems))
-    return _decode_message(Dict{String,Any}(string(key) => value for (key, value) in msg))
+    return _decode_message(Dict{String, Any}(string(key) => value for (key, value) in msg))
 end
 
 """
@@ -331,8 +331,8 @@ Build the `handshake` message a worker sends first. Takes the
 dashboard job UUID string and returns the message dictionary carrying
 `PROTOCOL_VERSION`.
 """
-function handshake_message(job_id::AbstractString)::Dict{String,Any}
-    return Dict{String,Any}(
+function handshake_message(job_id::AbstractString)::Dict{String, Any}
+    return Dict{String, Any}(
         "type" => "handshake",
         "protocol_version" => PROTOCOL_VERSION,
         "job_id" => String(job_id),
@@ -347,14 +347,14 @@ label, model name, evaluated metric names, ISO-8601 start timestamp,
 and tick budget. Returns the message dictionary.
 """
 function started_message(
-    run_id::AbstractString,
-    name::AbstractString,
-    model_name::AbstractString,
-    metric_names,
-    started_at::AbstractString,
-    ticks_requested::Integer,
-)::Dict{String,Any}
-    return Dict{String,Any}(
+        run_id::AbstractString,
+        name::AbstractString,
+        model_name::AbstractString,
+        metric_names,
+        started_at::AbstractString,
+        ticks_requested::Integer,
+    )::Dict{String, Any}
+    return Dict{String, Any}(
         "type" => "started",
         "run_id" => String(run_id),
         "name" => String(name),
@@ -372,13 +372,13 @@ Build a batched `rows` message of recorded tick rows. Takes the tick
 counts and the per-metric value vectors and returns the message
 dictionary; every metric vector must match the tick count.
 """
-function rows_message(ticks, metrics)::Dict{String,Any}
-    return Dict{String,Any}(
+function rows_message(ticks, metrics)::Dict{String, Any}
+    return Dict{String, Any}(
         "type" => "rows",
         "ticks" => Int[Int(tick) for tick in ticks],
-        "metrics" => Dict{String,Vector{Float64}}(
+        "metrics" => Dict{String, Vector{Float64}}(
             String(name) => Float64[Float64(value) for value in values] for
-            (name, values) in metrics
+                (name, values) in metrics
         ),
     )
 end
@@ -392,13 +392,13 @@ success), the executed tick count, and the ISO-8601 finish timestamp.
 Returns the message dictionary.
 """
 function finished_message(
-    run_id::AbstractString,
-    outcome::AbstractString,
-    error::AbstractString,
-    ticks_executed::Integer,
-    finished_at::AbstractString,
-)::Dict{String,Any}
-    return Dict{String,Any}(
+        run_id::AbstractString,
+        outcome::AbstractString,
+        error::AbstractString,
+        ticks_executed::Integer,
+        finished_at::AbstractString,
+    )::Dict{String, Any}
+    return Dict{String, Any}(
         "type" => "finished",
         "run_id" => String(run_id),
         "outcome" => String(outcome),
@@ -415,8 +415,8 @@ Build the terminal `failed` message of an infrastructure failure. Takes
 the failure text and the failing stage (`"spec"`, `"setup"`, `"run"`,
 or `"protocol"`). Returns the message dictionary.
 """
-function failed_message(error::AbstractString, stage::AbstractString)::Dict{String,Any}
-    return Dict{String,Any}("type" => "failed", "error" => String(error), "stage" => String(stage))
+function failed_message(error::AbstractString, stage::AbstractString)::Dict{String, Any}
+    return Dict{String, Any}("type" => "failed", "error" => String(error), "stage" => String(stage))
 end
 
 """
@@ -426,6 +426,6 @@ Build the terminal `cancelled` message of an interrupted run. Takes the
 run UUID string (empty when the run never started) and returns the
 message dictionary.
 """
-function cancelled_message(run_id::AbstractString)::Dict{String,Any}
-    return Dict{String,Any}("type" => "cancelled", "run_id" => String(run_id))
+function cancelled_message(run_id::AbstractString)::Dict{String, Any}
+    return Dict{String, Any}("type" => "cancelled", "run_id" => String(run_id))
 end

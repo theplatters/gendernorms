@@ -22,7 +22,7 @@
             spec.name,
             spec.model_name,
             spec,
-            Dict{String,Any}(),
+            Dict{String, Any}(),
             sort!(copy(spec.logging.metrics)),
             Dates.now(),
         )
@@ -31,16 +31,16 @@
     function decode_stream(stream)
         return [
             DR.decode_message(line) for
-            line in split(String(take!(stream)), "\n") if !isempty(strip(line))
+                line in split(String(take!(stream)), "\n") if !isempty(strip(line))
         ]
     end
 
     function buffer_view(logger)
         rows = DR.published_rows(logger.buffer)
         ticks = logger.buffer.ticks[1:rows]
-        metrics = Dict{String,Vector{Float64}}(
+        metrics = Dict{String, Vector{Float64}}(
             name => values[1:rows] for (name, values) in
-            zip(logger.buffer.names, logger.buffer.columns)
+                zip(logger.buffer.names, logger.buffer.columns)
         )
         return ticks, metrics
     end
@@ -79,7 +79,7 @@
     @testset "rows beyond the budget are dropped, never blocking" begin
         logger = DR.LiveLogger(["value"], 2)
         for tick in 1:5
-            GN.metrics_recorded!(logger, tick, Dict{String,Float64}("value" => Float64(tick)))
+            GN.metrics_recorded!(logger, tick, Dict{String, Float64}("value" => Float64(tick)))
         end
         @test DR.published_rows(logger.buffer) == 2
         ticks, metrics = buffer_view(logger)
@@ -106,9 +106,9 @@
         @test !isempty(rows)
         @test all(message -> length(message["ticks"]) <= 2, rows)
         ticks = vcat((message["ticks"] for message in rows)...)
-        metrics = Dict{String,Vector{Float64}}(
+        metrics = Dict{String, Vector{Float64}}(
             name => vcat((message["metrics"][name] for message in rows)...) for
-            name in spec.logging.metrics
+                name in spec.logging.metrics
         )
         @test ticks == result.ticks
         @test metrics == result.metrics
@@ -133,7 +133,7 @@
             GN.metrics_recorded!(
                 logger,
                 tick,
-                Dict{String,Float64}(name => Float64(tick) for name in logger.buffer.names),
+                Dict{String, Float64}(name => Float64(tick) for name in logger.buffer.names),
             )
         end
         # Run the row phase before any lifecycle drain: the exact window

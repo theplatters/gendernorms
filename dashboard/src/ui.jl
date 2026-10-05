@@ -1,11 +1,13 @@
 # Single-page Stipple UI of the dashboard.
 #
-# `ui` renders the page: the configuration form (StippleUI controls) in
-# sections, the live job table and run selection list with their row
-# actions, the three StipplePlotly panels with the "Jump to latest"
-# control, the validation problem display, and the status line. Row
-# actions carry their run or job key through the `@on` event
-# preprocessor, so every action reaches the handlers of
+# `ui` renders the page in three regions: the configuration form
+# (StippleUI controls) in the narrow left column beside the wider plot
+# area (plot tab strip with one visible chart and its per-plot line
+# tickboxes) in the top row, and the full-width run log (job table and
+# run list with their row actions and notes) below. Exactly one plot is
+# visible at a time; the "+" button creates further plots. Row and tab
+# actions carry their run, job, plot, or line key through the `@on`
+# event preprocessor, so every action reaches the handlers of
 # `reactive_model.jl` by id only.
 
 """
@@ -22,20 +24,21 @@ end
     metric_checkboxes()
 
 Metric selection checkboxes of the Basic section: one checkbox per
-`PANEL_METRICS` entry bound to the `metrics` array field. Returns the
-checkbox elements.
+`KNOWN_METRICS` entry (all eight model metrics) bound to the `metrics`
+array field. Returns the checkbox elements.
 """
 function metric_checkboxes()
-    return [checkbox(metric, :metrics; val = metric, dense = true) for metric in PANEL_METRICS]
+    return [checkbox(metric, :metrics; val = metric, dense = true) for metric in KNOWN_METRICS]
 end
 
 """
     config_form()
 
-Configuration form of the page: the Basic, Network, Utility, Advanced,
-and Dashboard sections with their `DashboardModel` fields, followed by
-the submit and cancel buttons. Network and utility parameter inputs are
-shown only for the applicable type (matching the active keys of
+Configuration form of the page (the narrow left column of the top
+row): the Basic, Network, Utility, Advanced, and Dashboard sections
+with their `DashboardModel` fields, followed by the submit and cancel
+buttons. Network and utility parameter inputs are shown only for the
+applicable type (matching the active keys of
 `DashboardRuntime.NETWORK_PARAMS` and `UTILITY_PARAMS`). Returns the
 form elements.
 """
@@ -131,7 +134,145 @@ function config_form()
                 class = "gn-actions",
             ),
         ];
-        class = "gn-form",
+        class = "gn-form gn-config",
+    )
+end
+
+"""
+    plot_tab_strip()
+
+Plot switcher above the chart: one tab button per plot (labelled
+`"Plot <id>"`, the active tab highlighted) with a close button on every
+deletable plot, followed by the "+" button that creates further plots.
+Tabs render from the reactive `plot_tabs` view; only one plot is
+visible at a time. Returns the tab strip element.
+"""
+function plot_tab_strip()
+    tab = button(
+        "{{ tab.label }}";
+        @on(:click, :activate_plot, "event.plot_id = tab.id"),
+        Symbol(":class") => "tab.active ? 'gn-tab gn-tab-active' : 'gn-tab'",
+    )
+    close = button(
+        "x";
+        class = "gn-tab-close",
+        @on(:click, :remove_plot, "event.plot_id = tab.id"),
+        @showif("tab.can_close"),
+    )
+    return htmldiv(
+        [
+            htmldiv(
+                [tab, close];
+                class = "gn-tab-item",
+                @for("tab in plot_tabs"),
+                Symbol(":key") => "tab.id",
+            ),
+            button(
+                "+";
+                class = "gn-btn gn-add-plot",
+                title = "add plot",
+                @on(:click, :add_plot),
+            ),
+        ];
+        class = "gn-plot-tabs",
+    )
+end
+
+"""
+    line_checkbox()
+
+One line tickbox of the active plot: a checkbox bound to the line's
+checked flag and its metric title. Clicking the box reaches
+`handle_toggle_line!` with the line key, the plot id the row was
+rendered for, and the desired checked state, so even a delayed event
+sets that line in its originating plot only. Returns the checkbox row.
+"""
+function line_checkbox()
+    return htmldiv(
+        [
+            input(;
+                type = "checkbox",
+                class = "gn-line-box",
+                Symbol(":checked") => "line.checked",
+                @on(
+                    :click,
+                    :toggle_line,
+                    "event.line = line.key; event.plot_id = line.plot_id; event.checked = event.target.checked"
+                ),
+            ),
+            span("{{ line.label }}"; class = "gn-line-label"),
+        ];
+        class = "gn-line",
+    )
+end
+
+"""
+    line_selector()
+
+Line tickboxes of the active plot: one run-labelled group per plotted
+run (from the reactive `line_groups` view) with one tickbox per metric
+the run carries. The tickboxes are the plot's line selection; runs are
+added and removed in the run log below. Returns the selector element.
+"""
+function line_selector()
+    items = htmldiv(
+        [line_checkbox()];
+        class = "gn-line-items",
+        @for("line in group.lines"),
+    )
+    groups = htmldiv(
+        [p("{{ group.label }}"; class = "gn-line-run"), items];
+        class = "gn-line-group",
+        @for("group in line_groups"),
+    )
+    return htmldiv(
+        [
+            p("Lines"; class = "gn-label"),
+            groups,
+            p(
+                "Select a run in the run log below to add its lines here.";
+                class = "gn-hint",
+                @showif("line_groups.length == 0"),
+            ),
+        ];
+        class = "gn-lines",
+    )
+end
+
+"""
+    plot_area()
+
+The plot area of the page (the wide right column of the top row): the
+heading with the "Jump to latest" control, the plot tab strip with the
+"+" button, the single visible chart, the y-axis note, the per-plot
+line tickboxes, and the display notes. Returns the block element.
+"""
+function plot_area()
+    return htmldiv(
+        [
+            htmldiv(
+                [
+                    h2("Metric paths"),
+                    btn("Jump to latest", @on(:click, :jump_latest)),
+                    p(
+                        "Display reduced to the point budget of the plot.";
+                        class = "gn-hint",
+                        @showif("display_reduced"),
+                    ),
+                ];
+                class = "gn-block-head",
+            ),
+            plot_tab_strip(),
+            htmldiv([plotly(:active_plot)]; class = "gn-plot-canvas"),
+            p(@text("axis_label"); class = "gn-hint gn-axis"),
+            line_selector(),
+            htmldiv(
+                [p("{{ warning }}", @for("warning in data_warnings"))];
+                class = "gn-warnings",
+                @showif("data_warnings.length > 0"),
+            ),
+        ];
+        class = "gn-block gn-plot-area",
     )
 end
 
@@ -187,10 +328,11 @@ end
 """
     run_table()
 
-Run selection list of live and recorded runs: one row per run with its
-label, source, seed, presentation status, and the plot, visibility,
-load, replay, and clone actions. Rows render from the reactive
-`run_rows` view. Returns the table element.
+Run log list of live and recorded runs: one row per run with its label,
+source, seed, presentation status, and the plot, load, replay, and
+clone actions. Rows render from the reactive `run_rows` view; *Plot*
+adds the run's lines to the active plot, *Unplot* removes the run and
+its lines from every plot. Returns the table element.
 """
 function run_table()
     rows = tr(
@@ -205,12 +347,6 @@ function run_table()
                         "{{ run.select_label }}";
                         class = "gn-btn",
                         @on(:click, :select_run, "event.key = run.key"),
-                    ),
-                    button(
-                        "{{ run.visibility_label }}";
-                        class = "gn-btn",
-                        @on(:click, :toggle_visibility, "event.key = run.key"),
-                        @showif("run.selected"),
                     ),
                     button(
                         "Load";
@@ -253,55 +389,13 @@ function run_table()
 end
 
 """
-    panel_block(field::Symbol, metric::AbstractString)
+    run_log()
 
-One chart panel. Takes the reactive plot field and its metric name and
-returns the panel with the heading and the StipplePlotly component.
+The full-width run log below the top row: the job table and the run
+list with their row actions and notes. Returns the container element.
 """
-function panel_block(field::Symbol, metric::AbstractString)
-    return htmldiv(
-        [h4(PANEL_TITLES[metric]), plotly(field)];
-        class = "gn-panel",
-    )
-end
-
-"""
-    panels_block()
-
-The three chart panels of the page (men, women, and gap) with the
-"Jump to latest" control and the display notes. Returns the panel grid.
-"""
-function panels_block()
-    return htmldiv(
-        [
-            htmldiv(
-                [
-                    h2("Metric paths"),
-                    btn("Jump to latest", @on(:click, :jump_latest)),
-                    p(
-                        "Display reduced to the point budget of each panel.";
-                        class = "gn-hint",
-                        @showif("display_reduced"),
-                    ),
-                ];
-                class = "gn-block-head",
-            ),
-            htmldiv(
-                [
-                    panel_block(:men_plot, PANEL_METRICS[1]),
-                    panel_block(:women_plot, PANEL_METRICS[2]),
-                    panel_block(:gap_plot, PANEL_METRICS[3]),
-                ];
-                class = "gn-panels",
-            ),
-            htmldiv(
-                [p("{{ warning }}", @for("warning in data_warnings"))];
-                class = "gn-warnings",
-                @showif("data_warnings.length > 0"),
-            ),
-        ];
-        class = "gn-block",
-    )
+function run_log()
+    return htmldiv([job_table(), run_table()]; class = "gn-run-log")
 end
 
 """
@@ -309,8 +403,7 @@ end
 
 Render the dashboard page. Takes no arguments and returns the page
 HTML: header and status line, validation problem display, the
-configuration form beside the job and run tables, and the three plot
-panels.
+configuration form beside the plot area, and the run log below both.
 """
 function ui()
     return join(
@@ -327,8 +420,8 @@ function ui()
                 class = "gn-problems",
                 @showif("problems.length > 0"),
             ),
-            htmldiv([config_form(), htmldiv([job_table(), run_table()]; class = "gn-side")]; class = "gn-columns"),
-            panels_block(),
+            htmldiv([config_form(), plot_area()]; class = "gn-columns"),
+            run_log(),
         ],
     )
 end

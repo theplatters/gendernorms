@@ -82,15 +82,15 @@ All fields are guarded by the owning manager's lock except `process`,
 mutable struct ManagerJob
     job_id::UUIDs.UUID
     spec::GN.RunSpec
-    spec_dict::Dict{String,Any}
+    spec_dict::Dict{String, Any}
     record::Bool
     state::JobState
-    outcome::Union{Nothing,JobState}
+    outcome::Union{Nothing, JobState}
     path::RunPath
     staging_dir::String
-    process::Union{Nothing,Base.Process}
-    reader::Union{Nothing,Task}
-    err_task::Union{Nothing,Task}
+    process::Union{Nothing, Base.Process}
+    reader::Union{Nothing, Task}
+    err_task::Union{Nothing, Task}
     handshake_seen::Bool
     started_seen::Bool
     started_run_id::String
@@ -123,11 +123,11 @@ mutable struct RunManager
     julia::String
     worker_script::String
     lock::ReentrantLock
-    jobs::Dict{UUIDs.UUID,ManagerJob}
+    jobs::Dict{UUIDs.UUID, ManagerJob}
     order::Vector{UUIDs.UUID}
     queue::Vector{ManagerJob}
-    active::Union{Nothing,ManagerJob}
-    paths::Dict{String,RunPath}
+    active::Union{Nothing, ManagerJob}
+    paths::Dict{String, RunPath}
     records::RecordIndex
     record_cache::RecordCache
     closed::Bool
@@ -143,14 +143,14 @@ worker script (overridable for tests). Throws `ArgumentError` on a
 non-positive thread count or queue capacity. Returns the manager.
 """
 function RunManager(;
-    runs_root::AbstractString,
-    worker_threads::Integer = default_worker_threads(),
-    max_queue::Integer = DEFAULT_MAX_QUEUE,
-    staging_root::AbstractString = joinpath(runs_root, ".dashboard-staging"),
-    project::AbstractString = DASHBOARD_ROOT,
-    julia::AbstractString = Base.julia_cmd().exec[1],
-    worker_script::AbstractString = joinpath(project, "bin", "run_worker.jl"),
-)
+        runs_root::AbstractString,
+        worker_threads::Integer = default_worker_threads(),
+        max_queue::Integer = DEFAULT_MAX_QUEUE,
+        staging_root::AbstractString = joinpath(runs_root, ".dashboard-staging"),
+        project::AbstractString = DASHBOARD_ROOT,
+        julia::AbstractString = Base.julia_cmd().exec[1],
+        worker_script::AbstractString = joinpath(project, "bin", "run_worker.jl"),
+    )
     worker_threads >= 1 || throw(ArgumentError("worker_threads must be >= 1, got $worker_threads"))
     max_queue >= 1 || throw(ArgumentError("max_queue must be >= 1, got $max_queue"))
     return RunManager(
@@ -162,12 +162,12 @@ function RunManager(;
         String(julia),
         String(worker_script),
         ReentrantLock(),
-        Dict{UUIDs.UUID,ManagerJob}(),
+        Dict{UUIDs.UUID, ManagerJob}(),
         UUIDs.UUID[],
         ManagerJob[],
         nothing,
-        Dict{String,RunPath}(),
-        RecordIndex(String(runs_root), Dates.now(), RunPath[], Dict{String,Vector{String}}()),
+        Dict{String, RunPath}(),
+        RecordIndex(String(runs_root), Dates.now(), RunPath[], Dict{String, Vector{String}}()),
         RecordCache(),
         false,
     )
@@ -341,7 +341,7 @@ job, and the decoded message, registers the run id in `manager.paths`,
 initializes the declared metric series, and moves the job to
 `JOB_RUNNING`. Returns nothing.
 """
-function _apply_started!(manager::RunManager, job::ManagerJob, msg::Dict{String,Any})
+function _apply_started!(manager::RunManager, job::ManagerJob, msg::Dict{String, Any})
     job.state == JOB_CANCELLING && return nothing
     path = job.path
     path.run_id = msg["run_id"]
@@ -364,7 +364,7 @@ Apply a `rows` message to a job. Takes the job (lock held) and the
 decoded message and appends the tick rows to the live run path,
 keeping the received metrics of a cancelling run. Returns nothing.
 """
-function _apply_rows!(job::ManagerJob, msg::Dict{String,Any})
+function _apply_rows!(job::ManagerJob, msg::Dict{String, Any})
     path = job.path
     append!(path.ticks, msg["ticks"])
     for (name, values) in msg["metrics"]
@@ -390,60 +390,92 @@ before `started`, with a run id other than the started one, or with a
 run id inconsistent with the started run. Returns nothing. Helper of
 `_handle_message!`.
 """
-function _check_stream_message!(job::ManagerJob, msg::Dict{String,Any})
+function _check_stream_message!(job::ManagerJob, msg::Dict{String, Any})
     kind = msg["type"]
     job.terminal_seen &&
         throw(ProtocolError(["[message] \"$kind\" received after a terminal message"]))
     if kind == "handshake"
         job.handshake_seen && throw(ProtocolError(["[handshake] duplicate handshake message"]))
-        msg["job_id"] == string(job.job_id) || throw(ProtocolError([
-            "[handshake] job id $(repr(msg["job_id"])) does not match job $(repr(string(job.job_id)))",
-        ]))
+        msg["job_id"] == string(job.job_id) || throw(
+            ProtocolError(
+                [
+                    "[handshake] job id $(repr(msg["job_id"])) does not match job $(repr(string(job.job_id)))",
+                ]
+            )
+        )
         return nothing
     end
     job.handshake_seen || throw(ProtocolError(["[message] \"$kind\" received before the handshake"]))
     if kind == "started"
         job.started_seen && throw(ProtocolError(["[started] duplicate started message"]))
         run_id = msg["run_id"]
-        (isempty(run_id) || tryparse(UUIDs.UUID, run_id) === nothing) && throw(ProtocolError([
-            "[started] run id must be a nonempty UUID, got $(repr(run_id))",
-        ]))
+        (isempty(run_id) || tryparse(UUIDs.UUID, run_id) === nothing) && throw(
+            ProtocolError(
+                [
+                    "[started] run id must be a nonempty UUID, got $(repr(run_id))",
+                ]
+            )
+        )
     elseif kind == "rows"
         job.started_seen || throw(ProtocolError(["[rows] received before the started message"]))
         ticks = msg["ticks"]
         for i in 2:length(ticks)
-            ticks[i - 1] < ticks[i] || throw(ProtocolError([
-                "[rows] ticks must be strictly increasing, got $(repr(ticks))",
-            ]))
+            ticks[i - 1] < ticks[i] || throw(
+                ProtocolError(
+                    [
+                        "[rows] ticks must be strictly increasing, got $(repr(ticks))",
+                    ]
+                )
+            )
         end
         if !isempty(ticks)
             previous = job.path.ticks
-            (isempty(previous) || previous[end] < ticks[1]) || throw(ProtocolError([
-                "[rows] tick $(ticks[1]) does not continue after tick $(previous[end])",
-            ]))
+            (isempty(previous) || previous[end] < ticks[1]) || throw(
+                ProtocolError(
+                    [
+                        "[rows] tick $(ticks[1]) does not continue after tick $(previous[end])",
+                    ]
+                )
+            )
             declared = Set(job.metric_names)
             received = Set(String[String(name) for name in keys(msg["metrics"])])
-            received == declared || throw(ProtocolError([
-                "[rows] metric names $(join(sort!(collect(received)), ", ")) do not match the " *
-                "started metric names $(join(sort!(collect(declared)), ", "))",
-            ]))
+            received == declared || throw(
+                ProtocolError(
+                    [
+                        "[rows] metric names $(join(sort!(collect(received)), ", ")) do not match the " *
+                            "started metric names $(join(sort!(collect(declared)), ", "))",
+                    ]
+                )
+            )
         end
     elseif kind == "finished"
         job.started_seen || throw(ProtocolError(["[finished] received before the started message"]))
-        msg["run_id"] == job.started_run_id || throw(ProtocolError([
-            "[finished] run id $(repr(msg["run_id"])) does not match the started run id " *
-            "$(repr(job.started_run_id))",
-        ]))
-        msg["ticks_executed"] == length(job.path.ticks) || throw(ProtocolError([
-            "[finished] ticks_executed is $(msg["ticks_executed"]) but " *
-            "$(length(job.path.ticks)) rows were received",
-        ]))
+        msg["run_id"] == job.started_run_id || throw(
+            ProtocolError(
+                [
+                    "[finished] run id $(repr(msg["run_id"])) does not match the started run id " *
+                        "$(repr(job.started_run_id))",
+                ]
+            )
+        )
+        msg["ticks_executed"] == length(job.path.ticks) || throw(
+            ProtocolError(
+                [
+                    "[finished] ticks_executed is $(msg["ticks_executed"]) but " *
+                        "$(length(job.path.ticks)) rows were received",
+                ]
+            )
+        )
     elseif kind == "cancelled"
         expected = job.started_seen ? job.started_run_id : ""
-        msg["run_id"] == expected || throw(ProtocolError([
-            "[cancelled] run id $(repr(msg["run_id"])) does not match the started run id " *
-            "$(repr(expected))",
-        ]))
+        msg["run_id"] == expected || throw(
+            ProtocolError(
+                [
+                    "[cancelled] run id $(repr(msg["run_id"])) does not match the started run id " *
+                        "$(repr(expected))",
+                ]
+            )
+        )
     end
     return nothing
 end
@@ -486,7 +518,7 @@ the job state changes only in `_finish_job!`; messages are ignored while
 the job is cancelling (cancellation wins and the record is never
 promoted). Returns nothing.
 """
-function _handle_message!(manager::RunManager, job::ManagerJob, msg::Dict{String,Any})
+function _handle_message!(manager::RunManager, job::ManagerJob, msg::Dict{String, Any})
     kind = msg["type"]
     lock(manager.lock) do
         _check_stream_message!(job, msg)
@@ -805,7 +837,7 @@ position of queued jobs (0 otherwise) and the received-row progress.
 """
 function job_summaries(manager::RunManager)::Vector{JobSummary}
     return lock(manager.lock) do
-        positions = Dict{UUIDs.UUID,Int}(job.job_id => i for (i, job) in enumerate(manager.queue))
+        positions = Dict{UUIDs.UUID, Int}(job.job_id => i for (i, job) in enumerate(manager.queue))
         summaries = JobSummary[]
         for job_id in manager.order
             job = manager.jobs[job_id]
@@ -883,11 +915,11 @@ Throws `ArgumentError` on an unknown run id, a negative `visible_rows`,
 or a `max_points` below 1. Returns the `PathSnapshot`.
 """
 function path_snapshot(
-    manager::RunManager,
-    run_id::AbstractString;
-    visible_rows::Integer = typemax(Int),
-    max_points::Integer = 4000,
-)::PathSnapshot
+        manager::RunManager,
+        run_id::AbstractString;
+        visible_rows::Integer = typemax(Int),
+        max_points::Integer = 4000,
+    )::PathSnapshot
     visible_rows >= 0 || throw(ArgumentError("visible_rows must be >= 0, got $visible_rows"))
     max_points >= 1 || throw(ArgumentError("max_points must be >= 1, got $max_points"))
     return lock(manager.lock) do
@@ -897,10 +929,10 @@ function path_snapshot(
         visible = min(Int(visible_rows), rows_total)
         indices = downsample_indices(visible, max_points)
         ticks = Int[path.ticks[i] for i in indices]
-        aligned = Dict{String,Vector{Float64}}(
+        aligned = Dict{String, Vector{Float64}}(
             name => values for (name, values) in path.metrics if length(values) == rows_total
         )
-        metrics = Dict{String,Vector{Float64}}(
+        metrics = Dict{String, Vector{Float64}}(
             name => Float64[values[i] for i in indices] for (name, values) in aligned
         )
         return PathSnapshot(

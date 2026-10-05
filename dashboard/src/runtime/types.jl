@@ -63,14 +63,14 @@ mutable struct RunPath
     seed::Int
     source::Symbol
     state::JobState
-    started_at::Union{Nothing,Dates.DateTime}
-    finished_at::Union{Nothing,Dates.DateTime}
+    started_at::Union{Nothing, Dates.DateTime}
+    finished_at::Union{Nothing, Dates.DateTime}
     ticks_requested::Int
     ticks_executed::Int
     error::String
     ticks::Vector{Int}
-    metrics::Dict{String,Vector{Float64}}
-    spec::Union{Nothing,GN.RunSpec}
+    metrics::Dict{String, Vector{Float64}}
+    spec::Union{Nothing, GN.RunSpec}
     spec_problems::Vector{String}
     diagnostics::Vector{String}
     record_path::String
@@ -85,24 +85,24 @@ accepted as a keyword with the empty or zero default stated in the
 `RunPath` docstring. Returns the constructed run path.
 """
 function RunPath(;
-    run_id::AbstractString = "",
-    name::AbstractString = "",
-    seed::Integer = 0,
-    source::Symbol = :live,
-    state::JobState = JOB_QUEUED,
-    started_at::Union{Nothing,Dates.DateTime} = nothing,
-    finished_at::Union{Nothing,Dates.DateTime} = nothing,
-    ticks_requested::Integer = 0,
-    ticks_executed::Integer = 0,
-    error::AbstractString = "",
-    ticks::Vector{Int} = Int[],
-    metrics::Dict{String,Vector{Float64}} = Dict{String,Vector{Float64}}(),
-    spec::Union{Nothing,GN.RunSpec} = nothing,
-    spec_problems::Vector{String} = String[],
-    diagnostics::Vector{String} = String[],
-    record_path::AbstractString = "",
-    revision::Integer = 0,
-)
+        run_id::AbstractString = "",
+        name::AbstractString = "",
+        seed::Integer = 0,
+        source::Symbol = :live,
+        state::JobState = JOB_QUEUED,
+        started_at::Union{Nothing, Dates.DateTime} = nothing,
+        finished_at::Union{Nothing, Dates.DateTime} = nothing,
+        ticks_requested::Integer = 0,
+        ticks_executed::Integer = 0,
+        error::AbstractString = "",
+        ticks::Vector{Int} = Int[],
+        metrics::Dict{String, Vector{Float64}} = Dict{String, Vector{Float64}}(),
+        spec::Union{Nothing, GN.RunSpec} = nothing,
+        spec_problems::Vector{String} = String[],
+        diagnostics::Vector{String} = String[],
+        record_path::AbstractString = "",
+        revision::Integer = 0,
+    )
     return RunPath(
         String(run_id),
         String(name),
@@ -132,7 +132,7 @@ Copy one run path deeply. Takes the run path and returns a new
 can mutate the result without touching the original.
 """
 function copy_path(path::RunPath)::RunPath
-    metrics = Dict{String,Vector{Float64}}(name => copy(values) for (name, values) in path.metrics)
+    metrics = Dict{String, Vector{Float64}}(name => copy(values) for (name, values) in path.metrics)
     return RunPath(
         run_id = path.run_id,
         name = path.name,
@@ -200,7 +200,7 @@ struct PathSnapshot
     rows_total::Int
     visible_rows::Int
     ticks::Vector{Int}
-    metrics::Dict{String,Vector{Float64}}
+    metrics::Dict{String, Vector{Float64}}
     metric_names::Vector{String}
     error::String
     diagnostics::Vector{String}
@@ -221,7 +221,7 @@ struct RecordIndex
     root::String
     scanned_at::Dates.DateTime
     records::Vector{RunPath}
-    problems::Dict{String,Vector{String}}
+    problems::Dict{String, Vector{String}}
 end
 
 """

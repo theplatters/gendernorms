@@ -17,7 +17,7 @@ Mapping of the `[run] status` strings of a record onto dashboard
 states: `"success"` becomes `JOB_COMPLETED` and `"failure"` becomes
 `JOB_MODEL_FAILED`. Any other status string is a record diagnostic.
 """
-const RECORD_STATUS_STATES = Dict{String,JobState}(
+const RECORD_STATUS_STATES = Dict{String, JobState}(
     "success" => JOB_COMPLETED,
     "failure" => JOB_MODEL_FAILED,
 )
@@ -31,7 +31,7 @@ entry stores the file size, modification time, and the resulting
 changed. `scan_records` shares one cache across scans.
 """
 mutable struct RecordCache
-    entries::Dict{String,Tuple{Int,Float64,RunPath}}
+    entries::Dict{String, Tuple{Int, Float64, RunPath}}
 end
 
 """
@@ -40,7 +40,7 @@ end
 Construct an empty record validation cache. Takes no arguments and
 returns the cache.
 """
-RecordCache() = RecordCache(Dict{String,Tuple{Int,Float64,RunPath}}())
+RecordCache() = RecordCache(Dict{String, Tuple{Int, Float64, RunPath}}())
 
 """
     _parse_timestamp(text, key::String, diagnostics::Vector{String})
@@ -51,10 +51,10 @@ diagnostic when the value is not a parseable timestamp string.
 Returns the `Dates.DateTime` or `nothing`.
 """
 function _parse_timestamp(
-    text,
-    key::String,
-    diagnostics::Vector{String},
-)::Union{Nothing,Dates.DateTime}
+        text,
+        key::String,
+        diagnostics::Vector{String},
+    )::Union{Nothing, Dates.DateTime}
     if !(text isa AbstractString)
         push!(diagnostics, "[$key] must be an ISO-8601 timestamp string, got $(repr(text))")
         return nothing
@@ -81,10 +81,10 @@ with the directory name, and the recognized `status` strings of
 with fallbacks for invalid entries.
 """
 function _read_run_table(
-    raw,
-    path::AbstractString,
-    diagnostics::Vector{String},
-)
+        raw,
+        path::AbstractString,
+        diagnostics::Vector{String},
+    )
     id = ""
     name = ""
     model = ""
@@ -172,8 +172,8 @@ whose length disagrees with `tick` is excluded entirely (with a
 diagnostic) so one bad column can never misalign or hide the remaining
 ones. Returns the `(ticks, metrics)` pair, empty on a missing table.
 """
-function _read_metrics_table(raw, diagnostics::Vector{String})::Tuple{Vector{Int},Dict{String,Vector{Float64}}}
-    metrics = Dict{String,Vector{Float64}}()
+function _read_metrics_table(raw, diagnostics::Vector{String})::Tuple{Vector{Int}, Dict{String, Vector{Float64}}}
+    metrics = Dict{String, Vector{Float64}}()
     if !haskey(raw, "metrics") || !(raw["metrics"] isa AbstractDict)
         push!(diagnostics, "[metrics] missing required table \"metrics\"")
         return (Int[], metrics)
@@ -315,9 +315,9 @@ of the validated run path; malformed records yield a run path whose
 throwing.
 """
 function read_record(
-    path::AbstractString,
-    cache::RecordCache = RecordCache(),
-)::RunPath
+        path::AbstractString,
+        cache::RecordCache = RecordCache(),
+    )::RunPath
     key = abspath(path)
     if isfile(path)
         info = stat(path)
@@ -345,10 +345,10 @@ Malformed records appear with diagnostics and never abort the scan.
 Returns the `RecordIndex` sorted by record directory name.
 """
 function scan_records(
-    root::AbstractString,
-    cache::RecordCache = RecordCache(),
-)::RecordIndex
-    problems = Dict{String,Vector{String}}()
+        root::AbstractString,
+        cache::RecordCache = RecordCache(),
+    )::RecordIndex
+    problems = Dict{String, Vector{String}}()
     records = RunPath[]
     if !isdir(root)
         problems[String(root)] = ["[records] record root \"$root\" is not a directory"]
@@ -416,11 +416,11 @@ lines instead of throwing. Returns the promoted `run.toml` path, or the
 problem lines when the record was not promoted.
 """
 function promote_record!(
-    staged::AbstractString,
-    runs_root::AbstractString;
-    rename::Function = Base.Filesystem.rename,
-    diagnostics::Vector{String} = String[],
-)::Union{String,Vector{String}}
+        staged::AbstractString,
+        runs_root::AbstractString;
+        rename::Function = Base.Filesystem.rename,
+        diagnostics::Vector{String} = String[],
+    )::Union{String, Vector{String}}
     record_file = joinpath(staged, "run.toml")
     isfile(record_file) ||
         return ["[record] missing \"$record_file\"; record not promoted"]
@@ -442,7 +442,7 @@ function promote_record!(
         ispath(hidden) && rm(hidden; recursive = true, force = true)
         return [
             "[record] cannot stage \"$staged\" under \"$runs_root\": " *
-            "$(sprint(showerror, err)); record not promoted",
+                "$(sprint(showerror, err)); record not promoted",
         ]
     end
     try
@@ -457,11 +457,11 @@ function promote_record!(
         end
         isempty(hidden) && return [
             "[record] cannot move \"$staged\" into place at \"$destination\": " *
-            "$(sprint(showerror, err)); record restored to staging",
+                "$(sprint(showerror, err)); record restored to staging",
         ]
         return [
             "[record] cannot move \"$staged\" into place at \"$destination\": " *
-            "$(sprint(showerror, err)); record left at \"$hidden\"",
+                "$(sprint(showerror, err)); record left at \"$hidden\"",
         ]
     end
     if ispath(staged)
@@ -471,7 +471,7 @@ function promote_record!(
             push!(
                 diagnostics,
                 "[record] promoted but cannot remove the staging copy \"$staged\": " *
-                "$(sprint(showerror, err)); left in place",
+                    "$(sprint(showerror, err)); left in place",
             )
         end
     end

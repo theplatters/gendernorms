@@ -11,6 +11,7 @@ for the model and code registries. Verify changes with
 ## Dashboard
 
 `dashboard/` hosts the interactive Genie/Stipple dashboard for
-launching, watching, and comparing runs (`ADR-0025`, `TASK-0028`). It is
-a separate project with its own environment; the core package is
-untouched. See `dashboard/README.md`.
+launching, watching, and comparing runs (`ADR-0025`, `TASK-0028`). The
+dashboard is architecturally separate from the core package (own
+project and dependencies); core performance is unaffected by the
+dashboard. See `dashboard/README.md`.
