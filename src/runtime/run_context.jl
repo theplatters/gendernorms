@@ -27,7 +27,7 @@ mutable struct RunContext
     spec::RunSpec
     model::DataType
     model_config::Any
-    metric_functions::Dict{String,Function}
+    metric_functions::Dict{String, Function}
     loggers::Vector{RunLogger}
     rng::Random.AbstractRNG
     executed::Bool

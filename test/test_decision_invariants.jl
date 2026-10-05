@@ -38,10 +38,10 @@ const GN = GenderNorms
     properties = GN.ModelProperties(network = GN.NoNetwork())
     Ark.add_resource!(world, properties)
     @test Ark.get_resource(world, GN.ModelProperties) === properties
-    @test hasmethod(GN.initialize_household, Tuple{Any,Any})
-    @test hasmethod(GN.generate_social_network, Tuple{Any,Any})
-    @test hasmethod(GN.calculate_norm_perception!, Tuple{Any,GN.UtilityConfig})
-    @test hasmethod(GN.set_theta!, Tuple{Any,GN.UtilityConfig})
+    @test hasmethod(GN.initialize_household, Tuple{Any, Any})
+    @test hasmethod(GN.generate_social_network, Tuple{Any, Any})
+    @test hasmethod(GN.calculate_norm_perception!, Tuple{Any, GN.UtilityConfig})
+    @test hasmethod(GN.set_theta!, Tuple{Any, GN.UtilityConfig})
 end
 
 @testset "ADR-0007: set_theta! owns extraction, solver stays pure" begin
@@ -52,21 +52,32 @@ end
     @test hasmethod(
         GN.mutual_best_response,
         Tuple{
-            Float64,Float64,Float64,GN.AgentPayoffParams,GN.AgentPayoffParams,GN.UtilityConfig
+            Float64, Float64, Float64, GN.AgentPayoffParams, GN.AgentPayoffParams, GN.UtilityConfig,
         },
     )
     @test hasmethod(
         GN.bargain_transfer,
-        Tuple{Float64,Float64,Float64,GN.AgentPayoffParams,GN.AgentPayoffParams,GN.UtilityConfig},
+        Tuple{Float64, Float64, Float64, GN.AgentPayoffParams, GN.AgentPayoffParams, GN.UtilityConfig},
     )
 end
 
-@testset "MDR-0018: utility stays transient without a stored component" begin
+@testset "MDR-0019: committed-utility observer contract" begin
+    # `MDR-0018` removed the unused zero-valued `CurrentUtility`
+    # placeholder and stays honest about it: no symbol of that name
+    # exists. `MDR-0019` supersedes the prohibition only for the
+    # specified, populated, consumed `CommittedUtility` observer: an
+    # immutable single-`Float64` component evaluated at the committed
+    # bundle by `set_theta!` and aggregated by `update_observer_stats!`.
     @test !isdefined(GN, :CurrentUtility)
+    @test isdefined(GN, :CommittedUtility)
+    @test isimmutable(GN.CommittedUtility(1.0))
+    @test fieldnames(GN.CommittedUtility) == (:value,)
+    @test fieldtype(GN.CommittedUtility, :value) === Float64
     @test hasmethod(
         GN.individual_utility,
-        Tuple{Float64,Float64,Float64,GN.AgentPayoffParams,GN.UtilityConfig},
+        Tuple{Float64, Float64, Float64, GN.AgentPayoffParams, GN.UtilityConfig},
     )
+    @test hasmethod(GN.update_observer_stats!, Tuple{Any})
 end
 
 @testset "ADR-0022: specialized best response falls back bitwise" begin
@@ -76,14 +87,14 @@ end
     # specialized method runs the exact `MDR-0002` seeded expression
     # (bitwise, including `NaN`); `mutual_best_response` keeps its
     # signature and loop.
-    @test hasmethod(GN.best_response_1d, Tuple{GN.BestResponseObjective{GN.CES},Float64})
+    @test hasmethod(GN.best_response_1d, Tuple{GN.BestResponseObjective{GN.CES}, Float64})
     @test hasmethod(
         GN.mutual_best_response,
-        Tuple{Float64,Float64,Float64,GN.AgentPayoffParams,GN.AgentPayoffParams,GN.UtilityConfig},
+        Tuple{Float64, Float64, Float64, GN.AgentPayoffParams, GN.AgentPayoffParams, GN.UtilityConfig},
     )
     @test GN.best_response_1d(x -> 1.0 - (x - 0.3)^2, 0.3) isa Float64
-    config = GN.UtilityConfig(func=GN.CES(beta=1.5))
-    p = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=1.0, is_woman=true)
+    config = GN.UtilityConfig(func = GN.CES(beta = 1.5))
+    p = GN.AgentPayoffParams(wage_self = 1.0, wage_spouse = 1.0, is_woman = true)
     obj = GN.BestResponseObjective(0.2, 0.5, p, config)
     @test GN._derivative_applicable(obj, 0.3) == false
     for h_start in (0.0, 0.3, 1.0)

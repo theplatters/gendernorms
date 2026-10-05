@@ -1,8 +1,12 @@
 # Statistics core, port of NetLogo `update-statistics`, ODD section
 # Statistics (`update-statistics`); see `MDR-0007`. Copies `current-*` to
 # `old-*` and recomputes the contemporaneous global working-time means
-# into the `WorkingTimeStats` resource. Histories, moving averages,
-# subgroup means, and the `run-time` timer are deferred under `TASK-0001`.
+# into the `WorkingTimeStats` resource. The fused observer snapshot
+# `update_observer_stats!` adds the pre-adaptation preference means, the
+# committed-bundle utility means, and the women's transfer mean of
+# `MDR-0019`-`MDR-0022` at the tick's single observation point.
+# Histories, moving averages, subgroup means, and the `run-time` timer
+# are deferred under `TASK-0001`.
 
 """
     update_old_working_time_and_transfer!(world)
@@ -36,7 +40,7 @@ gender has no agents.
 function update_global_working_times!(world)
     women_total = 0.0
     women_count = 0
-    for (entities, times) in Ark.Query(world, (WorkingTime,); with=(Female,))
+    for (entities, times) in Ark.Query(world, (WorkingTime,); with = (Female,))
         @inbounds for i in eachindex(entities)
             women_total += times[i].current
             women_count += 1
@@ -46,7 +50,7 @@ function update_global_working_times!(world)
 
     men_total = 0.0
     men_count = 0
-    for (entities, times) in Ark.Query(world, (WorkingTime,); with=(Male,))
+    for (entities, times) in Ark.Query(world, (WorkingTime,); with = (Male,))
         @inbounds for i in eachindex(entities)
             men_total += times[i].current
             men_count += 1
@@ -60,5 +64,79 @@ function update_global_working_times!(world)
     stats.women = women_mean
     stats.men = men_mean
     stats.gap = men_mean - women_mean
+    return nothing
+end
+
+"""
+    update_observer_stats!(world)
+
+Fused observer snapshot of one tick: the contemporaneous gender means
+of `WorkingTime.current`, the pre-adaptation means of
+`PreferencePrivate.current`, and the means of the `CommittedUtility`
+observations for women and men, plus the mean `TransferToWoman.current`
+over the women, written into the `WorkingTimeStats`, `PreferenceStats`,
+`UtilityStats`, and `TransferStats` resources with one write per
+resource at the end. Port of the global-mean lines of NetLogo
+`update-statistics` (ODD section Statistics (`update-statistics`))
+extended by the observers of `MDR-0019`, `MDR-0020`, and `MDR-0021`;
+the tick placement is the single observation point of `MDR-0022` (after
+bargaining and shocks, before `update_preferences`). Two serial
+gender-filtered `Ark.Query` reductions run in the historical order
+(women first, then men) with sequential scalar accumulators in the
+existing deterministic query batch/index order, so the working-time
+accumulation keeps the standalone `update_global_working_times!`
+addition order exactly (bitwise-identical `working_time_*` means on
+valid full-model worlds). The four resources must already exist (added
+with `Ark.add_resource!` at setup, see `ADR-0010`); the world is
+mutated and nothing is returned. Throws `ArgumentError` naming the
+gender when that gender has no matching agents, before any aggregate is
+published (the `MDR-0007` convention).
+"""
+function update_observer_stats!(world)::Nothing
+    women_work_total = 0.0
+    women_pref_total = 0.0
+    women_util_total = 0.0
+    women_transfer_total = 0.0
+    women_count = 0
+    for (entities, times, preferences, utilities, transfers) in
+        Ark.Query(world, (WorkingTime, PreferencePrivate, CommittedUtility, TransferToWoman); with = (Female,))
+        @inbounds for i in eachindex(entities)
+            women_work_total += times[i].current
+            women_pref_total += preferences[i].current
+            women_util_total += utilities[i].value
+            women_transfer_total += transfers[i].current
+            women_count += 1
+        end
+    end
+    women_count == 0 && throw(ArgumentError("no women carry the observer components: cannot average an empty gender"))
+
+    men_work_total = 0.0
+    men_pref_total = 0.0
+    men_util_total = 0.0
+    men_count = 0
+    for (entities, times, preferences, utilities) in
+        Ark.Query(world, (WorkingTime, PreferencePrivate, CommittedUtility); with = (Male,))
+        @inbounds for i in eachindex(entities)
+            men_work_total += times[i].current
+            men_pref_total += preferences[i].current
+            men_util_total += utilities[i].value
+            men_count += 1
+        end
+    end
+    men_count == 0 && throw(ArgumentError("no men carry the observer components: cannot average an empty gender"))
+
+    women_mean = women_work_total / women_count
+    men_mean = men_work_total / men_count
+    working = Ark.get_resource(world, WorkingTimeStats)
+    working.women = women_mean
+    working.men = men_mean
+    working.gap = men_mean - women_mean
+    preference = Ark.get_resource(world, PreferenceStats)
+    preference.women = women_pref_total / women_count
+    preference.men = men_pref_total / men_count
+    utility = Ark.get_resource(world, UtilityStats)
+    utility.women = women_util_total / women_count
+    utility.men = men_util_total / men_count
+    Ark.get_resource(world, TransferStats).mean = women_transfer_total / women_count
     return nothing
 end

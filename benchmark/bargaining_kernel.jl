@@ -1,7 +1,7 @@
 # Kernel benchmark for the household bargaining loop `set_theta!`
 # (`src/systems/household_bargaining.jl`, port of NetLogo `set-theta` and
 # `calculate-payoff`, ODD section Transfer bargaining). Times only the
-# `set_theta!` calls of the `step_model!` tick order (`MDR-0010`) on
+# `set_theta!` calls of the `step_model!` tick order (`MDR-0022`) on
 # plain spec dictionaries (`parse_spec`, see `ADR-0012`), with one fresh
 # `create_world` per repetition (identical initial states across
 # repetitions), and reports the sum over ticks per repetition as
@@ -54,16 +54,16 @@ of `benchmark/README.md`). Returns the dictionary.
 """
 function network_table(name::String)
     if name in ("ws_500", "ws_100", "heterogeneous")
-        return Dict{String,Any}("type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1)
+        return Dict{String, Any}("type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1)
     end
     if name == "homogeneous_mixing"
-        return Dict{String,Any}("type" => "homogeneous_mixing")
+        return Dict{String, Any}("type" => "homogeneous_mixing")
     end
     if name == "no_network"
-        return Dict{String,Any}("type" => "none")
+        return Dict{String, Any}("type" => "none")
     end
     if name == "homophily"
-        return Dict{String,Any}("type" => "homophily", "m" => 2)
+        return Dict{String, Any}("type" => "homophily", "m" => 2)
     end
     error("unknown workload $(repr(name))")
 end
@@ -83,20 +83,20 @@ dictionary.
 function workload_spec(name::String, ticks::Int)
     name in WORKLOAD_NAMES || error("unknown workload $(repr(name))")
     agents_per_gender = name == "ws_100" ? 100 : 500
-    model = Dict{String,Any}(
+    model = Dict{String, Any}(
         "name" => "gender_norms",
         "agents_per_gender" => agents_per_gender,
         "network" => network_table(name),
-        "utility" => Dict{String,Any}("type" => "ces", "beta" => 0.5),
+        "utility" => Dict{String, Any}("type" => "ces", "beta" => 0.5),
     )
     if name == "heterogeneous"
-        model["mean_wage"] = Dict{String,Any}("men" => 2.0, "women" => 0.5)
-        model["initial_conformism"] = Dict{String,Any}("men" => 50.0, "women" => 50.0)
+        model["mean_wage"] = Dict{String, Any}("men" => 2.0, "women" => 0.5)
+        model["initial_conformism"] = Dict{String, Any}("men" => 50.0, "women" => 50.0)
     end
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "bargaining-kernel-" * name, "seed" => 1),
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "bargaining-kernel-" * name, "seed" => 1),
         "model" => model,
-        "runtime" => Dict{String,Any}("ticks" => ticks),
+        "runtime" => Dict{String, Any}("ticks" => ticks),
     )
 end
 
@@ -106,9 +106,9 @@ end
 One measurement pass of this driver. Builds the `RunSpec` with
 `parse_spec`, times `create_world` (setup, outside the reported kernel
 numbers), then drives `ticks` ticks manually in the exact `step_model!`
-order of `MDR-0010` (`update_shocks!`, `calculate_norm_perception!`,
+order of `MDR-0022` (`update_shocks!`, `calculate_norm_perception!`,
 `set_theta!`, `update_old_working_time_and_transfer!`,
-`update_global_working_times!`, `update_preferences`), timing only the
+`update_observer_stats!`, `update_preferences`), timing only the
 `set_theta!` calls with `time_ns()` and taking `Base.gc_num()` deltas
 around exactly those calls. Then times one `GenderNorms.run` on a fresh
 world from the same specification (end-to-end, reported separately).
@@ -116,7 +116,7 @@ Returns a `NamedTuple` with `kernel_s` (sum of the `set_theta!` times
 over the ticks), `alloc_bytes` and `alloc_count` (totals of the timed
 `set_theta!` sections), `setup_s`, and `e2e_s`.
 """
-function measure_pass(spec_dict::Dict{String,Any}, ticks::Int)
+function measure_pass(spec_dict::Dict{String, Any}, ticks::Int)
     spec = GN.parse_spec(spec_dict)
     config = spec.model_config
     setup_start = time_ns()
@@ -136,7 +136,7 @@ function measure_pass(spec_dict::Dict{String,Any}, ticks::Int)
         alloc_bytes += Int(alloc_diff.allocd)
         alloc_count += Int(Base.gc_alloc_count(alloc_diff))
         GN.update_old_working_time_and_transfer!(world)
-        GN.update_global_working_times!(world)
+        GN.update_observer_stats!(world)
         GN.update_preferences(world)
     end
     e2e_world = GN.create_world(spec)
@@ -180,13 +180,13 @@ function benchmark_workload(name::String, ticks::Int, reps::Int)
     passes = [measure_pass(spec_dict, ticks) for _ in 1:reps]
     raw = [
         (;
-            rep = i,
-            kernel_s = pass.kernel_s,
-            alloc_bytes = pass.alloc_bytes,
-            alloc_count = pass.alloc_count,
-            setup_s = pass.setup_s,
-            e2e_s = pass.e2e_s,
-        ) for (i, pass) in enumerate(passes)
+                rep = i,
+                kernel_s = pass.kernel_s,
+                alloc_bytes = pass.alloc_bytes,
+                alloc_count = pass.alloc_count,
+                setup_s = pass.setup_s,
+                e2e_s = pass.e2e_s,
+            ) for (i, pass) in enumerate(passes)
     ]
     kernel = [pass.kernel_s for pass in passes]
     e2e = [pass.e2e_s for pass in passes]
@@ -262,26 +262,28 @@ floats use `repr` for full precision. Returns the line without trailing
 newline.
 """
 function csv_row(row)
-    return join((
-        row.workload,
-        repr(row.threads),
-        repr(row.ticks),
-        repr(row.reps),
-        repr(row.households),
-        repr(row.kernel_median_s),
-        repr(row.kernel_iqr_s),
-        repr(row.kernel_min_s),
-        repr(row.kernel_max_s),
-        repr(row.kernel_mean_s),
-        repr(row.alloc_bytes),
-        repr(row.alloc_count),
-        repr(row.alloc_bytes_per_tick),
-        repr(row.alloc_count_per_tick),
-        repr(row.alloc_bytes_per_household_tick),
-        repr(row.alloc_count_per_household_tick),
-        repr(row.setup_median_s),
-        repr(row.e2e_median_s),
-    ), ",")
+    return join(
+        (
+            row.workload,
+            repr(row.threads),
+            repr(row.ticks),
+            repr(row.reps),
+            repr(row.households),
+            repr(row.kernel_median_s),
+            repr(row.kernel_iqr_s),
+            repr(row.kernel_min_s),
+            repr(row.kernel_max_s),
+            repr(row.kernel_mean_s),
+            repr(row.alloc_bytes),
+            repr(row.alloc_count),
+            repr(row.alloc_bytes_per_tick),
+            repr(row.alloc_count_per_tick),
+            repr(row.alloc_bytes_per_household_tick),
+            repr(row.alloc_count_per_household_tick),
+            repr(row.setup_median_s),
+            repr(row.e2e_median_s),
+        ), ","
+    )
 end
 
 """
@@ -305,18 +307,20 @@ of that row. The floats use `repr` for full precision. Returns the line
 without trailing newline.
 """
 function raw_csv_row(row, entry)
-    return join((
-        row.workload,
-        repr(row.threads),
-        repr(row.ticks),
-        repr(row.households),
-        repr(entry.rep),
-        repr(entry.kernel_s),
-        repr(entry.alloc_bytes),
-        repr(entry.alloc_count),
-        repr(entry.setup_s),
-        repr(entry.e2e_s),
-    ), ",")
+    return join(
+        (
+            row.workload,
+            repr(row.threads),
+            repr(row.ticks),
+            repr(row.households),
+            repr(entry.rep),
+            repr(entry.kernel_s),
+            repr(entry.alloc_bytes),
+            repr(entry.alloc_count),
+            repr(entry.setup_s),
+            repr(entry.e2e_s),
+        ), ","
+    )
 end
 
 """

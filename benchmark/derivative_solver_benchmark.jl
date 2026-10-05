@@ -20,10 +20,10 @@ const SPECS = (
     ("multiplicative", GN.Multiplicative()),
     ("mult_weighted", GN.MultiplicativeWeighted()),
     ("additive", GN.Additive()),
-    ("ces_beta_0.5", GN.CES(beta=0.5)),
-    ("ces_beta_0.2", GN.CES(beta=0.2)),
-    ("ces_beta_0.9", GN.CES(beta=0.9)),
-    ("ces_beta_1.0", GN.CES(beta=1.0)),
+    ("ces_beta_0.5", GN.CES(beta = 0.5)),
+    ("ces_beta_0.2", GN.CES(beta = 0.2)),
+    ("ces_beta_0.9", GN.CES(beta = 0.9)),
+    ("ces_beta_1.0", GN.CES(beta = 1.0)),
 )
 
 const ROUNDS = 31
@@ -83,9 +83,9 @@ seeds exercise the `MDR-0017` tier-1 seed certificate of a converged
 sweep.
 """
 function settle_mbr(
-    hw::Float64, hm::Float64, theta::Float64,
-    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig,
-)
+        hw::Float64, hm::Float64, theta::Float64,
+        pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig,
+    )
     for _ in 1:40
         hw_next, hm_next = GN.mutual_best_response(hw, hm, theta, pw, pm, config)
         (hw_next == hw && hm_next == hm) && break
@@ -104,31 +104,33 @@ function main()
     # settled hours (the converged-sweep case), `near` perturbs them by
     # `+0.002` (the production warm-start shape), `far_lo`/`far_hi`
     # come from the domain ends.
-    println("solve-level micro-benchmark (ns per call, median of ",
-        ROUNDS, " rounds x ", INNER, " calls)")
+    println(
+        "solve-level micro-benchmark (ns per call, median of ",
+        ROUNDS, " rounds x ", INNER, " calls)"
+    )
     println()
     header = rpad("spec", 16) * rpad("role", 9) * rpad("start", 8) *
         rpad("legacy", 10) * rpad("new", 10) * rpad("speedup", 9) * "route"
     println(header)
     totals_legacy = Float64[]
     totals_new = Float64[]
-    route_counts = Dict{String,Int}("tier1" => 0, "boundary" => 0, "interior" => 0, "fallback" => 0)
-    spec_rows = Dict{String,Tuple{Vector{Float64},Vector{Float64}}}()
+    route_counts = Dict{String, Int}("tier1" => 0, "boundary" => 0, "interior" => 0, "fallback" => 0)
+    spec_rows = Dict{String, Tuple{Vector{Float64}, Vector{Float64}}}()
     for (spec_name, spec) in SPECS, (role, is_woman) in (("recipient", true), ("payer", false))
         for (wage_self, wage_spouse, alpha, conformism) in (
-            (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
-        )
+                (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
+            )
             theta0 = 0.05
-            config = GN.UtilityConfig(func=spec)
+            config = GN.UtilityConfig(func = spec)
             p0 = GN.AgentPayoffParams(
-                wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha,
-                conformism=conformism, N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
-                is_woman=is_woman,
+                wage_self = wage_self, wage_spouse = wage_spouse, alpha = alpha,
+                conformism = conformism, N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77,
+                is_woman = is_woman,
             )
             partner = GN.AgentPayoffParams(
-                wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha,
-                conformism=conformism, N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
-                is_woman=!is_woman,
+                wage_self = wage_spouse, wage_spouse = wage_self, alpha = alpha,
+                conformism = conformism, N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36,
+                is_woman = !is_woman,
             )
             hw_eq, hm_eq = settle_mbr(0.36, 0.77, theta0, p0, partner, config)
             # `p0` is the first `mutual_best_response` argument, so its
@@ -138,9 +140,9 @@ function main()
             spouse_eq = hm_eq
             obj = GN.BestResponseObjective(theta0, spouse_eq, p0, config)
             for (start_name, h_start) in (
-                ("settled", own_eq), ("near", min(own_eq + 0.002, 1.0)),
-                ("far_lo", 0.05), ("far_hi", 0.95),
-            )
+                    ("settled", own_eq), ("near", min(own_eq + 0.002, 1.0)),
+                    ("far_lo", 0.05), ("far_hi", 0.95),
+                )
                 # Both timed closures share the objective and seed; the
                 # paired medians differ only in the solver expression.
                 t_legacy = time_per_call(h -> legacy_solve(obj, h), h_start)
@@ -152,9 +154,11 @@ function main()
                 rows = get!(spec_rows, spec_name, (Float64[], Float64[]))
                 push!(rows[1], t_legacy)
                 push!(rows[2], t_new)
-                println(rpad(spec_name, 16) * rpad(role, 9) * rpad(start_name, 8) *
-                    rpad(round(t_legacy, digits=1), 10) * rpad(round(t_new, digits=1), 10) *
-                    rpad(round(t_legacy / t_new, digits=2), 9) * route)
+                println(
+                    rpad(spec_name, 16) * rpad(role, 9) * rpad(start_name, 8) *
+                        rpad(round(t_legacy, digits = 1), 10) * rpad(round(t_new, digits = 1), 10) *
+                        rpad(round(t_legacy / t_new, digits = 2), 9) * route
+                )
             end
         end
     end
@@ -165,17 +169,21 @@ function main()
         rows = spec_rows[spec_name]
         ml = sort(rows[1])[div(length(rows[1]) + 1, 2)]
         mn = sort(rows[2])[div(length(rows[2]) + 1, 2)]
-        println(rpad(spec_name, 16) * rpad(round(ml, digits=1), 10) *
-            rpad(round(mn, digits=1), 10) * rpad(round(ml / mn, digits=2), 7))
+        println(
+            rpad(spec_name, 16) * rpad(round(ml, digits = 1), 10) *
+                rpad(round(mn, digits = 1), 10) * rpad(round(ml / mn, digits = 2), 7)
+        )
     end
     mix_legacy = sort(totals_legacy)[div(length(totals_legacy) + 1, 2)]
     mix_new = sort(totals_new)[div(length(totals_new) + 1, 2)]
     println()
-    println("applicable mix median: legacy ", round(mix_legacy, digits=1),
-        " ns, new ", round(mix_new, digits=1), " ns, speedup ",
-        round(mix_legacy / mix_new, digits=2), "x")
+    println(
+        "applicable mix median: legacy ", round(mix_legacy, digits = 1),
+        " ns, new ", round(mix_new, digits = 1), " ns, speedup ",
+        round(mix_legacy / mix_new, digits = 2), "x"
+    )
     n = length(totals_legacy)
-    println("routes: ", join(["$k=$(round(100 * v / n, digits=1))%" for (k, v) in sort(collect(route_counts))], " "))
+    return println("routes: ", join(["$k=$(round(100 * v / n, digits = 1))%" for (k, v) in sort(collect(route_counts))], " "))
 end
 
 """
@@ -195,10 +203,10 @@ response run through the legacy `MDR-0002` expression instead of the
 specialized solver.
 """
 function mbr_legacy(
-    hw_init::Float64, hm_init::Float64, theta::Float64,
-    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig;
-    eps=1.0e-3, max_sweeps=100,
-)
+        hw_init::Float64, hm_init::Float64, theta::Float64,
+        pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig;
+        eps = 1.0e-3, max_sweeps = 100,
+    )
     hw = clamp(hw_init, 0.0, 1.0)
     hm = clamp(hm_init, 0.0, 1.0)
     for _ in 1:max_sweeps
@@ -216,11 +224,15 @@ end
 
 function mbr_benchmark()
     println()
-    println("mutual_best_response alternation (ns per call, median of ",
-        ROUNDS, " rounds x ", INNER, " calls)")
+    println(
+        "mutual_best_response alternation (ns per call, median of ",
+        ROUNDS, " rounds x ", INNER, " calls)"
+    )
     println()
-    println(rpad("spec", 16) * rpad("start", 8) * rpad("legacy", 10) *
-        rpad("new", 10) * rpad("speedup", 9) * "dh_w, dh_m (new vs legacy)")
+    println(
+        rpad("spec", 16) * rpad("start", 8) * rpad("legacy", 10) *
+            rpad("new", 10) * rpad("speedup", 9) * "dh_w, dh_m (new vs legacy)"
+    )
     pairs = (
         ("peaked", (0.9, 1.0, 0.48, 10.0), (1.0, 0.9, 0.45, 10.0)),
         ("plain", (1.2, 0.8, 0.5, 0.0), (0.8, 1.2, 0.5, 0.0)),
@@ -228,31 +240,36 @@ function mbr_benchmark()
     theta0 = 0.05
     for (spec_name, spec) in SPECS, (pair_name, (ww, ws, a, c), (mw, ms, am, cm)) in pairs
         pw = GN.AgentPayoffParams(
-            wage_self=ww, wage_spouse=ws, alpha=a, conformism=c,
-            N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
+            wage_self = ww, wage_spouse = ws, alpha = a, conformism = c,
+            N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77, is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=mw, wage_spouse=ms, alpha=am, conformism=cm,
-            N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
+            wage_self = mw, wage_spouse = ms, alpha = am, conformism = cm,
+            N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36, is_woman = false,
         )
-        config = GN.UtilityConfig(func=spec)
+        config = GN.UtilityConfig(func = spec)
         h_fixed = settle_mbr(0.36, 0.77, theta0, pw, pm, config)
         for (start_name, init) in (
-            ("near", h_fixed), ("pert", (min(h_fixed[1] + 0.01, 1.0), max(h_fixed[2] - 0.01, 0.0))),
-            ("far", (0.05, 0.95)),
-        )
+                ("near", h_fixed), ("pert", (min(h_fixed[1] + 0.01, 1.0), max(h_fixed[2] - 0.01, 0.0))),
+                ("far", (0.05, 0.95)),
+            )
             args = (init[1], init[2], theta0, pw, pm, config)
             t_legacy = time_per_call(a -> mbr_sum(mbr_legacy(a...)), args)
             t_new = time_per_call(a -> mbr_sum(GN.mutual_best_response(a...)), args)
             lhw, lhm = mbr_legacy(args...)
             nhw, nhm = GN.mutual_best_response(args...)
-            println(rpad(spec_name * "/" * pair_name, 16) * rpad(start_name, 8) *
-                rpad(round(t_legacy, digits=1), 10) * rpad(round(t_new, digits=1), 10) *
-                rpad(round(t_legacy / t_new, digits=2), 9) *
-                string(round(abs(nhw - lhw), sigdigits=3), ", ",
-                    round(abs(nhm - lhm), sigdigits=3)))
+            println(
+                rpad(spec_name * "/" * pair_name, 16) * rpad(start_name, 8) *
+                    rpad(round(t_legacy, digits = 1), 10) * rpad(round(t_new, digits = 1), 10) *
+                    rpad(round(t_legacy / t_new, digits = 2), 9) *
+                    string(
+                    round(abs(nhw - lhw), sigdigits = 3), ", ",
+                    round(abs(nhm - lhm), sigdigits = 3)
+                )
+            )
         end
     end
+    return
 end
 
 """
@@ -269,27 +286,30 @@ function fallback_benchmark()
     println()
     println(rpad("case", 26) * rpad("legacy", 10) * rpad("new", 10) * rpad("speedup", 9) * "bitwise")
     cases = (
-        ("ces_beta_0.0", GN.UtilityConfig(func=GN.CES(beta=0.0))),
-        ("ces_beta_-1.0", GN.UtilityConfig(func=GN.CES(beta=-1.0))),
-        ("ces_beta_1.5", GN.UtilityConfig(func=GN.CES(beta=1.5))),
-        ("ces_beta_NaN", GN.UtilityConfig(func=GN.CES(beta=NaN))),
-        ("ces_beta_1e-12", GN.UtilityConfig(func=GN.CES(beta=1.0e-12))),
-        ("ces_beta_1e-6", GN.UtilityConfig(func=GN.CES(beta=1.0e-6))),
-        ("ces_beta_2e-5", GN.UtilityConfig(func=GN.CES(beta=2.0e-5))),
+        ("ces_beta_0.0", GN.UtilityConfig(func = GN.CES(beta = 0.0))),
+        ("ces_beta_-1.0", GN.UtilityConfig(func = GN.CES(beta = -1.0))),
+        ("ces_beta_1.5", GN.UtilityConfig(func = GN.CES(beta = 1.5))),
+        ("ces_beta_NaN", GN.UtilityConfig(func = GN.CES(beta = NaN))),
+        ("ces_beta_1e-12", GN.UtilityConfig(func = GN.CES(beta = 1.0e-12))),
+        ("ces_beta_1e-6", GN.UtilityConfig(func = GN.CES(beta = 1.0e-6))),
+        ("ces_beta_2e-5", GN.UtilityConfig(func = GN.CES(beta = 2.0e-5))),
     )
     for (case_name, config) in cases
         p = GN.AgentPayoffParams(
-            wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=2.0,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+            wage_self = 1.0, wage_spouse = 1.0, alpha = 0.5, conformism = 2.0,
+            N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
         )
         obj = GN.BestResponseObjective(0.1, 0.5, p, config)
         t_legacy = time_per_call(h -> legacy_solve(obj, h), 0.3)
         t_new = time_per_call(h -> GN.best_response_1d(obj, h), 0.3)
         same = isequal(GN.best_response_1d(obj, 0.3), legacy_solve(obj, 0.3))
-        println(rpad(case_name, 26) * rpad(round(t_legacy, digits=1), 10) *
-            rpad(round(t_new, digits=1), 10) * rpad(round(t_legacy / t_new, digits=2), 9) *
-            string(same))
+        println(
+            rpad(case_name, 26) * rpad(round(t_legacy, digits = 1), 10) *
+                rpad(round(t_new, digits = 1), 10) * rpad(round(t_legacy / t_new, digits = 2), 9) *
+                string(same)
+        )
     end
+    return
 end
 
 # Allocation probes measured through top-level helpers so the call site
@@ -320,19 +340,19 @@ function allocation_benchmark()
         max_new = 0
         max_legacy = 0
         for is_woman in (true, false),
-            (wage_self, wage_spouse, alpha, conformism) in (
-                (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
-            )
-            config = GN.UtilityConfig(func=spec)
+                (wage_self, wage_spouse, alpha, conformism) in (
+                    (0.9, 1.0, 0.48, 10.0), (1.2, 0.8, 0.5, 0.0),
+                )
+            config = GN.UtilityConfig(func = spec)
             p0 = GN.AgentPayoffParams(
-                wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha,
-                conformism=conformism, N_h=0.36, N_theta=0.0, N_h_spouse=0.77,
-                is_woman=is_woman,
+                wage_self = wage_self, wage_spouse = wage_spouse, alpha = alpha,
+                conformism = conformism, N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77,
+                is_woman = is_woman,
             )
             partner = GN.AgentPayoffParams(
-                wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha,
-                conformism=conformism, N_h=0.77, N_theta=0.0, N_h_spouse=0.36,
-                is_woman=!is_woman,
+                wage_self = wage_spouse, wage_spouse = wage_self, alpha = alpha,
+                conformism = conformism, N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36,
+                is_woman = !is_woman,
             )
             hw_eq, hm_eq = settle_mbr(0.36, 0.77, 0.05, p0, partner, config)
             obj = GN.BestResponseObjective(0.05, hm_eq, p0, config)
@@ -344,16 +364,18 @@ function allocation_benchmark()
         println(rpad(spec_name, 16) * rpad(max_new, 10) * string(max_legacy))
     end
     pw = GN.AgentPayoffParams(
-        wage_self=0.9, wage_spouse=1.0, alpha=0.48, conformism=10.0,
-        N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
+        wage_self = 0.9, wage_spouse = 1.0, alpha = 0.48, conformism = 10.0,
+        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=0.9, alpha=0.45, conformism=10.0,
-        N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
+        wage_self = 1.0, wage_spouse = 0.9, alpha = 0.45, conformism = 10.0,
+        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36, is_woman = false,
     )
-    args = (0.36, 0.77, 0.05, pw, pm, GN.UtilityConfig(func=GN.CES(beta=0.5)))
-    println("mutual_best_response pair: new ", mbr_allocs(args),
-        ", legacy ", mbr_legacy_allocs(args))
+    args = (0.36, 0.77, 0.05, pw, pm, GN.UtilityConfig(func = GN.CES(beta = 0.5)))
+    return println(
+        "mutual_best_response pair: new ", mbr_allocs(args),
+        ", legacy ", mbr_legacy_allocs(args)
+    )
 end
 
 main()

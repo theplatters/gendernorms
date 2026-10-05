@@ -32,6 +32,7 @@ function make_bargaining_world(network::GN.NetworkSpec, n::Int)
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
+        GN.CommittedUtility,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
     Ark.add_resource!(world, GN.PaidTime())
@@ -219,10 +220,10 @@ end
     # property is what the transfer chain relies on when it re-solves a
     # cached labour equilibrium (see `MDR-0017`).
     pw = GN.AgentPayoffParams(
-        wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=0.0, is_woman=true
+        wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
     )
     pm = GN.AgentPayoffParams(
-        wage_self=0.8, wage_spouse=1.2, alpha=0.5, conformism=0.0, is_woman=false
+        wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
     )
     config = GN.UtilityConfig()
 
@@ -254,15 +255,15 @@ end
     # battery).
     tol = GN.BEST_RESPONSE_TOL
     for spec in (
-        GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=0.9),
-    )
-        config = GN.UtilityConfig(func=spec)
+            GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+            GN.CES(beta = 0.9),
+        )
+        config = GN.UtilityConfig(func = spec)
         pw = GN.AgentPayoffParams(
-            wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=2.0, is_woman=true
+            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 2.0, is_woman = true
         )
         pm = GN.AgentPayoffParams(
-            wage_self=0.8, wage_spouse=1.2, alpha=0.45, conformism=2.0, is_woman=false
+            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.45, conformism = 2.0, is_woman = false
         )
         hw, hm = GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
         for _ in 1:40
@@ -307,15 +308,15 @@ mbr_allocs(
     # `MDR-0002`), and the specialized solve keeps the chain
     # allocation-free (`ADR-0022`).
     for spec in (
-        GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=1.5),
-    )
-        config = GN.UtilityConfig(func=spec)
+            GN.CES(), GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+            GN.CES(beta = 1.5),
+        )
+        config = GN.UtilityConfig(func = spec)
         pw = GN.AgentPayoffParams(
-            wage_self=1.2, wage_spouse=0.8, alpha=0.5, conformism=0.0, is_woman=true
+            wage_self = 1.2, wage_spouse = 0.8, alpha = 0.5, conformism = 0.0, is_woman = true
         )
         pm = GN.AgentPayoffParams(
-            wage_self=0.8, wage_spouse=1.2, alpha=0.5, conformism=0.0, is_woman=false
+            wage_self = 0.8, wage_spouse = 1.2, alpha = 0.5, conformism = 0.0, is_woman = false
         )
         GN.mutual_best_response(0.2, 0.8, 0.0, pw, pm, config)
         @test mbr_allocs(0.2, 0.8, 0.0, pw, pm, config) == 0
@@ -325,12 +326,12 @@ mbr_allocs(
     # hours through the legacy `NaN` path.
     config = GN.UtilityConfig()
     pw = GN.AgentPayoffParams(
-        wage_self=0.9, wage_spouse=0.0, alpha=0.48, conformism=10.0,
-        N_h=0.36, N_theta=0.0, N_h_spouse=0.77, is_woman=true,
+        wage_self = 0.9, wage_spouse = 0.0, alpha = 0.48, conformism = 10.0,
+        N_h = 0.36, N_theta = 0.0, N_h_spouse = 0.77, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=0.0, wage_spouse=0.9, alpha=0.45, conformism=10.0,
-        N_h=0.77, N_theta=0.0, N_h_spouse=0.36, is_woman=false,
+        wage_self = 0.0, wage_spouse = 0.9, alpha = 0.45, conformism = 10.0,
+        N_h = 0.77, N_theta = 0.0, N_h_spouse = 0.36, is_woman = false,
     )
     GN.mutual_best_response(0.36, 0.77, 0.4, pw, pm, config)
     @test mbr_allocs(0.36, 0.77, 0.4, pw, pm, config) == 0
@@ -343,8 +344,8 @@ end
 
     # Two households with different wages, preferences, and transfers.
     states = (
-        (h_w = 0.35, h_w_old = 0.30, h_m = 0.72, h_m_old = 0.70, theta = 0.12, theta_old = 0.10, c_w = 2.0, c_m = 1.5, wage_w = 1.2, wage_m = 0.8, pref_w = 0.4, pref_m = 0.6),
-        (h_w = 0.55, h_w_old = 0.50, h_m = 0.85, h_m_old = 0.80, theta = 0.25, theta_old = 0.20, c_w = 1.0, c_m = 2.5, wage_w = 0.9, wage_m = 1.1, pref_w = 0.5, pref_m = 0.45),
+        (h_w = 0.35, h_w_old = 0.3, h_m = 0.72, h_m_old = 0.7, theta = 0.12, theta_old = 0.1, c_w = 2.0, c_m = 1.5, wage_w = 1.2, wage_m = 0.8, pref_w = 0.4, pref_m = 0.6),
+        (h_w = 0.55, h_w_old = 0.5, h_m = 0.85, h_m_old = 0.8, theta = 0.25, theta_old = 0.2, c_w = 1.0, c_m = 2.5, wage_w = 0.9, wage_m = 1.1, pref_w = 0.5, pref_m = 0.45),
     )
     for (woman, man, state) in zip(women, men, states)
         Ark.set_components!(

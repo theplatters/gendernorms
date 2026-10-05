@@ -28,27 +28,27 @@ corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
 in ODD section Initialization. Returns the `(women, men)` entity vectors.
 """
 function initialize_household(world, rng)
-  properties = Ark.get_resource(world, ModelProperties)
-  n = properties.agents_per_gender
+    properties = Ark.get_resource(world, ModelProperties)
+    n = properties.agents_per_gender
 
-  women = Vector{Ark.Entity}(undef, n)
-  men = Vector{Ark.Entity}(undef, n)
+    women = Vector{Ark.Entity}(undef, n)
+    men = Vector{Ark.Entity}(undef, n)
 
-  for i in 1:n
-    woman = Ark.new_entity!(world, get_woman(world, rng))
-    transfer, = Ark.get_components(world, woman, (TransferToWoman,))
+    for i in 1:n
+        woman = Ark.new_entity!(world, get_woman(world, rng))
+        transfer, = Ark.get_components(world, woman, (TransferToWoman,))
 
-    # the man inherits the initial transfer from his spouse
-    man = Ark.new_entity!(world, (get_men(world, rng)..., transfer))
+        # the man inherits the initial transfer from his spouse
+        man = Ark.new_entity!(world, (get_men(world, rng)..., transfer))
 
-    Ark.set_components!(world, woman, (Spouse(man),))
-    Ark.set_components!(world, man, (Spouse(woman),))
+        Ark.set_components!(world, woman, (Spouse(man),))
+        Ark.set_components!(world, man, (Spouse(woman),))
 
-    women[i] = woman
-    men[i] = man
-  end
+        women[i] = woman
+        men[i] = man
+    end
 
-  return women, men
+    return women, men
 end
 
 """
@@ -60,60 +60,63 @@ truncated normals in `set-initials-*`. Port of NetLogo `set-initials-women`
 and `set-initials-men` (ODD section Initialization (`setup`,
 `set-initials-*`)). The `rng` argument drives the stochastic setup draws,
 corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
-in ODD section Initialization. Returns the component tuple.
+in ODD section Initialization. The `CommittedUtility` observation starts at
+`NaN` = "not yet observed" on every agent (see `MDR-0019`): setup runs no
+bargaining and stores no zero fakes. Returns the component tuple.
 """
 function get_agent(world::Ark.World, gender::Gender, rng)
 
-  properties = Ark.get_resource(world, ModelProperties)
+    properties = Ark.get_resource(world, ModelProperties)
 
-  mean_working_time = for_gender(Ark.get_resource(world, PaidTime), gender)
+    mean_working_time = for_gender(Ark.get_resource(world, PaidTime), gender)
 
-  mean_wage = Ark.get_resource(world, MeanWage)
-  mean_preference = Ark.get_resource(world, MeanPreference)
-  mean_conformism = Ark.get_resource(world, InitialConformism)
+    mean_wage = Ark.get_resource(world, MeanWage)
+    mean_preference = Ark.get_resource(world, MeanPreference)
+    mean_conformism = Ark.get_resource(world, InitialConformism)
 
-  working_time = WorkingTime(mean_working_time, mean_working_time)
+    working_time = WorkingTime(mean_working_time, mean_working_time)
 
-  wage_draw = max(
-    0.0,
-    draw_normal(
-      for_gender(mean_wage, gender),
-      gender_mean(mean_wage) * properties.std_dev,
-      rng,
-    ),
-  )
-  wage = Wage(wage_draw, wage_draw)
+    wage_draw = max(
+        0.0,
+        draw_normal(
+            for_gender(mean_wage, gender),
+            gender_mean(mean_wage) * properties.std_dev,
+            rng,
+        ),
+    )
+    wage = Wage(wage_draw, wage_draw)
 
-  conformism = max(
-    0.0,
-    draw_normal(
-      for_gender(mean_conformism, gender),
-      properties.std_dev * gender_mean(mean_conformism),
-      rng,
-    ),
-  ) |> Conformism
+    conformism = max(
+        0.0,
+        draw_normal(
+            for_gender(mean_conformism, gender),
+            properties.std_dev * gender_mean(mean_conformism),
+            rng,
+        ),
+    ) |> Conformism
 
-  private_preference_draw = clamp(
-    draw_normal(
-      for_gender(mean_preference, gender),
-      properties.std_dev * gender_mean(mean_preference),
-      rng,
-    ),
-    0.01, 0.99,
-  )
-  private_preference = PreferencePrivate(private_preference_draw, private_preference_draw)
+    private_preference_draw = clamp(
+        draw_normal(
+            for_gender(mean_preference, gender),
+            properties.std_dev * gender_mean(mean_preference),
+            rng,
+        ),
+        0.01, 0.99,
+    )
+    private_preference = PreferencePrivate(private_preference_draw, private_preference_draw)
 
-  return (
-    gender,
-    working_time,
-    wage,
-    conformism,
-    private_preference,
-    NormParameter(0.0),
-    PerceptionNormDivisionOfLabor(0.0),
-    Lambda(properties.initial_lambda),
-    Spouse(Ark.zero_entity),
-  )
+    return (
+        gender,
+        working_time,
+        wage,
+        conformism,
+        private_preference,
+        NormParameter(0.0),
+        PerceptionNormDivisionOfLabor(0.0),
+        Lambda(properties.initial_lambda),
+        Spouse(Ark.zero_entity),
+        CommittedUtility(NaN),
+    )
 end
 
 """
@@ -127,20 +130,20 @@ corresponding to the `random-seed random-seed-fixed` seeding under `fixed-rs`
 in ODD section Initialization. Returns the component tuple.
 """
 function get_woman(world, rng)
-  components = get_agent(world, Female(), rng)
+    components = get_agent(world, Female(), rng)
 
-  properties = Ark.get_resource(world, ModelProperties)
+    properties = Ark.get_resource(world, ModelProperties)
 
-  transfer_draw = clamp(
-    draw_normal(
-      properties.initial_transfer,
-      properties.initial_transfer * properties.std_dev,
-      rng,
-    ),
-    0.0, 1.0,
-  )
-  transfer_to_woman = TransferToWoman(transfer_draw, transfer_draw)
-  return (components..., transfer_to_woman)
+    transfer_draw = clamp(
+        draw_normal(
+            properties.initial_transfer,
+            properties.initial_transfer * properties.std_dev,
+            rng,
+        ),
+        0.0, 1.0,
+    )
+    transfer_to_woman = TransferToWoman(transfer_draw, transfer_draw)
+    return (components..., transfer_to_woman)
 end
 
 """
@@ -168,55 +171,55 @@ when either sex misses its expected agents: run `initialize_household` first.
 """
 function generate_social_network(world, rng)
 
-  properties = Ark.get_resource(world, ModelProperties)
-  n = properties.agents_per_gender
+    properties = Ark.get_resource(world, ModelProperties)
+    n = properties.agents_per_gender
 
-  women = entities_with(world, Female)
-  men = entities_with(world, Male)
+    women = entities_with(world, Female)
+    men = entities_with(world, Male)
 
-  length(women) == n ||
-    throw(ArgumentError("expected $n women, found $(length(women)): run initialize_household first"))
-  length(men) == n ||
-    throw(ArgumentError("expected $n men, found $(length(men)): run initialize_household first"))
+    length(women) == n ||
+        throw(ArgumentError("expected $n women, found $(length(women)): run initialize_household first"))
+    length(men) == n ||
+        throw(ArgumentError("expected $n men, found $(length(men)): run initialize_household first"))
 
-  women_graph = network_graph(world, properties.network, women, rng)
-  men_graph = network_graph(world, properties.network, men, rng)
+    women_graph = network_graph(world, properties.network, women, rng)
+    men_graph = network_graph(world, properties.network, men, rng)
 
-  return Ark.add_resource!(world, SocialNetwork(men_graph, women_graph, men, women))
+    return Ark.add_resource!(world, SocialNetwork(men_graph, women_graph, men, women))
 end
 
 network_graph(_, spec::NetworkSpec, entities, rng) = generate(spec, length(entities), rng)
 
 function network_graph(world, spec::SimilarityNetwork, entities, rng)
-  values = trait_values(world, entities, spec.trait)
-  return generate_similarity(spec, values, rng)
+    values = trait_values(world, entities, spec.trait)
+    return generate_similarity(spec, values, rng)
 end
 
 function network_graph(world, spec::HomophilyNetwork, entities, rng)
-  conformism = trait_values(world, entities, :conformism)
-  wage = trait_values(world, entities, :wage)
-  preference = trait_values(world, entities, :preference_private)
-  return generate_homophily(spec, conformism, wage, preference, rng)
+    conformism = trait_values(world, entities, :conformism)
+    wage = trait_values(world, entities, :wage)
+    preference = trait_values(world, entities, :preference_private)
+    return generate_homophily(spec, conformism, wage, preference, rng)
 end
 
 trait_values(world, entities::AbstractArray, trait::Symbol) =
-  [trait_value(world, entity, trait) for entity in entities]
+    [trait_value(world, entity, trait) for entity in entities]
 
 function trait_value(world, entity, trait::Symbol)
-  if trait === :wage
-    return Ark.get_components(world, entity, (Wage,))[1].current
-  elseif trait === :conformism
-    return Ark.get_components(world, entity, (Conformism,))[1].amount
-  elseif trait === :preference_private
-    return Ark.get_components(world, entity, (PreferencePrivate,))[1].current
-  end
-  throw(ArgumentError("unknown similarity trait $trait"))
+    if trait === :wage
+        return Ark.get_components(world, entity, (Wage,))[1].current
+    elseif trait === :conformism
+        return Ark.get_components(world, entity, (Conformism,))[1].amount
+    elseif trait === :preference_private
+        return Ark.get_components(world, entity, (PreferencePrivate,))[1].current
+    end
+    throw(ArgumentError("unknown similarity trait $trait"))
 end
 
 function entities_with(world, ::Type{T}) where {T}
-  entities = Ark.Entity[]
-  for (batch,) in Ark.Query(world, (); with=(T,))
-    append!(entities, batch)
-  end
-  return entities
+    entities = Ark.Entity[]
+    for (batch,) in Ark.Query(world, (); with = (T,))
+        append!(entities, batch)
+    end
+    return entities
 end

@@ -116,10 +116,10 @@ decisions and solves in `counters`. The body is the exact
 `evaluate_transfer` objective of `bargain_transfer`.
 """
 function reduction_evaluator(
-    requests::Vector{Float64}, counters::ReductionCounters,
-    uw_out::Float64, um_out::Float64, hw_status::Float64, hm_status::Float64,
-    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config,
-)
+        requests::Vector{Float64}, counters::ReductionCounters,
+        uw_out::Float64, um_out::Float64, hw_status::Float64, hm_status::Float64,
+        pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config,
+    )
     return function (theta::Float64)
         push!(requests, theta)
         if GN._objective_prunable(theta, uw_out, um_out, pw, pm, config)
@@ -172,13 +172,13 @@ function reduction_run(case::NamedTuple; with_slabs::Bool)
     end
     best = GN._transfer_search!(scratch, slab_prunable, evaluator, theta0, GN.TRANSFER_REFINE_TOL)
     return (
-        best=best,
-        cache=scratch.cache,
-        samples=copy(scratch.samples),
-        requests=requests,
-        counters=counters,
-        theta0=theta0,
-        status_payoff=status_payoff,
+        best = best,
+        cache = scratch.cache,
+        samples = copy(scratch.samples),
+        requests = requests,
+        counters = counters,
+        theta0 = theta0,
+        status_payoff = status_payoff,
     )
 end
 
@@ -192,7 +192,7 @@ end
     for theta0 in (0.0, -0.0, 0.3, -1.0, 1.0, 0.123456789)
         stage_a = reduction_stage_a(theta0)
         reference = reduction_reference_stage_a(theta0)
-        cache = Dict{Float64,GN.TransferObjectiveValue}()
+        cache = Dict{Float64, GN.TransferObjectiveValue}()
         cache[theta0] = GN.TransferObjectiveValue(NaN, NaN, -Inf, NaN, NaN)
         scratch = GN.TransferSearchScratch(cache)
         best = GN._transfer_search!(
@@ -233,34 +233,34 @@ end
     cases = NamedTuple[]
     function add_case(config, wage_self, wage_spouse, alpha, conformism, n_theta, theta_init)
         pw = GN.AgentPayoffParams(
-            wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=n_theta, N_h_spouse=0.5, is_woman=true,
+            wage_self = wage_self, wage_spouse = wage_spouse, alpha = alpha, conformism = conformism,
+            N_h = 0.5, N_theta = n_theta, N_h_spouse = 0.5, is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=n_theta, N_h_spouse=0.5, is_woman=false,
+            wage_self = wage_spouse, wage_spouse = wage_self, alpha = alpha, conformism = conformism,
+            N_h = 0.5, N_theta = n_theta, N_h_spouse = 0.5, is_woman = false,
         )
-        push!(cases, (hw_init=0.5, hm_init=0.4, theta_init=theta_init, pw=pw, pm=pm, config=config))
+        push!(cases, (hw_init = 0.5, hm_init = 0.4, theta_init = theta_init, pw = pw, pm = pm, config = config))
     end
     for beta in (1.0e-12, 1.0e-3, 0.5, 1.5), alpha in (0.0, 1.0),
-        theta_init in (0.0, -0.0, 0.123456789)
+            theta_init in (0.0, -0.0, 0.123456789)
         add_case(
-            GN.UtilityConfig(func=GN.CES(beta=beta)), 1.0, 40.0, alpha, 50.0, 0.25, theta_init
+            GN.UtilityConfig(func = GN.CES(beta = beta)), 1.0, 40.0, alpha, 50.0, 0.25, theta_init
         )
     end
     for (w_self, w_spouse) in ((0.0, 0.0), (1.0e-8, 1.0), (40.0, 1.0), (1.0, 40.0)),
-        theta_init in (0.0, 0.3)
-        add_case(GN.UtilityConfig(func=GN.CES(beta=0.5)), w_self, w_spouse, 0.5, 10.0, 0.0, theta_init)
+            theta_init in (0.0, 0.3)
+        add_case(GN.UtilityConfig(func = GN.CES(beta = 0.5)), w_self, w_spouse, 0.5, 10.0, 0.0, theta_init)
     end
     for conformism in (0.0, 50.0, 1.0e4), n_theta in (-0.7, 0.25), theta_init in (0.123456789,)
-        add_case(GN.UtilityConfig(func=GN.CES(beta=0.5)), 1.0, 1.5, 0.5, conformism, n_theta, theta_init)
+        add_case(GN.UtilityConfig(func = GN.CES(beta = 0.5)), 1.0, 1.5, 0.5, conformism, n_theta, theta_init)
     end
     excluded_total = 0
     interval_total = 0
     pointwise_total = 0
     for (i, case) in enumerate(cases)
-        on = reduction_run(case; with_slabs=true)
-        off = reduction_run(case; with_slabs=false)
+        on = reduction_run(case; with_slabs = true)
+        off = reduction_run(case; with_slabs = false)
         interval_total += on.counters.interval_certs
         pointwise_total += on.counters.pointwise_certs
         # Same sample set, same sampled payoffs, and same commit with
@@ -278,7 +278,7 @@ end
         # Sampled sequence: strictly sorted, `isequal`-distinct
         # transfers, every finite payoff cached with the same value.
         thetas = first.(on.samples)
-        @test issorted(thetas; lt=isless)
+        @test issorted(thetas; lt = isless)
         @test all(i -> !isequal(thetas[i], thetas[i + 1]), 1:(length(thetas) - 1))
         for (theta, payoff) in on.samples
             if isfinite(payoff)
@@ -316,30 +316,30 @@ end
     )
     @test length(fixture["household"]) == 3
     for h in fixture["household"]
-        config = GN.UtilityConfig(func=GN.CES(beta=reduction_t64(h["beta"])))
+        config = GN.UtilityConfig(func = GN.CES(beta = reduction_t64(h["beta"])))
         pw = GN.AgentPayoffParams(
-            wage_self=reduction_t64(h["pw_wage_self"]),
-            wage_spouse=reduction_t64(h["pw_wage_spouse"]),
-            alpha=reduction_t64(h["pw_alpha"]),
-            conformism=reduction_t64(h["pw_conformism"]),
-            N_h=reduction_t64(h["pw_N_h"]),
-            N_theta=reduction_t64(h["pw_N_theta"]),
-            N_h_spouse=reduction_t64(h["pw_N_h_spouse"]),
-            is_woman=true,
+            wage_self = reduction_t64(h["pw_wage_self"]),
+            wage_spouse = reduction_t64(h["pw_wage_spouse"]),
+            alpha = reduction_t64(h["pw_alpha"]),
+            conformism = reduction_t64(h["pw_conformism"]),
+            N_h = reduction_t64(h["pw_N_h"]),
+            N_theta = reduction_t64(h["pw_N_theta"]),
+            N_h_spouse = reduction_t64(h["pw_N_h_spouse"]),
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=reduction_t64(h["pm_wage_self"]),
-            wage_spouse=reduction_t64(h["pm_wage_spouse"]),
-            alpha=reduction_t64(h["pm_alpha"]),
-            conformism=reduction_t64(h["pm_conformism"]),
-            N_h=reduction_t64(h["pm_N_h"]),
-            N_theta=reduction_t64(h["pm_N_theta"]),
-            N_h_spouse=reduction_t64(h["pm_N_h_spouse"]),
-            is_woman=false,
+            wage_self = reduction_t64(h["pm_wage_self"]),
+            wage_spouse = reduction_t64(h["pm_wage_spouse"]),
+            alpha = reduction_t64(h["pm_alpha"]),
+            conformism = reduction_t64(h["pm_conformism"]),
+            N_h = reduction_t64(h["pm_N_h"]),
+            N_theta = reduction_t64(h["pm_N_theta"]),
+            N_h_spouse = reduction_t64(h["pm_N_h_spouse"]),
+            is_woman = false,
         )
         hw_init, hm_init, theta_init =
             reduction_t64(h["hw_init"]), reduction_t64(h["hm_init"]), reduction_t64(h["theta_init"])
-        live = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search=:discovery)
+        live = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search = :discovery)
         reference = bargain_transfer_search_reference(hw_init, hm_init, theta_init, pw, pm, config)
         @test isequal(live[1], reference[1])
         @test isequal(live[2], reference[2])
@@ -368,39 +368,39 @@ end
         utility = case["utility"]
         beta = reduction_t64(get(case, "beta", "0.5"))
         config = if utility == "additive"
-            GN.UtilityConfig(func=GN.Additive())
+            GN.UtilityConfig(func = GN.Additive())
         elseif utility == "ces"
-            GN.UtilityConfig(func=GN.CES(beta=beta))
+            GN.UtilityConfig(func = GN.CES(beta = beta))
         elseif utility == "multiplicative"
-            GN.UtilityConfig(func=GN.Multiplicative())
+            GN.UtilityConfig(func = GN.Multiplicative())
         elseif utility == "multiplicative_weighted"
-            GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+            GN.UtilityConfig(func = GN.MultiplicativeWeighted())
         else
             error("unknown utility spec $(repr(utility))")
         end
         pw = GN.AgentPayoffParams(
-            wage_self=reduction_t64(case["pw_wage_self"]),
-            wage_spouse=reduction_t64(case["pw_wage_spouse"]),
-            alpha=reduction_t64(case["pw_alpha"]),
-            conformism=reduction_t64(case["pw_conformism"]),
-            N_h=reduction_t64(case["pw_N_h"]),
-            N_theta=reduction_t64(case["pw_N_theta"]),
-            N_h_spouse=reduction_t64(case["pw_N_h_spouse"]),
-            is_woman=true,
+            wage_self = reduction_t64(case["pw_wage_self"]),
+            wage_spouse = reduction_t64(case["pw_wage_spouse"]),
+            alpha = reduction_t64(case["pw_alpha"]),
+            conformism = reduction_t64(case["pw_conformism"]),
+            N_h = reduction_t64(case["pw_N_h"]),
+            N_theta = reduction_t64(case["pw_N_theta"]),
+            N_h_spouse = reduction_t64(case["pw_N_h_spouse"]),
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=reduction_t64(case["pm_wage_self"]),
-            wage_spouse=reduction_t64(case["pm_wage_spouse"]),
-            alpha=reduction_t64(case["pm_alpha"]),
-            conformism=reduction_t64(case["pm_conformism"]),
-            N_h=reduction_t64(case["pm_N_h"]),
-            N_theta=reduction_t64(case["pm_N_theta"]),
-            N_h_spouse=reduction_t64(case["pm_N_h_spouse"]),
-            is_woman=false,
+            wage_self = reduction_t64(case["pm_wage_self"]),
+            wage_spouse = reduction_t64(case["pm_wage_spouse"]),
+            alpha = reduction_t64(case["pm_alpha"]),
+            conformism = reduction_t64(case["pm_conformism"]),
+            N_h = reduction_t64(case["pm_N_h"]),
+            N_theta = reduction_t64(case["pm_N_theta"]),
+            N_h_spouse = reduction_t64(case["pm_N_h_spouse"]),
+            is_woman = false,
         )
         hw_init, hm_init, theta_init = reduction_t64(case["hw_init"]),
             reduction_t64(case["hm_init"]), reduction_t64(case["theta_init"])
-        live = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search=:discovery)
+        live = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search = :discovery)
         reference = bargain_transfer_search_reference(hw_init, hm_init, theta_init, pw, pm, config)
         @test isequal(live[1], reference[1])
         @test isequal(live[2], reference[2])
@@ -419,20 +419,20 @@ end
     # must never leak state: the same household bargained on a shared
     # scratch, on a fresh scratch, and through the standalone entry
     # point commits bitwise-identical results.
-    config = GN.UtilityConfig(func=GN.CES(beta=0.5))
+    config = GN.UtilityConfig(func = GN.CES(beta = 0.5))
     pw = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.5, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=true,
+        wage_self = 1.0, wage_spouse = 1.5, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.25, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.5, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=-0.5, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.5, wage_spouse = 1.0, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = -0.5, N_h_spouse = 0.5, is_woman = false,
     )
     scratch = GN.TransferSearchScratch()
-    results = Tuple{Float64,Float64,Float64}[]
+    results = Tuple{Float64, Float64, Float64}[]
     for (hw_init, hm_init, theta_init) in (
-        (0.5, 0.5, 0.0), (0.3, 0.7, 0.123456789), (0.0, 1.0, -0.0), (0.5, 0.5, 0.25),
-    )
+            (0.5, 0.5, 0.0), (0.3, 0.7, 0.123456789), (0.0, 1.0, -0.0), (0.5, 0.5, 0.25),
+        )
         push!(results, GN.bargain_transfer(scratch, hw_init, hm_init, theta_init, pw, pm, config))
         push!(results, GN.bargain_transfer(scratch, hw_init, hm_init, theta_init, pw, pm, config))
         push!(results, GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config))
@@ -467,17 +467,17 @@ scratch_refill_allocs!(scratch::GN.TransferSearchScratch, nsamples::Int, ncache:
     # nothing (no vector growth and no dict rehash), and further
     # households on the grown scratch commit bitwise-identical results
     # to fresh-scratch runs (TASK-0025 item 9).
-    config = GN.UtilityConfig(func=GN.CES(beta=0.5))
+    config = GN.UtilityConfig(func = GN.CES(beta = 0.5))
     pw = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.5, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=true,
+        wage_self = 1.0, wage_spouse = 1.5, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.25, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.5, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=-0.5, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.5, wage_spouse = 1.0, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = -0.5, N_h_spouse = 0.5, is_woman = false,
     )
     scratch = GN.TransferSearchScratch()
-    GN.bargain_transfer(scratch, 0.5, 0.5, 0.123456789, pw, pm, config; search=:discovery)
+    GN.bargain_transfer(scratch, 0.5, 0.5, 0.123456789, pw, pm, config; search = :discovery)
     grown_samples = length(scratch.samples)
     grown_cache = length(scratch.cache)
     @test grown_samples > GN.TRANSFER_SAMPLE_CAPACITY
@@ -494,15 +494,15 @@ scratch_refill_allocs!(scratch::GN.TransferSearchScratch, nsamples::Int, ncache:
     @test scratch_refill_allocs!(scratch, grown_samples, grown_cache) == 0
     GN._reset_scratch!(scratch)
     for (hw_init, hm_init, theta_init) in (
-        (0.3, 0.7, 0.123456789), (0.0, 1.0, -0.0), (0.5, 0.5, 0.25),
-    )
+            (0.3, 0.7, 0.123456789), (0.0, 1.0, -0.0), (0.5, 0.5, 0.25),
+        )
         shared = GN.bargain_transfer(
-            scratch, hw_init, hm_init, theta_init, pw, pm, config; search=:discovery
+            scratch, hw_init, hm_init, theta_init, pw, pm, config; search = :discovery
         )
         shared_again = GN.bargain_transfer(
-            scratch, hw_init, hm_init, theta_init, pw, pm, config; search=:discovery
+            scratch, hw_init, hm_init, theta_init, pw, pm, config; search = :discovery
         )
-        fresh = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search=:discovery)
+        fresh = GN.bargain_transfer(hw_init, hm_init, theta_init, pw, pm, config; search = :discovery)
         @test isequal(shared, fresh)
         @test isequal(shared_again, fresh)
     end

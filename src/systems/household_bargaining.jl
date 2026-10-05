@@ -41,23 +41,23 @@ so the alternating loop allocates nothing and carries no closures.
 Returns the converged `(hw, hm)` working-time pair.
 """
 function mutual_best_response(
-  hw_init::Float64, hm_init::Float64, theta::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  eps=1.0e-3, max_sweeps=100
-)
-  hw = clamp(hw_init, 0.0, 1.0)
-  hm = clamp(hm_init, 0.0, 1.0)
-  for _ in 1:max_sweeps
-    hw_new = best_response_1d(BestResponseObjective(theta, hm, pw, config), hw)
-    isfinite(hw_new) || (hw_new = hw)
-    hm_new = best_response_1d(BestResponseObjective(theta, hw_new, pm, config), hm)
-    isfinite(hm_new) || (hm_new = hm)
-    change = abs(hw_new - hw) + abs(hm_new - hm)
-    hw = clamp(hw_new, 0, 1)
-    hm = clamp(hm_new, 0, 1)
-    change <= eps && break
-  end
-  return (hw, hm)
+        hw_init::Float64, hm_init::Float64, theta::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        eps = 1.0e-3, max_sweeps = 100
+    )
+    hw = clamp(hw_init, 0.0, 1.0)
+    hm = clamp(hm_init, 0.0, 1.0)
+    for _ in 1:max_sweeps
+        hw_new = best_response_1d(BestResponseObjective(theta, hm, pw, config), hw)
+        isfinite(hw_new) || (hw_new = hw)
+        hm_new = best_response_1d(BestResponseObjective(theta, hw_new, pm, config), hm)
+        isfinite(hm_new) || (hm_new = hm)
+        change = abs(hw_new - hw) + abs(hm_new - hm)
+        hw = clamp(hw_new, 0, 1)
+        hm = clamp(hm_new, 0, 1)
+        change <= eps && break
+    end
+    return (hw, hm)
 end
 
 """
@@ -70,13 +70,13 @@ labour equilibrium with zero transfer. Port of the first lines of NetLogo
 `MDR-0016`. Returns `(uw_out, um_out)`.
 """
 function outside_options(
-  hw_init::Float64, hm_init::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)
-  hw_out, hm_out = mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
-  uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
-  um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
-  return uw_out, um_out
+        hw_init::Float64, hm_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )
+    hw_out, hm_out = mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
+    uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
+    um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
+    return uw_out, um_out
 end
 
 """
@@ -93,13 +93,13 @@ the Nash payoff and the guidance values of the transfer search (see
 them inside `nash_product`. Returns `(gain_w, gain_m)`.
 """
 function _transfer_gains(
-  theta::Float64, hw::Float64, hm::Float64,
-  uw_out::Float64, um_out::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)
-  gain_w = individual_utility(hw, hm, theta, pw, config) - uw_out
-  gain_m = individual_utility(hm, hw, theta, pm, config) - um_out
-  return gain_w, gain_m
+        theta::Float64, hw::Float64, hm::Float64,
+        uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )
+    gain_w = individual_utility(hw, hm, theta, pw, config) - uw_out
+    gain_m = individual_utility(hm, hw, theta, pm, config) - um_out
+    return gain_w, gain_m
 end
 
 """
@@ -111,10 +111,10 @@ finite and non-negative, otherwise `-Inf` (replacing the `-1` sentinel);
 see `MDR-0014`. Returns a `Float64`.
 """
 function _nash_from_gains(gain_w::Float64, gain_m::Float64)::Float64
-  if isfinite(gain_w) && isfinite(gain_m) && gain_w >= 0.0 && gain_m >= 0.0
-    return gain_w * gain_m
-  end
-  return -Inf
+    if isfinite(gain_w) && isfinite(gain_m) && gain_w >= 0.0 && gain_m >= 0.0
+        return gain_w * gain_m
+    end
+    return -Inf
 end
 
 """
@@ -129,12 +129,12 @@ and `hm`: the two utility gains over the outside options `uw_out` and
 bitwise identical). Returns a `Float64`.
 """
 function nash_product(
-  theta::Float64, hw::Float64, hm::Float64,
-  uw_out::Float64, um_out::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)::Float64
-  gain_w, gain_m = _transfer_gains(theta, hw, hm, uw_out, um_out, pw, pm, config)
-  return _nash_from_gains(gain_w, gain_m)
+        theta::Float64, hw::Float64, hm::Float64,
+        uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )::Float64
+    gain_w, gain_m = _transfer_gains(theta, hw, hm, uw_out, um_out, pw, pm, config)
+    return _nash_from_gains(gain_w, gain_m)
 end
 
 """
@@ -147,12 +147,12 @@ Labour equilibrium and Nash product at transfer `theta`, warm-started from
 state (see `MDR-0014`). Returns `(payoff, hw, hm)`.
 """
 function equilibrium_payoff(
-  theta::Float64, hw_start::Float64, hm_start::Float64,
-  uw_out::Float64, um_out::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)
-  hw, hm = mutual_best_response(hw_start, hm_start, theta, pw, pm, config)
-  return nash_product(theta, hw, hm, uw_out, um_out, pw, pm, config), hw, hm
+        theta::Float64, hw_start::Float64, hm_start::Float64,
+        uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )
+    hw, hm = mutual_best_response(hw_start, hm_start, theta, pw, pm, config)
+    return nash_product(theta, hw, hm, uw_out, um_out, pw, pm, config), hw, hm
 end
 
 # Solver parameters of the transfer searches (see `MDR-0014` and
@@ -279,8 +279,8 @@ on the committed-hours path (see `ADR-0015`). Not a ported NetLogo
 behavior.
 """
 function _payoff_upper_bound(
-    theta::Float64, p::AgentPayoffParams, config::UtilityConfig
-)::Float64
+        theta::Float64, p::AgentPayoffParams, config::UtilityConfig
+    )::Float64
     isfinite(theta) || return NaN
     (-1.0 <= theta <= 1.0) || return NaN
     (isfinite(p.wage_self) && p.wage_self >= 0.0) || return NaN
@@ -343,9 +343,9 @@ path and never inside `outside_options`, `nash_product`,
 behavior.
 """
 function _objective_prunable(
-    theta::Float64, uw_out::Float64, um_out::Float64,
-    pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)::Bool
+        theta::Float64, uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )::Bool
     (isfinite(uw_out) && isfinite(um_out)) || return false
     bound_w = _payoff_upper_bound(theta, pw, config)
     if isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out
@@ -406,9 +406,9 @@ Used only by `_objective_interval_prunable` as a Stage A prefilter of
 `ADR-0017`). Not a ported NetLogo behavior.
 """
 function _payoff_interval_bound(
-    lo::Float64, hi::Float64, recipient::Bool,
-    p::AgentPayoffParams, config::UtilityConfig
-)::Float64
+        lo::Float64, hi::Float64, recipient::Bool,
+        p::AgentPayoffParams, config::UtilityConfig
+    )::Float64
     (isfinite(lo) && isfinite(hi) && lo <= hi) || return NaN
     (hi <= 0.0 || lo >= 0.0) || return NaN
     (lo < 0.0 || hi > 0.0) || return NaN
@@ -498,9 +498,9 @@ it. Fail open (`false`) on any non-finite intermediate (see the guards
 of `_payoff_upper_bound`). Not a ported NetLogo behavior.
 """
 function _interval_normal_ok(
-    lo::Float64, hi::Float64, recipient::Bool,
-    p::AgentPayoffParams, config::UtilityConfig
-)::Bool
+        lo::Float64, hi::Float64, recipient::Bool,
+        p::AgentPayoffParams, config::UtilityConfig
+    )::Bool
     (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
     (hi <= 0.0 || lo >= 0.0) || return false
     (lo < 0.0 || hi > 0.0) || return false
@@ -604,9 +604,9 @@ objective calls inside `bargain_transfer`'s payoff-only objective,
 never on the committed-hours path. Not a ported NetLogo behavior.
 """
 function _objective_interval_prunable(
-    lo::Float64, hi::Float64, uw_out::Float64, um_out::Float64,
-    pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)::Bool
+        lo::Float64, hi::Float64, uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )::Bool
     (isfinite(lo) && isfinite(hi) && lo <= hi) || return false
     (-1.0 <= lo && hi <= 1.0) || return false
     (isfinite(uw_out) && isfinite(um_out)) || return false
@@ -714,10 +714,10 @@ constructs one per call. Production uses small capacity hints; the
 explicit discovery mode grows them as needed.
 """
 struct TransferSearchScratch
-    cache::Dict{Float64,TransferObjectiveValue}
-    samples::Vector{Tuple{Float64,Float64}}
+    cache::Dict{Float64, TransferObjectiveValue}
+    samples::Vector{Tuple{Float64, Float64}}
     maxima::Vector{Int}
-    slabs::Vector{Tuple{Float64,Float64}}
+    slabs::Vector{Tuple{Float64, Float64}}
 end
 
 """
@@ -727,8 +727,8 @@ Wrap a caller-owned evaluation cache into a `TransferSearchScratch`
 with fresh side vectors (the entry point of the cache-probing tests of
 `test/test_transfer_search.jl`, which own and inspect the cache).
 """
-function TransferSearchScratch(cache::Dict{Float64,TransferObjectiveValue})
-    return TransferSearchScratch(cache, Tuple{Float64,Float64}[], Int[], Tuple{Float64,Float64}[])
+function TransferSearchScratch(cache::Dict{Float64, TransferObjectiveValue})
+    return TransferSearchScratch(cache, Tuple{Float64, Float64}[], Int[], Tuple{Float64, Float64}[])
 end
 
 """
@@ -742,9 +742,9 @@ only grows when a household needs an exceptional evaluation count (see
 `ADR-0017` and `ADR-0019`).
 """
 function TransferSearchScratch()
-    cache = sizehint!(Dict{Float64,TransferObjectiveValue}(), TRANSFER_CACHE_CAPACITY)
-    samples = sizehint!(Tuple{Float64,Float64}[], TRANSFER_SAMPLE_CAPACITY)
-    return TransferSearchScratch(cache, samples, Int[], Tuple{Float64,Float64}[])
+    cache = sizehint!(Dict{Float64, TransferObjectiveValue}(), TRANSFER_CACHE_CAPACITY)
+    samples = sizehint!(Tuple{Float64, Float64}[], TRANSFER_SAMPLE_CAPACITY)
+    return TransferSearchScratch(cache, samples, Int[], Tuple{Float64, Float64}[])
 end
 
 """
@@ -758,7 +758,7 @@ into the next search (see `ADR-0017`).
 """
 function _reset_scratch!(scratch::TransferSearchScratch)
     empty!(scratch.cache)
-    sizehint!(scratch.cache, TRANSFER_CACHE_CAPACITY; shrink=false)
+    sizehint!(scratch.cache, TRANSFER_CACHE_CAPACITY; shrink = false)
     empty!(scratch.samples)
     empty!(scratch.maxima)
     empty!(scratch.slabs)
@@ -776,8 +776,8 @@ call, so every sampled, refined, and committed transfer is evaluated at
 most once. Returns the `TransferObjectiveValue`.
 """
 function _transfer_eval!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F, theta::Float64
-)::TransferObjectiveValue where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, evaluate!::F, theta::Float64
+    )::TransferObjectiveValue where {F}
     cached = get(cache, theta, nothing)
     cached === nothing || return cached
     entry = evaluate!(theta)
@@ -796,7 +796,7 @@ Nash payoff exactly `-Inf`. The zero point is never inside a slab (the
 partition splits at zero), so it always falls through to the pointwise
 path.
 """
-function _transfer_covered(slabs::Vector{Tuple{Float64,Float64}}, theta::Float64)::Bool
+function _transfer_covered(slabs::Vector{Tuple{Float64, Float64}}, theta::Float64)::Bool
     for (lo, hi) in slabs
         lo <= theta <= hi && return true
     end
@@ -822,9 +822,9 @@ probe at one re-certifies through `evaluate!` to the identical `-Inf`).
 Returns the `TransferObjectiveValue`.
 """
 function _transfer_sample!(
-    cache::Dict{Float64,TransferObjectiveValue}, samples::Vector{Tuple{Float64,Float64}},
-    slabs::Vector{Tuple{Float64,Float64}}, evaluate!::F, theta::Float64
-)::TransferObjectiveValue where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, samples::Vector{Tuple{Float64, Float64}},
+        slabs::Vector{Tuple{Float64, Float64}}, evaluate!::F, theta::Float64
+    )::TransferObjectiveValue where {F}
     if haskey(cache, theta)
         push!(samples, (theta, cache[theta].payoff))
         return cache[theta]
@@ -866,9 +866,9 @@ is evaluated here: the slabs only prefilter the objective calls of the
 Stage A enumeration loops.
 """
 function _transfer_cover_slabs!(
-    slabs::Vector{Tuple{Float64,Float64}}, lo::Float64, hi::Float64,
-    spacing::Float64, slab_prunable
-)
+        slabs::Vector{Tuple{Float64, Float64}}, lo::Float64, hi::Float64,
+        spacing::Float64, slab_prunable
+    )
     lo < hi || return nothing
     if lo < 0.0 < hi
         _transfer_cover_slabs!(slabs, lo, prevfloat(0.0), spacing, slab_prunable)
@@ -901,7 +901,7 @@ Certified-slab partition of every Stage A grid run of `_transfer_search!`
 (the cache-probing test entry point without a household). Returns
 nothing.
 """
-function _transfer_prepare_slabs!(slabs::Vector{Tuple{Float64,Float64}}, slab_prunable, theta0::Float64)
+function _transfer_prepare_slabs!(slabs::Vector{Tuple{Float64, Float64}}, slab_prunable, theta0::Float64)
     slab_prunable === nothing && return nothing
     for anchor in (0.0, theta0)
         lo = max(anchor - TRANSFER_FINE_STEPS * TRANSFER_FINE_STEP, -1.0)
@@ -925,8 +925,8 @@ distinct transfers, so the result does not depend on cache iteration
 order.
 """
 function _transfer_better(
-    theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
-)::Bool
+        theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
+    )::Bool
     payoff != best_payoff && return payoff > best_payoff
     distance = abs(theta - theta0)
     best_distance = abs(best_theta - theta0)
@@ -981,9 +981,9 @@ seeds the cache at `theta0` with the status-quo evaluation before
 calling (see `MDR-0014`).
 """
 function _transfer_search!(
-    scratch::TransferSearchScratch, slab_prunable, evaluate!::F,
-    theta0::Float64, tol::Float64
-)::Float64 where {F}
+        scratch::TransferSearchScratch, slab_prunable, evaluate!::F,
+        theta0::Float64, tol::Float64
+    )::Float64 where {F}
     cache = scratch.cache
     samples = scratch.samples
     maxima = scratch.maxima
@@ -1044,8 +1044,8 @@ function _transfer_search!(
     while plateau_start <= length(maxima)
         plateau_end = plateau_start
         while plateau_end < length(maxima) &&
-            maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
-            samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
+                maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
+                samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
             plateau_end += 1
         end
         # The plateau member closest to the status quo refines; equal
@@ -1055,9 +1055,9 @@ function _transfer_search!(
         for mi in (plateau_start + 1):plateau_end
             m = maxima[mi]
             if _transfer_better(
-                samples[m][1], samples[m][2],
-                samples[refined][1], samples[refined][2], theta0,
-            )
+                    samples[m][1], samples[m][2],
+                    samples[refined][1], samples[refined][2], theta0,
+                )
                 refined = m
             end
         end
@@ -1094,9 +1094,9 @@ every sample goes through `evaluate!` exactly as before `ADR-0017`.
 Returns the best transfer (see `_transfer_search!`).
 """
 function _transfer_search!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
-    theta0::Float64, tol::Float64
-)::Float64 where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, evaluate!::F,
+        theta0::Float64, tol::Float64
+    )::Float64 where {F}
     scratch = TransferSearchScratch(cache)
     return _transfer_search!(scratch, nothing, evaluate!, theta0, tol)
 end
@@ -1139,9 +1139,9 @@ Remote bands between probes can be missed; failed local probes do not
 certify global infeasibility. The caller applies the strict commit rule.
 """
 function _transfer_local_search!(
-    scratch::TransferSearchScratch, evaluate!::F, theta0::Float64, tol::Float64;
-    scale_w::Float64=1.0, scale_m::Float64=1.0
-)::Float64 where {F}
+        scratch::TransferSearchScratch, evaluate!::F, theta0::Float64, tol::Float64;
+        scale_w::Float64 = 1.0, scale_m::Float64 = 1.0
+    )::Float64 where {F}
     cache = scratch.cache
     samples = scratch.samples
     maxima = scratch.maxima
@@ -1209,16 +1209,16 @@ function _transfer_local_search!(
     while plateau_start <= length(maxima)
         plateau_end = plateau_start
         while plateau_end < length(maxima) &&
-            maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
-            samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
+                maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
+                samples[maxima[plateau_end + 1]][2] == samples[maxima[plateau_start]][2]
             plateau_end += 1
         end
         refined = maxima[plateau_start]
         for mi in (plateau_start + 1):plateau_end
             m = maxima[mi]
             if _transfer_better(
-                samples[m][1], samples[m][2], samples[refined][1], samples[refined][2], theta0
-            )
+                    samples[m][1], samples[m][2], samples[refined][1], samples[refined][2], theta0
+                )
                 refined = m
             end
         end
@@ -1227,9 +1227,11 @@ function _transfer_local_search!(
         plateau_start = plateau_end + 1
     end
     resize!(maxima, representatives)
-    sort!(maxima; lt=(i, j) -> _transfer_better(
-        samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
-    ))
+    sort!(
+        maxima; lt = (i, j) -> _transfer_better(
+            samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
+        )
+    )
     for mi in 1:min(length(maxima), TRANSFER_GUIDANCE_REFINEMENTS)
         refined = maxima[mi]
         lo = refined == 1 ? samples[refined][1] : samples[refined - 1][1]
@@ -1259,9 +1261,11 @@ function _transfer_local_search!(
     for i in 1:n
         isfinite(samples[i][2]) && samples[i][2] > status_payoff && push!(maxima, i)
     end
-    sort!(maxima; lt=(i, j) -> _transfer_better(
-        samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
-    ))
+    sort!(
+        maxima; lt = (i, j) -> _transfer_better(
+            samples[i][1], samples[i][2], samples[j][1], samples[j][2], theta0
+        )
+    )
     objective(theta) = _transfer_eval!(cache, evaluate!, theta).payoff
     for mi in 1:min(length(maxima), TRANSFER_MAX_REFINEMENTS)
         refined = maxima[mi]
@@ -1291,9 +1295,9 @@ scratch and run the identical bounded local driver. Returns the best
 cached transfer (see `MDR-0016`, `ADR-0021`).
 """
 function _transfer_local_search!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
-    theta0::Float64, tol::Float64
-)::Float64 where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, evaluate!::F,
+        theta0::Float64, tol::Float64
+    )::Float64 where {F}
     return _transfer_local_search!(TransferSearchScratch(cache), evaluate!, theta0, tol)
 end
 
@@ -1338,86 +1342,88 @@ largest cached payoff with exactly tied payoffs broken by the smallest
 Returns `(theta, hw, hm)`.
 """
 function bargain_transfer(
-  scratch::TransferSearchScratch,
-  hw_init::Float64, hm_init::Float64, theta_init::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  tol::Float64=TRANSFER_REFINE_TOL, search::Symbol=:local
-)
-  search in (:local, :discovery) || throw(ArgumentError("search must be :local or :discovery"))
-  isfinite(tol) && tol > 0.0 || throw(ArgumentError("tol must be finite and positive"))
-  _reset_scratch!(scratch)
-  theta0 = clamp(theta_init, -1.0, 1.0)
-  # The outside-option solve runs first and doubles as the status-quo
-  # labour equilibrium when `theta0` is bitwise `+0.0`: both solves then
-  # have identical arguments and one run of the deterministic
-  # `mutual_best_response` is reused exactly (see `ADR-0015`). The guard
-  # is the strict bitwise `theta0 === 0.0`, never `iszero`, so a signed
-  # zero `-0.0` keeps its own status-quo solve. The single assignment
-  # site matters: `hw_status` and `hm_status` are captured by the
-  # evaluation closure below, and an if/else assignment would box them
-  # (see `MDR-0002`).
-  hw_out, hm_out = mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
-  uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
-  um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
-  hw_status, hm_status = theta0 === 0.0 ? (hw_out, hm_out) :
-    mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
-  status_payoff = nash_product(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
-  # Non-finite outside options make every `nash_product` value exactly
-  # `-Inf` (neither gain is ever finite), so no candidate can beat the
-  # status quo and the search would fall back anyway; skip it and return
-  # the status fallback directly (see `ADR-0015`).
-  if !isfinite(uw_out) || !isfinite(um_out)
-    return theta0, hw_status, hm_status
-  end
-  # One candidate evaluation shared by both searches (see `MDR-0016`): the
-  # certified `-Inf` decision first, then the warm-started labour solve, its
-  # gains computed exactly once (`_transfer_gains`, the same expressions as
-  # `nash_product`), and the unchanged Nash payoff derived from those gains
-  # (`_nash_from_gains`, bitwise identical to `equilibrium_payoff`). The
-  # closure captures only single-assignment bindings, so nothing is boxed
-  # (see `MDR-0002`).
-  function evaluate_transfer(theta::Float64)::TransferObjectiveValue
-    if search === :local
-      bound_w = _payoff_upper_bound(theta, pw, config)
-      bound_m = _payoff_upper_bound(theta, pm, config)
-      if (isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out) ||
-          (isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out)
-        return TransferObjectiveValue(
-          NaN, NaN, -Inf, NaN, NaN, bound_w - uw_out, bound_m - um_out
+        scratch::TransferSearchScratch,
+        hw_init::Float64, hm_init::Float64, theta_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        tol::Float64 = TRANSFER_REFINE_TOL, search::Symbol = :local
+    )
+    search in (:local, :discovery) || throw(ArgumentError("search must be :local or :discovery"))
+    isfinite(tol) && tol > 0.0 || throw(ArgumentError("tol must be finite and positive"))
+    _reset_scratch!(scratch)
+    theta0 = clamp(theta_init, -1.0, 1.0)
+    # The outside-option solve runs first and doubles as the status-quo
+    # labour equilibrium when `theta0` is bitwise `+0.0`: both solves then
+    # have identical arguments and one run of the deterministic
+    # `mutual_best_response` is reused exactly (see `ADR-0015`). The guard
+    # is the strict bitwise `theta0 === 0.0`, never `iszero`, so a signed
+    # zero `-0.0` keeps its own status-quo solve. The single assignment
+    # site matters: `hw_status` and `hm_status` are captured by the
+    # evaluation closure below, and an if/else assignment would box them
+    # (see `MDR-0002`).
+    hw_out, hm_out = mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
+    uw_out = individual_utility(hw_out, hm_out, 0.0, pw, config)
+    um_out = individual_utility(hm_out, hw_out, 0.0, pm, config)
+    hw_status, hm_status = theta0 === 0.0 ? (hw_out, hm_out) :
+        mutual_best_response(hw_init, hm_init, theta0, pw, pm, config)
+    status_payoff = nash_product(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+    # Non-finite outside options make every `nash_product` value exactly
+    # `-Inf` (neither gain is ever finite), so no candidate can beat the
+    # status quo and the search would fall back anyway; skip it and return
+    # the status fallback directly (see `ADR-0015`).
+    if !isfinite(uw_out) || !isfinite(um_out)
+        return theta0, hw_status, hm_status
+    end
+    # One candidate evaluation shared by both searches (see `MDR-0016`): the
+    # certified `-Inf` decision first, then the warm-started labour solve, its
+    # gains computed exactly once (`_transfer_gains`, the same expressions as
+    # `nash_product`), and the unchanged Nash payoff derived from those gains
+    # (`_nash_from_gains`, bitwise identical to `equilibrium_payoff`). The
+    # closure captures only single-assignment bindings, so nothing is boxed
+    # (see `MDR-0002`).
+    function evaluate_transfer(theta::Float64)::TransferObjectiveValue
+        if search === :local
+            bound_w = _payoff_upper_bound(theta, pw, config)
+            bound_m = _payoff_upper_bound(theta, pm, config)
+            if (isfinite(bound_w) && bound_w * (1.0 + OBJECTIVE_CERT_MARGIN) < uw_out) ||
+                    (isfinite(bound_m) && bound_m * (1.0 + OBJECTIVE_CERT_MARGIN) < um_out)
+                return TransferObjectiveValue(
+                    NaN, NaN, -Inf, NaN, NaN, bound_w - uw_out, bound_m - um_out
+                )
+            end
+        elseif _objective_prunable(theta, uw_out, um_out, pw, pm, config)
+            return TransferObjectiveValue(NaN, NaN, -Inf, NaN, NaN)
+        end
+        hw, hm = mutual_best_response(hw_status, hm_status, theta, pw, pm, config)
+        gain_w, gain_m = _transfer_gains(theta, hw, hm, uw_out, um_out, pw, pm, config)
+        return TransferObjectiveValue(gain_w, gain_m, _nash_from_gains(gain_w, gain_m), hw, hm)
+    end
+    # The cache is seeded at `theta0` with the status-quo evaluation
+    # itself, so the comparison base and the current-transfer evaluation
+    # are the same entry (see `MDR-0016`); the seeding is independent of
+    # the interval prefilter, which never touches it.
+    cache = scratch.cache
+    gain_w0, gain_m0 = _transfer_gains(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+    cache[theta0] = TransferObjectiveValue(gain_w0, gain_m0, status_payoff, hw_status, hm_status)
+    # Stage A interval prefilter of objective calls (see `ADR-0017`): the
+    # household-bound closure is built here and passed per call, so the
+    # scratch never holds a household's parameters or closures.
+    best_theta = if search === :local
+        _transfer_local_search!(
+            scratch, evaluate_transfer, theta0, tol;
+            scale_w = max(abs(uw_out), 1.0), scale_m = max(abs(um_out), 1.0)
         )
-      end
-    elseif _objective_prunable(theta, uw_out, um_out, pw, pm, config)
-      return TransferObjectiveValue(NaN, NaN, -Inf, NaN, NaN)
+    else
+        slab_prunable = (lo::Float64, hi::Float64) ->
+        _objective_interval_prunable(lo, hi, uw_out, um_out, pw, pm, config)
+        _transfer_search!(scratch, slab_prunable, evaluate_transfer, theta0, tol)
     end
-    hw, hm = mutual_best_response(hw_status, hm_status, theta, pw, pm, config)
-    gain_w, gain_m = _transfer_gains(theta, hw, hm, uw_out, um_out, pw, pm, config)
-    return TransferObjectiveValue(gain_w, gain_m, _nash_from_gains(gain_w, gain_m), hw, hm)
-  end
-  # The cache is seeded at `theta0` with the status-quo evaluation
-  # itself, so the comparison base and the current-transfer evaluation
-  # are the same entry (see `MDR-0016`); the seeding is independent of
-  # the interval prefilter, which never touches it.
-  cache = scratch.cache
-  gain_w0, gain_m0 = _transfer_gains(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
-  cache[theta0] = TransferObjectiveValue(gain_w0, gain_m0, status_payoff, hw_status, hm_status)
-  # Stage A interval prefilter of objective calls (see `ADR-0017`): the
-  # household-bound closure is built here and passed per call, so the
-  # scratch never holds a household's parameters or closures.
-  best_theta = if search === :local
-    _transfer_local_search!(scratch, evaluate_transfer, theta0, tol;
-      scale_w=max(abs(uw_out), 1.0), scale_m=max(abs(um_out), 1.0))
-  else
-    slab_prunable = (lo::Float64, hi::Float64) ->
-      _objective_interval_prunable(lo, hi, uw_out, um_out, pw, pm, config)
-    _transfer_search!(scratch, slab_prunable, evaluate_transfer, theta0, tol)
-  end
-  if isfinite(best_theta)
-    best = cache[best_theta]
-    if best.payoff > status_payoff
-      return best_theta, best.hw, best.hm
+    if isfinite(best_theta)
+        best = cache[best_theta]
+        if best.payoff > status_payoff
+            return best_theta, best.hw, best.hm
+        end
     end
-  end
-  return theta0, hw_status, hm_status
+    return theta0, hw_status, hm_status
 end
 
 """
@@ -1429,13 +1435,13 @@ Standalone entry point of `bargain_transfer` (see `MDR-0016` and
 hm)`.
 """
 function bargain_transfer(
-  hw_init::Float64, hm_init::Float64, theta_init::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  tol::Float64=TRANSFER_REFINE_TOL, search::Symbol=:local
-)
-  return bargain_transfer(
-    TransferSearchScratch(), hw_init, hm_init, theta_init, pw, pm, config; tol=tol, search=search
-  )
+        hw_init::Float64, hm_init::Float64, theta_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        tol::Float64 = TRANSFER_REFINE_TOL, search::Symbol = :local
+    )
+    return bargain_transfer(
+        TransferSearchScratch(), hw_init, hm_init, theta_init, pw, pm, config; tol = tol, search = search
+    )
 end
 
 """
@@ -1448,19 +1454,19 @@ Transfer bargaining (`set-theta`, `calculate-payoff`)); the perceived norms
 an `AgentPayoffParams`.
 """
 function payoff_params(
-  wage_self::Float64, wage_spouse::Float64, alpha::Float64,
-  conformism::Float64, means, is_woman::Bool
-)
-  return AgentPayoffParams(
-    wage_self=wage_self,
-    wage_spouse=wage_spouse,
-    alpha=alpha,
-    conformism=conformism,
-    N_h=means.division_of_labor,
-    N_theta=means.transfer,
-    N_h_spouse=means.division_of_labor_spouse,
-    is_woman=is_woman
-  )
+        wage_self::Float64, wage_spouse::Float64, alpha::Float64,
+        conformism::Float64, means, is_woman::Bool
+    )
+    return AgentPayoffParams(
+        wage_self = wage_self,
+        wage_spouse = wage_spouse,
+        alpha = alpha,
+        conformism = conformism,
+        N_h = means.division_of_labor,
+        N_theta = means.transfer,
+        N_h_spouse = means.division_of_labor_spouse,
+        is_woman = is_woman
+    )
 end
 
 # Chunk size of the household loop of `set_theta!` below: the serial
@@ -1502,7 +1508,15 @@ chunk cursor, and `:auto` (the default) picks the serial path at one
 thread and whenever a group holds at most
 `HOUSEHOLD_BARGAIN_SERIAL_CUTOFF` households, the parallel path
 otherwise; forcing `:serial` or `:parallel` exists for tests and
-benchmark sweeps and works at any thread count. Both paths run the same
+benchmark sweeps and works at any thread count. Every committed bundle
+also stores the partners' committed-bundle utility levels in
+`CommittedUtility` (`MDR-0019`, `ADR-0026`; NetLogo `current-utility`,
+ODD sections Labour best response and Entities, state variables, and
+scales): `individual_utility` at the committed `(theta, hw, hm)` and
+this tick's prepared `pw`/`pm`, evaluated right after `bargain_transfer`
+returns, the woman's value written through her query column and the
+man's through the commit tuple, with no shared accumulation in the
+parallel region. Both paths run the same
 per-chunk closure over `(chunk_range, spouse_seen, scratch)`, so results
 are bit-identical across paths and thread counts: each worker task owns
 one `spouse_seen` scratch vector for `norm_means` (capacity-hinted to
@@ -1517,118 +1531,136 @@ next tick system runs, and worker failures propagate as
 world is mutated and nothing is returned.
 """
 function set_theta!(
-  world, config::UtilityConfig;
-  search::Symbol=:local, chunk::Int=HOUSEHOLD_BARGAIN_CHUNK, schedule::Symbol=:auto
-)
-  search in (:local, :discovery) || throw(ArgumentError("search must be :local or :discovery"))
-  chunk >= 1 || throw(ArgumentError("chunk must be at least 1"))
-  schedule in (:auto, :serial, :parallel) ||
-    throw(ArgumentError("schedule must be :auto, :serial, or :parallel"))
-  net = Ark.get_resource(world, SocialNetwork)
-  properties = Ark.get_resource(world, ModelProperties)
-  globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
-  women_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.women_entities))
-  men_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.men_entities))
-  # Upper bound for the `spouse_seen` scratch buffer: `norm_means` pushes at
-  # most one distinct spouse per same-sex neighbour, so the maximum vertex
-  # degree of the two graphs covers every call (see `ADR-0015`).
-  spouse_capacity = max(
-    maximum(v -> Graphs.degree(net.women, v), Graphs.vertices(net.women); init=0),
-    maximum(v -> Graphs.degree(net.men, v), Graphs.vertices(net.men); init=0),
-  )
-  component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse)
-  for (entities, wages, times, transfers, conformisms, preferences, spouses) in
-      Ark.Query(world, component_types; with=(Female,))
-    # The single per-chunk processing implementation shared by the
-    # serial path and the bounded worker tasks below (`ADR-0023`):
-    # parameterized by the chunk's households and the caller-owned
-    # scratch pair, so the two paths cannot drift and the results stay
-    # bit-identical across paths and thread counts. One scratch buffer
-    # pair per caller: `norm_means` empties `spouse_seen` at the start
-    # of its neighbour branch, so reuse across households is exact and
-    # the buffers stay task-local (see `ADR-0015`). The capacity hint
-    # matches the largest neighbour list it will hold, so no call grows
-    # it. The `TransferSearchScratch` is the task-owned transfer-search
-    # storage of `ADR-0017`, reset by every `bargain_transfer` call.
-    function process_chunk!(
-      chunk_range, spouse_seen::Vector{Ark.Entity}, scratch::TransferSearchScratch
+        world, config::UtilityConfig;
+        search::Symbol = :local, chunk::Int = HOUSEHOLD_BARGAIN_CHUNK, schedule::Symbol = :auto
     )
-      for f in chunk_range
-        woman = entities[f]
-        man = spouses[f].entity
-        man_wage, man_time, man_transfer, man_conformism, man_preference =
-          Ark.get_components(world, man, (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate))
-        woman_vertex = get(women_index, woman, 0)
-        woman_vertex == 0 && throw(ArgumentError("woman is not in the women entity vector"))
-        man_vertex = get(men_index, man, 0)
-        man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
+    search in (:local, :discovery) || throw(ArgumentError("search must be :local or :discovery"))
+    chunk >= 1 || throw(ArgumentError("chunk must be at least 1"))
+    schedule in (:auto, :serial, :parallel) ||
+        throw(ArgumentError("schedule must be :auto, :serial, or :parallel"))
+    net = Ark.get_resource(world, SocialNetwork)
+    properties = Ark.get_resource(world, ModelProperties)
+    globals = properties.network isa HomogeneousMixing ? norm_global_means(world, net) : nothing
+    women_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.women_entities))
+    men_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.men_entities))
+    # Upper bound for the `spouse_seen` scratch buffer: `norm_means` pushes at
+    # most one distinct spouse per same-sex neighbour, so the maximum vertex
+    # degree of the two graphs covers every call (see `ADR-0015`).
+    spouse_capacity = max(
+        maximum(v -> Graphs.degree(net.women, v), Graphs.vertices(net.women); init = 0),
+        maximum(v -> Graphs.degree(net.men, v), Graphs.vertices(net.men); init = 0),
+    )
+    component_types = (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate, Spouse, CommittedUtility)
+    for (entities, wages, times, transfers, conformisms, preferences, spouses, utilities) in
+        Ark.Query(world, component_types; with = (Female,))
+        # The single per-chunk processing implementation shared by the
+        # serial path and the bounded worker tasks below (`ADR-0023`):
+        # parameterized by the chunk's households and the caller-owned
+        # scratch pair, so the two paths cannot drift and the results stay
+        # bit-identical across paths and thread counts. One scratch buffer
+        # pair per caller: `norm_means` empties `spouse_seen` at the start
+        # of its neighbour branch, so reuse across households is exact and
+        # the buffers stay task-local (see `ADR-0015`). The capacity hint
+        # matches the largest neighbour list it will hold, so no call grows
+        # it. The `TransferSearchScratch` is the task-owned transfer-search
+        # storage of `ADR-0017`, reset by every `bargain_transfer` call.
+        function process_chunk!(
+                chunk_range, spouse_seen::Vector{Ark.Entity}, scratch::TransferSearchScratch
+            )
+            for f in chunk_range
+                woman = entities[f]
+                man = spouses[f].entity
+                man_wage, man_time, man_transfer, man_conformism, man_preference =
+                    Ark.get_components(world, man, (Wage, WorkingTime, TransferToWoman, Conformism, PreferencePrivate))
+                woman_vertex = get(women_index, woman, 0)
+                woman_vertex == 0 && throw(ArgumentError("woman is not in the women entity vector"))
+                man_vertex = get(men_index, man, 0)
+                man_vertex == 0 && throw(ArgumentError("man is not in the men entity vector"))
 
-        woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
-        man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
+                woman_norms = norm_means(world, net, woman_vertex, true, globals, spouse_seen)
+                man_norms = norm_means(world, net, man_vertex, false, globals, spouse_seen)
 
-        pw = payoff_params(
-          wages[f].current, man_wage.current, preferences[f].current,
-          conformisms[f].amount, woman_norms, true
-        )
-        pm = payoff_params(
-          man_wage.current, wages[f].current, man_preference.current,
-          man_conformism.amount, man_norms, false
-        )
+                pw = payoff_params(
+                    wages[f].current, man_wage.current, preferences[f].current,
+                    conformisms[f].amount, woman_norms, true
+                )
+                pm = payoff_params(
+                    man_wage.current, wages[f].current, man_preference.current,
+                    man_conformism.amount, man_norms, false
+                )
 
-        theta, hw, hm = bargain_transfer(
-          scratch, times[f].current, man_time.current, transfers[f].current, pw, pm, config;
-          search=search
-        )
-        # the woman is in the query, so the views write in place
-        times[f] = WorkingTime(hw, times[f].old)
-        transfers[f] = TransferToWoman(theta, transfers[f].old)
-        # the man is not in the women's query, so only the entity API exists
-        Ark.set_components!(
-          world, man, (WorkingTime(hm, man_time.old), TransferToWoman(theta, man_transfer.old))
-        )
-      end
-      return nothing
-    end
-    chunks = collect(Iterators.partition(eachindex(entities), chunk))
-    use_parallel = schedule === :parallel ||
-      (schedule === :auto && Threads.nthreads() > 1 &&
-        length(entities) > HOUSEHOLD_BARGAIN_SERIAL_CUTOFF)
-    if use_parallel
-      # Bounded worker scheduling (`ADR-0023`): at most
-      # `min(Threads.nthreads(), nchunks)` worker tasks replace the
-      # `Threads.@threads :greedy` loop of `ADR-0014`; each worker
-      # claims the next chunk index from the shared atomic cursor until
-      # the chunks are exhausted, keeping dynamic scheduling without a
-      # task per chunk or per household. The `let`-bound scratch pair is
-      # constructed inside the worker task and owned by it for all of
-      # its chunks: the fresh bindings cannot alias the serial path's
-      # buffers or another worker's. The `@sync` join is the completion
-      # barrier before the next tick system runs, and a failing worker
-      # surfaces as `TaskFailedException`/`CompositeException` (see
-      # `ADR-0014`).
-      nchunks = length(chunks)
-      cursor = Threads.Atomic{Int}(0)
-      @sync for _ in 1:min(Threads.nthreads(), nchunks)
-        Threads.@spawn let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
-            scratch = TransferSearchScratch()
-          while true
-            index = Threads.atomic_add!(cursor, 1)
-            index < nchunks || break
-            process_chunk!(chunks[index + 1], spouse_seen, scratch)
-          end
+                theta, hw, hm = bargain_transfer(
+                    scratch, times[f].current, man_time.current, transfers[f].current, pw, pm, config;
+                    search = search
+                )
+                # Committed-bundle utility observation (`MDR-0019`): the
+                # `individual_utility` levels of both partners at the committed
+                # bundle and this tick's prepared parameters `pw`/`pm`, the
+                # single objective implementation of the labour solver
+                # (`MDR-0013`). Evaluated on every commit path, including
+                # status-quo retention and the non-finite fallback of
+                # `bargain_transfer`; non-finite values propagate unchanged.
+                utility_woman = individual_utility(hw, hm, theta, pw, config)
+                utility_man = individual_utility(hm, hw, theta, pm, config)
+                # the woman is in the query, so the views write in place
+                times[f] = WorkingTime(hw, times[f].old)
+                transfers[f] = TransferToWoman(theta, transfers[f].old)
+                utilities[f] = CommittedUtility(utility_woman)
+                # the man is not in the women's query, so only the entity API exists
+                Ark.set_components!(
+                    world,
+                    man,
+                    (
+                        WorkingTime(hm, man_time.old),
+                        TransferToWoman(theta, man_transfer.old),
+                        CommittedUtility(utility_man),
+                    ),
+                )
+            end
+            return nothing
         end
-      end
-    else
-      # Direct serial path (`ADR-0023`): one `let`-bound scratch pair,
-      # no tasks and no cursor; an empty household group runs zero
-      # chunks and returns cleanly.
-      let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
-          scratch = TransferSearchScratch()
-        for chunk_range in chunks
-          process_chunk!(chunk_range, spouse_seen, scratch)
+        chunks = collect(Iterators.partition(eachindex(entities), chunk))
+        use_parallel = schedule === :parallel ||
+            (
+            schedule === :auto && Threads.nthreads() > 1 &&
+                length(entities) > HOUSEHOLD_BARGAIN_SERIAL_CUTOFF
+        )
+        if use_parallel
+            # Bounded worker scheduling (`ADR-0023`): at most
+            # `min(Threads.nthreads(), nchunks)` worker tasks replace the
+            # `Threads.@threads :greedy` loop of `ADR-0014`; each worker
+            # claims the next chunk index from the shared atomic cursor until
+            # the chunks are exhausted, keeping dynamic scheduling without a
+            # task per chunk or per household. The `let`-bound scratch pair is
+            # constructed inside the worker task and owned by it for all of
+            # its chunks: the fresh bindings cannot alias the serial path's
+            # buffers or another worker's. The `@sync` join is the completion
+            # barrier before the next tick system runs, and a failing worker
+            # surfaces as `TaskFailedException`/`CompositeException` (see
+            # `ADR-0014`).
+            nchunks = length(chunks)
+            cursor = Threads.Atomic{Int}(0)
+            @sync for _ in 1:min(Threads.nthreads(), nchunks)
+                Threads.@spawn let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
+                        scratch = TransferSearchScratch()
+                    while true
+                        index = Threads.atomic_add!(cursor, 1)
+                        index < nchunks || break
+                        process_chunk!(chunks[index + 1], spouse_seen, scratch)
+                    end
+                end
+            end
+        else
+            # Direct serial path (`ADR-0023`): one `let`-bound scratch pair,
+            # no tasks and no cursor; an empty household group runs zero
+            # chunks and returns cleanly.
+            let spouse_seen = sizehint!(Ark.Entity[], spouse_capacity),
+                    scratch = TransferSearchScratch()
+                for chunk_range in chunks
+                    process_chunk!(chunk_range, spouse_seen, scratch)
+                end
+            end
         end
-      end
     end
-  end
-  return nothing
+    return nothing
 end

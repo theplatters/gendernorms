@@ -119,17 +119,17 @@ One prepared `BestResponseObjective` of a woman (recipient for
 `theta > 0`, payer for `theta < 0`) for the solver testsets.
 """
 function solver_obj(
-    spec, theta::Float64, h_spouse::Float64;
-    alpha::Float64=0.5, conformism::Float64=0.0,
-    wage_self::Float64=1.0, wage_spouse::Float64=1.0,
-    N_h::Float64=0.5, N_theta::Float64=0.0, N_h_spouse::Float64=0.5,
-    w_self::Float64=1.0,
-)
-    p = GN.AgentPayoffParams(
-        wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha, conformism=conformism,
-        N_h=N_h, N_theta=N_theta, N_h_spouse=N_h_spouse, is_woman=true,
+        spec, theta::Float64, h_spouse::Float64;
+        alpha::Float64 = 0.5, conformism::Float64 = 0.0,
+        wage_self::Float64 = 1.0, wage_spouse::Float64 = 1.0,
+        N_h::Float64 = 0.5, N_theta::Float64 = 0.0, N_h_spouse::Float64 = 0.5,
+        w_self::Float64 = 1.0,
     )
-    config = GN.UtilityConfig(func=spec, w_self=w_self)
+    p = GN.AgentPayoffParams(
+        wage_self = wage_self, wage_spouse = wage_spouse, alpha = alpha, conformism = conformism,
+        N_h = N_h, N_theta = N_theta, N_h_spouse = N_h_spouse, is_woman = true,
+    )
+    config = GN.UtilityConfig(func = spec, w_self = w_self)
     return GN.BestResponseObjective(theta, h_spouse, p, config)
 end
 
@@ -220,7 +220,7 @@ GN.material(::_WeirdSolverSpec, x::Float64, Q::Float64, alpha::Float64) = sqrt(x
     end
     # MultiplicativeWeighted recipient: `alpha * A / x == (1 - alpha) / Q`.
     for alpha in (0.3, 0.7)
-        obj = solver_obj(GN.MultiplicativeWeighted(), theta, h_spouse; alpha=alpha)
+        obj = solver_obj(GN.MultiplicativeWeighted(), theta, h_spouse; alpha = alpha)
         h_star = (alpha * A * Q0 - (1 - alpha) * B) / A
         @test 0.0 < h_star < 1.0
         for h_start in (0.0, 0.3, 1.0)
@@ -230,7 +230,7 @@ GN.material(::_WeirdSolverSpec, x::Float64, Q::Float64, alpha::Float64) = sqrt(x
     end
     # Additive: `alpha^2 * A^2 * Q == (1 - alpha)^2 * x`.
     for alpha in (0.3, 0.7)
-        obj = solver_obj(GN.Additive(), theta, h_spouse; alpha=alpha)
+        obj = solver_obj(GN.Additive(), theta, h_spouse; alpha = alpha)
         num = alpha^2 * A^2 * Q0 - (1 - alpha)^2 * B
         den = (1 - alpha)^2 * A + alpha^2 * A^2
         h_star = num / den
@@ -245,7 +245,7 @@ GN.material(::_WeirdSolverSpec, x::Float64, Q::Float64, alpha::Float64) = sqrt(x
     # tier-1 seed certificate keeps the seed when the shifted root lies
     # within `BEST_RESPONSE_TOL` of it (the two-tier contract of
     # `MDR-0017`).
-    obj = solver_obj(GN.Multiplicative(), theta, h_spouse; conformism=10.0, N_h=0.2)
+    obj = solver_obj(GN.Multiplicative(), theta, h_spouse; conformism = 10.0, N_h = 0.2)
     h = GN.best_response_1d(obj, 0.3)
     if GN._derivative_applicable(obj, 0.3) && GN._derivative_seed_certificate(obj, 0.3)
         @test h == 0.3
@@ -259,10 +259,10 @@ end
 @testset "derivative formulas match finite differences" begin
     d = 1.0e-5
     for spec in (
-        GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=0.1), GN.CES(beta=0.5), GN.CES(beta=0.9), GN.CES(beta=1.0),
-    ), theta in (0.3, -0.3), alpha in (0.3, 0.7), conformism in (0.0, 10.0)
-        obj = solver_obj(spec, theta, 0.5; alpha=alpha, conformism=conformism, N_h=0.4)
+                GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+                GN.CES(beta = 0.1), GN.CES(beta = 0.5), GN.CES(beta = 0.9), GN.CES(beta = 1.0),
+            ), theta in (0.3, -0.3), alpha in (0.3, 0.7), conformism in (0.0, 10.0)
+        obj = solver_obj(spec, theta, 0.5; alpha = alpha, conformism = conformism, N_h = 0.4)
         for h in (0.2, 0.5, 0.8)
             g, gp, value = GN._best_response_derivatives(obj, h)
             # The same-pass value is bitwise `obj(h)`.
@@ -281,11 +281,11 @@ end
             log_p = log(obj(h + d))
             log_m = log(obj(h - d))
             fd = (log_p - log_m) / (2.0 * d)
-            @test isapprox(g, fd; rtol=1.0e-6)
+            @test isapprox(g, fd; rtol = 1.0e-6)
             g_p = GN._best_response_derivatives(obj, h + d)[1]
             g_m = GN._best_response_derivatives(obj, h - d)[1]
             fd2 = (g_p - g_m) / (2.0 * d)
-            @test isapprox(gp, fd2; rtol=1.0e-5, atol=1.0e-9)
+            @test isapprox(gp, fd2; rtol = 1.0e-5, atol = 1.0e-9)
         end
     end
 end
@@ -293,20 +293,20 @@ end
 @testset "derivative best response boundary optima" begin
     # `CES` `beta == 1` has `g = D / S` with `D = alpha * A -
     # (1-alpha)`: the sign of `D` selects `h = 0` or `h = 1` exactly.
-    obj = solver_obj(GN.CES(beta=1.0), 0.3, 0.5; alpha=0.3)
+    obj = solver_obj(GN.CES(beta = 1.0), 0.3, 0.5; alpha = 0.3)
     @test GN.best_response_1d(obj, 0.3) == 0.0
-    obj = solver_obj(GN.CES(beta=1.0), 0.3, 0.5; alpha=0.7)
+    obj = solver_obj(GN.CES(beta = 1.0), 0.3, 0.5; alpha = 0.7)
     @test GN.best_response_1d(obj, 0.3) == 1.0
     # Weighted recipient at `alpha == 1` (material `x`, `g = A/x > 0`
     # everywhere) selects `h = 1` exactly; at `alpha == 0` (material
     # `Q`, `g = -1/Q < 0` everywhere) it selects `h = 0` exactly.
-    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha=1.0)
+    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha = 1.0)
     @test GN.best_response_1d(obj, 0.3) == 1.0
-    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha=0.0)
+    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha = 0.0)
     @test GN.best_response_1d(obj, 0.3) == 0.0
     # A Multiplicative root below the domain: the lower boundary is the
     # optimum and is returned exactly.
-    obj = solver_obj(GN.Multiplicative(), 0.9, 1.0; wage_self=0.01, wage_spouse=1.0)
+    obj = solver_obj(GN.Multiplicative(), 0.9, 1.0; wage_self = 0.01, wage_spouse = 1.0)
     @test GN.best_response_1d(obj, 0.3) == 0.0
 end
 
@@ -322,10 +322,10 @@ end
     # fires, the seed is kept bitwise, and a re-solve at it re-certifies
     # (tier-1 idempotence).
     for spec in (
-        GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=0.5), GN.CES(beta=0.9), GN.CES(beta=1.0),
-    ), theta in (0.3, -0.3)
-        obj = solver_obj(spec, theta, 0.5; conformism=5.0, N_h=0.4)
+                GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+                GN.CES(beta = 0.5), GN.CES(beta = 0.9), GN.CES(beta = 1.0),
+            ), theta in (0.3, -0.3)
+        obj = solver_obj(spec, theta, 0.5; conformism = 5.0, N_h = 0.4)
         h_star = GN.best_response_1d(obj, 0.95)
         (isfinite(h_star) && 0.0 < h_star < 1.0) || continue
         for delta in (-8.0e-5, -3.0e-5, 3.0e-5, 8.0e-5)
@@ -342,7 +342,7 @@ end
     # and the feasible interval extends at most `tol` past the seed.
     # `alpha == 0` weighted recipient: material `Q`, `g < 0` everywhere,
     # boundary optimum at `h = 0`.
-    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha=0.0)
+    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha = 0.0)
     @test isnan(GN._best_response_gradient_sign(obj, -tol))
     @test GN._best_response_gradient_sign(obj, tol) < 0.0
     @test GN._derivative_seed_certificate(obj, 0.0)
@@ -358,7 +358,7 @@ end
     @test GN.best_response_1d(obj, 3.0e-4) == 0.0
     # Symmetric at the upper end: `alpha == 1` weighted recipient,
     # material `x`, `g > 0` everywhere, boundary optimum at `h = 1`.
-    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha=1.0)
+    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha = 1.0)
     @test isnan(GN._best_response_gradient_sign(obj, 1.0 + tol))
     @test GN._best_response_gradient_sign(obj, 1.0 - tol) > 0.0
     @test GN._derivative_seed_certificate(obj, 1.0)
@@ -374,10 +374,10 @@ end
     # bitwise. A near-boundary seed keeps its hours through the
     # one-sided rule, which is bitwise the legacy anchor return there.
     p = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=0.0, is_woman=false
+        wage_self = 1.0, wage_spouse = 1.0, alpha = 0.0, is_woman = false
     )
     obj = GN.BestResponseObjective(
-        0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+        0.3, 0.5, p, GN.UtilityConfig(func = GN.MultiplicativeWeighted())
     )
     @test !GN._derivative_seed_certificate(obj, 0.0)
     @test isequal(GN.best_response_1d(obj, 0.0), legacy_response(obj, 0.0))
@@ -387,10 +387,10 @@ end
     # Flat objective (`g == 0` at both probes): tier-1 keeps the seed,
     # matching the legacy tie/seed return bitwise.
     p = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=1.0, is_woman=false
+        wage_self = 1.0, wage_spouse = 1.0, alpha = 1.0, is_woman = false
     )
     obj = GN.BestResponseObjective(
-        0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+        0.3, 0.5, p, GN.UtilityConfig(func = GN.MultiplicativeWeighted())
     )
     @test GN._derivative_seed_certificate(obj, 0.37)
     @test tier1_pattern(obj, 0.37)
@@ -405,7 +405,7 @@ end
     # skipped probe is `NaN` by its point guards, the result is the
     # seed bitwise) with the zero-allocation contract pinned in the
     # allocation testset below.
-    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha=0.0)
+    obj = solver_obj(GN.MultiplicativeWeighted(), 0.3, 0.5; alpha = 0.0)
     @test isequal(GN._derivative_best_response(obj, 0.0), (0.0, true))
 end
 
@@ -413,15 +413,15 @@ end
     # Unsupported specs and out-of-regime parameters fall back bitwise
     # to the seeded `MDR-0002` expression (including `NaN`).
     inapplicable = (
-        ("ces beta 0", solver_obj(GN.CES(beta=0.0), 0.2, 0.5)),
-        ("ces beta -1", solver_obj(GN.CES(beta=-1.0), 0.2, 0.5)),
-        ("ces beta 1.5", solver_obj(GN.CES(beta=1.5), 0.2, 0.5)),
-        ("ces beta NaN", solver_obj(GN.CES(beta=NaN), 0.2, 0.5)),
-        ("alpha -0.5", solver_obj(GN.Multiplicative(), 0.2, 0.5; alpha=-0.5)),
-        ("alpha 1.5", solver_obj(GN.Multiplicative(), 0.2, 0.5; alpha=1.5)),
-        ("negative conformism", solver_obj(GN.Multiplicative(), 0.2, 0.5; conformism=-1.0)),
-        ("negative norm weight", solver_obj(GN.Multiplicative(), 0.2, 0.5; w_self=-1.0)),
-        ("non-finite N_h", solver_obj(GN.Multiplicative(), 0.2, 0.5; N_h=NaN)),
+        ("ces beta 0", solver_obj(GN.CES(beta = 0.0), 0.2, 0.5)),
+        ("ces beta -1", solver_obj(GN.CES(beta = -1.0), 0.2, 0.5)),
+        ("ces beta 1.5", solver_obj(GN.CES(beta = 1.5), 0.2, 0.5)),
+        ("ces beta NaN", solver_obj(GN.CES(beta = NaN), 0.2, 0.5)),
+        ("alpha -0.5", solver_obj(GN.Multiplicative(), 0.2, 0.5; alpha = -0.5)),
+        ("alpha 1.5", solver_obj(GN.Multiplicative(), 0.2, 0.5; alpha = 1.5)),
+        ("negative conformism", solver_obj(GN.Multiplicative(), 0.2, 0.5; conformism = -1.0)),
+        ("negative norm weight", solver_obj(GN.Multiplicative(), 0.2, 0.5; w_self = -1.0)),
+        ("non-finite N_h", solver_obj(GN.Multiplicative(), 0.2, 0.5; N_h = NaN)),
         ("spouse out of range", solver_obj(GN.Multiplicative(), 0.2, 1.5)),
         ("weird spec", solver_obj(_WeirdSolverSpec(), 0.2, 0.5)),
     )
@@ -430,7 +430,7 @@ end
     end
     # The all-infeasible payer (`A == B == 0`) is inapplicable and keeps
     # the legacy `NaN` contract.
-    p = GN.AgentPayoffParams(wage_self=0.0, wage_spouse=1.0, is_woman=false)
+    p = GN.AgentPayoffParams(wage_self = 0.0, wage_spouse = 1.0, is_woman = false)
     obj = GN.BestResponseObjective(0.2, 0.5, p, GN.UtilityConfig())
     @test GN._derivative_applicable(obj, 0.3) == false
     @test isequal(GN.best_response_1d(obj, 0.3), legacy_response(obj, 0.3))
@@ -441,9 +441,9 @@ end
     # `h -> 0+` when `x(0) == 0`: `U` rises toward the infeasible
     # endpoint, so the derivative solve refuses the unattainable
     # supremum and falls back bitwise.
-    p = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=1.0, alpha=0.0, is_woman=false)
+    p = GN.AgentPayoffParams(wage_self = 1.0, wage_spouse = 1.0, alpha = 0.0, is_woman = false)
     obj = GN.BestResponseObjective(
-        0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+        0.3, 0.5, p, GN.UtilityConfig(func = GN.MultiplicativeWeighted())
     )
     @test GN._derivative_applicable(obj, 0.3)
     @test GN._one_sided_gradient(obj, true) < 0.0
@@ -461,8 +461,10 @@ end
     # sample (0.9899478346405225 at 0.9599999999999227 versus
     # 0.9900577470296925 at 0.9576275641403225). Below the floor the
     # case is inapplicable and bitwise the seeded `MDR-0002` expression.
-    obj = solver_obj(GN.CES(beta=1.0e-12), 0.3, 0.05;
-        alpha=0.5, wage_self=1.0, wage_spouse=2.0)
+    obj = solver_obj(
+        GN.CES(beta = 1.0e-12), 0.3, 0.05;
+        alpha = 0.5, wage_self = 1.0, wage_spouse = 2.0
+    )
     @test GN._derivative_applicable(obj, 0.1) == false
     @test isequal(
         GN.best_response_1d(obj, 0.1),
@@ -472,11 +474,11 @@ end
     # sweep) stays bitwise legacy at every seed, and the floor itself is
     # the first applicable `CES` regime.
     for beta in (1.0e-12, 1.0e-6, 1.0e-5, 2.0e-5, 9.9e-4), h_start in (0.0, 0.3, 1.0)
-        obj = solver_obj(GN.CES(beta=beta), 0.3, 0.5)
+        obj = solver_obj(GN.CES(beta = beta), 0.3, 0.5)
         @test GN._derivative_applicable(obj, h_start) == false
         @test isequal(GN.best_response_1d(obj, h_start), legacy_response(obj, h_start))
     end
-    obj = solver_obj(GN.CES(beta=GN.CES_DERIVATIVE_MIN_BETA), 0.3, 0.5)
+    obj = solver_obj(GN.CES(beta = GN.CES_DERIVATIVE_MIN_BETA), 0.3, 0.5)
     @test GN._derivative_applicable(obj, 0.3)
 end
 
@@ -490,18 +492,20 @@ end
     # sit within `DERIVATIVE_RESPONSE_TOL` of an independently computed
     # root of `g` (the sharp interior root near `h -> 0+`).
     p = GN.AgentPayoffParams(
-        alpha=1.0e-12, wage_self=1.0, wage_spouse=1.0, conformism=0.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        alpha = 1.0e-12, wage_self = 1.0, wage_spouse = 1.0, conformism = 0.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
     )
     obj = GN.BestResponseObjective(
-        -0.3, 0.5, p, GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+        -0.3, 0.5, p, GN.UtilityConfig(func = GN.MultiplicativeWeighted())
     )
     candidate, solved = GN._derivative_best_response(obj, 0.3)
     @test solved
     @test isequal(GN.best_response_1d(obj, 0.3), candidate)
-    @test isnan(GN._best_response_gradient_sign(
-        obj, candidate - GN.DERIVATIVE_RESPONSE_TOL
-    ))
+    @test isnan(
+        GN._best_response_gradient_sign(
+            obj, candidate - GN.DERIVATIVE_RESPONSE_TOL
+        )
+    )
     # Independent root of `g`: high-precision bisection on the sign
     # probe between the `g > 0` point at `h -> 0+` and the `g < 0` side.
     lo = 1.0e-15
@@ -587,17 +591,19 @@ value_slack(spec, scale::Float64)::Float64 =
     # computed-value checks use the measured jaggedness envelope above.
     specs = (
         GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=GN.CES_DERIVATIVE_MIN_BETA), GN.CES(beta=1.0e-2),
-        GN.CES(beta=0.1), GN.CES(beta=0.5), GN.CES(beta=0.9), GN.CES(beta=1.0),
+        GN.CES(beta = GN.CES_DERIVATIVE_MIN_BETA), GN.CES(beta = 1.0e-2),
+        GN.CES(beta = 0.1), GN.CES(beta = 0.5), GN.CES(beta = 0.9), GN.CES(beta = 1.0),
     )
     checked = 0
     tier1_checked = 0
     tier2_checked = 0
     for spec in specs, alpha in (0.0, 0.3, 0.7, 1.0), conf in (0.0, 10.0),
-        theta in (-1.0, 0.0, 0.5, 1.0), h_spouse in (0.0, 0.5, 1.0),
-        wage_self in (1.2, 0.0), h_start in (0.0, 0.3, 1.0)
-        obj = solver_obj(spec, theta, h_spouse;
-            alpha=alpha, conformism=conf, wage_self=wage_self, wage_spouse=0.8)
+            theta in (-1.0, 0.0, 0.5, 1.0), h_spouse in (0.0, 0.5, 1.0),
+            wage_self in (1.2, 0.0), h_start in (0.0, 0.3, 1.0)
+        obj = solver_obj(
+            spec, theta, h_spouse;
+            alpha = alpha, conformism = conf, wage_self = wage_self, wage_spouse = 0.8
+        )
         legacy = legacy_response(obj, h_start)
         result = GN.best_response_1d(obj, h_start)
         candidate, solved = GN._derivative_best_response(obj, h_start)
@@ -682,20 +688,20 @@ cert_allocs(obj, h_start::Float64)::Int = @allocated GN._derivative_seed_certifi
 
 @testset "derivative best response allocates nothing and infers" begin
     for spec in (
-        GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=0.1), GN.CES(beta=0.5), GN.CES(beta=0.9), GN.CES(beta=1.0),
-    )
-        obj = solver_obj(spec, 0.2, 0.5; conformism=5.0, N_h=0.4)
+            GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+            GN.CES(beta = 0.1), GN.CES(beta = 0.5), GN.CES(beta = 0.9), GN.CES(beta = 1.0),
+        )
+        obj = solver_obj(spec, 0.2, 0.5; conformism = 5.0, N_h = 0.4)
         GN.best_response_1d(obj, 0.3)
         @test solver_allocs(obj, 0.3) == 0
         @test derivative_allocs(obj, 0.3) == 0
         @test (@inferred GN.best_response_1d(obj, 0.3)) isa Float64
-        @test (@inferred GN._derivative_best_response(obj, 0.3)) isa Tuple{Float64,Bool}
+        @test (@inferred GN._derivative_best_response(obj, 0.3)) isa Tuple{Float64, Bool}
         @test (@inferred GN._derivative_seed_certificate(obj, 0.3)) isa Bool
     end
     # The tier-1 route (a certified seed return) allocates nothing.
-    for spec in (GN.Multiplicative(), GN.Additive(), GN.CES(beta=0.5))
-        obj = solver_obj(spec, 0.2, 0.5; conformism=5.0, N_h=0.4)
+    for spec in (GN.Multiplicative(), GN.Additive(), GN.CES(beta = 0.5))
+        obj = solver_obj(spec, 0.2, 0.5; conformism = 5.0, N_h = 0.4)
         h = GN.best_response_1d(obj, 0.3)
         @test GN._derivative_seed_certificate(obj, h)
         GN.best_response_1d(obj, h)
@@ -704,7 +710,7 @@ cert_allocs(obj, h_start::Float64)::Int = @allocated GN._derivative_seed_certifi
         @test cert_allocs(obj, h) == 0
     end
     # The fallback route allocates nothing as well.
-    obj = solver_obj(GN.CES(beta=1.5), 0.2, 0.5)
+    obj = solver_obj(GN.CES(beta = 1.5), 0.2, 0.5)
     GN.best_response_1d(obj, 0.3)
     @test solver_allocs(obj, 0.3) == 0
 end
@@ -718,10 +724,10 @@ end
     # alike: a boundary optimum re-certifies through the one-sided
     # rule at its domain end.
     for spec in (
-        GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
-        GN.CES(beta=0.5), GN.CES(beta=0.9), GN.CES(beta=1.0),
-    ), theta in (0.3, -0.3), conformism in (0.0, 10.0)
-        obj = solver_obj(spec, theta, 0.5; conformism=conformism, N_h=0.4)
+                GN.Multiplicative(), GN.MultiplicativeWeighted(), GN.Additive(),
+                GN.CES(beta = 0.5), GN.CES(beta = 0.9), GN.CES(beta = 1.0),
+            ), theta in (0.3, -0.3), conformism in (0.0, 10.0)
+        obj = solver_obj(spec, theta, 0.5; conformism = conformism, N_h = 0.4)
         candidate, solved = GN._derivative_best_response(obj, 0.3)
         solved || continue
         @test isfinite(candidate) && 0.0 <= candidate <= 1.0

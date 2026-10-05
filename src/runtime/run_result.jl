@@ -30,7 +30,7 @@ struct RunInfo
     name::String
     model_name::String
     spec::RunSpec
-    config::Dict{String,Any}
+    config::Dict{String, Any}
     metric_names::Vector{String}
     started_at::Dates.DateTime
 end
@@ -54,14 +54,14 @@ struct RunResult
     name::String
     spec::RunSpec
     model_name::String
-    config::Dict{String,Any}
+    config::Dict{String, Any}
     status::RunStatus
     started_at::Dates.DateTime
     finished_at::Dates.DateTime
     ticks_executed::Int
-    error::Union{Nothing,Exception}
+    error::Union{Nothing, Exception}
     ticks::Vector{Int}
-    metrics::Dict{String,Vector{Float64}}
+    metrics::Dict{String, Vector{Float64}}
 end
 
 """

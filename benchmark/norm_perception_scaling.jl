@@ -36,16 +36,16 @@ Build one run specification table of this driver (the shape accepted by
 and tick count. Returns the dictionary.
 """
 function norm_perception_spec(agents_per_gender::Int, ticks::Int)
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "norm-perception-scaling", "seed" => 1),
-        "model" => Dict{String,Any}(
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "norm-perception-scaling", "seed" => 1),
+        "model" => Dict{String, Any}(
             "name" => "gender_norms",
             "agents_per_gender" => agents_per_gender,
-            "network" => Dict{String,Any}(
+            "network" => Dict{String, Any}(
                 "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1
             ),
         ),
-        "runtime" => Dict{String,Any}("ticks" => ticks),
+        "runtime" => Dict{String, Any}("ticks" => ticks),
     )
 end
 
@@ -62,7 +62,7 @@ calls. Returns a `NamedTuple` with `kernel_s` (sum of the kernel times
 over the ticks), `alloc_bytes` and `alloc_count` (totals of the timed
 kernel sections), and `setup_s`.
 """
-function measure_pass(spec_dict::Dict{String,Any}, ticks::Int)
+function measure_pass(spec_dict::Dict{String, Any}, ticks::Int)
     spec = GN.parse_spec(spec_dict)
     config = spec.model_config
     setup_start = time_ns()
@@ -135,25 +135,33 @@ function main(args::Vector{String})
     println("raw_repetitions")
     println("rep,kernel_s,ms_per_tick,alloc_bytes_per_call,alloc_count_per_call,setup_s")
     for (i, pass) in enumerate(passes)
-        println(join((
-            repr(i),
-            repr(pass.kernel_s),
-            repr((pass.kernel_s / ticks) * 1.0e3),
-            repr(Float64(pass.alloc_bytes) / ticks),
-            repr(Float64(pass.alloc_count) / ticks),
-            repr(pass.setup_s),
-        ), ","))
+        println(
+            join(
+                (
+                    repr(i),
+                    repr(pass.kernel_s),
+                    repr((pass.kernel_s / ticks) * 1.0e3),
+                    repr(Float64(pass.alloc_bytes) / ticks),
+                    repr(Float64(pass.alloc_count) / ticks),
+                    repr(pass.setup_s),
+                ), ","
+            )
+        )
     end
-    println(join((
-        "RESULT",
-        "threads=$(Threads.nthreads())",
-        "agents_per_gender=$(agents_per_gender)",
-        "ticks=$(ticks)",
-        "reps=$(reps)",
-        "median_ms=$(median_ms)",
-        "bytes=$(bytes_median)",
-        "objects=$(count_median)",
-    ), " "))
+    println(
+        join(
+            (
+                "RESULT",
+                "threads=$(Threads.nthreads())",
+                "agents_per_gender=$(agents_per_gender)",
+                "ticks=$(ticks)",
+                "reps=$(reps)",
+                "median_ms=$(median_ms)",
+                "bytes=$(bytes_median)",
+                "objects=$(count_median)",
+            ), " "
+        )
+    )
     return nothing
 end
 

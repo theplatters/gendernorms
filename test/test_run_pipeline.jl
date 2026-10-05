@@ -26,7 +26,7 @@ end
     @test all(isfinite, result.metrics["value"])
     @test result.finished_at >= result.started_at
     @test result.spec.seed == 1
-    @test result.config == Dict{String,Any}("fail_at" => -1, "scale" => 1.0)
+    @test result.config == Dict{String, Any}("fail_at" => -1, "scale" => 1.0)
 end
 
 @testset "identical seeds reproduce identical metrics" begin

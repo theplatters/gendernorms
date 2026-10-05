@@ -48,8 +48,8 @@ header: cached evaluation of the staged transfer search at the exact
 transfer `theta`.
 """
 function transfer_eval_reference(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F, theta::Float64
-)::TransferObjectiveValue where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, evaluate!::F, theta::Float64
+    )::TransferObjectiveValue where {F}
     haskey(cache, theta) && return cache[theta]
     entry = evaluate!(theta)
     cache[theta] = entry
@@ -64,8 +64,8 @@ header: the candidate tie rule of `MDR-0012` (largest payoff, then
 smallest `abs(theta - theta0)`, then smallest `theta`).
 """
 function transfer_better_reference(
-    theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
-)::Bool
+        theta::Float64, payoff::Float64, best_theta::Float64, best_payoff::Float64, theta0::Float64
+    )::Bool
     payoff != best_payoff && return payoff > best_payoff
     distance = abs(theta - theta0)
     best_distance = abs(best_theta - theta0)
@@ -81,9 +81,9 @@ header: the staged search of `MDR-0012` over the caller-owned cache,
 without any interval prefilter.
 """
 function transfer_search_reference!(
-    cache::Dict{Float64,TransferObjectiveValue}, evaluate!::F,
-    theta0::Float64, tol::Float64
-)::Float64 where {F}
+        cache::Dict{Float64, TransferObjectiveValue}, evaluate!::F,
+        theta0::Float64, tol::Float64
+    )::Float64 where {F}
     # Stage A: the explicit evaluation set of `MDR-0012`, anchors
     # first, then the anchor neighbourhoods, then the coarse grid; the
     # cache deduplicates overlaps (theta0 often coincides with an anchor
@@ -124,8 +124,8 @@ function transfer_search_reference!(
     while plateau_start <= length(maxima)
         plateau_end = plateau_start
         while plateau_end < length(maxima) &&
-            maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
-            cache[thetas[maxima[plateau_end + 1]]].payoff ==
+                maxima[plateau_end + 1] == maxima[plateau_end] + 1 &&
+                cache[thetas[maxima[plateau_end + 1]]].payoff ==
                 cache[thetas[maxima[plateau_start]]].payoff
             plateau_end += 1
         end
@@ -136,9 +136,9 @@ function transfer_search_reference!(
         for mi in (plateau_start + 1):plateau_end
             m = maxima[mi]
             if transfer_better_reference(
-                thetas[m], cache[thetas[m]].payoff,
-                thetas[refined], cache[thetas[refined]].payoff, theta0,
-            )
+                    thetas[m], cache[thetas[m]].payoff,
+                    thetas[refined], cache[thetas[refined]].payoff, theta0,
+                )
                 refined = m
             end
         end
@@ -171,10 +171,10 @@ header: the full staged search of `MDR-0012` with the per-call cache
 and the pointwise certificate only. Returns `(theta, hw, hm)`.
 """
 function bargain_transfer_search_reference(
-    hw_init::Float64, hm_init::Float64, theta_init::Float64,
-    pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-    tol::Float64=TRANSFER_REFINE_TOL_REFERENCE
-)
+        hw_init::Float64, hm_init::Float64, theta_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        tol::Float64 = TRANSFER_REFINE_TOL_REFERENCE
+    )
     theta0 = clamp(theta_init, -1.0, 1.0)
     hw_out, hm_out = GenderNorms.mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
     uw_out = GenderNorms.individual_utility(hw_out, hm_out, 0.0, pw, config)
@@ -198,7 +198,7 @@ function bargain_transfer_search_reference(
         gain_m = GenderNorms.individual_utility(hm, hw, theta, pm, config) - um_out
         return TransferObjectiveValue(gain_w, gain_m, payoff, hw, hm)
     end
-    cache = Dict{Float64,TransferObjectiveValue}()
+    cache = Dict{Float64, TransferObjectiveValue}()
     gain_w0 = GenderNorms.individual_utility(hw_status, hm_status, theta0, pw, config) - uw_out
     gain_m0 = GenderNorms.individual_utility(hm_status, hw_status, theta0, pm, config) - um_out
     cache[theta0] = TransferObjectiveValue(gain_w0, gain_m0, status_payoff, hw_status, hm_status)

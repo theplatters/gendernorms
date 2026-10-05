@@ -268,9 +268,9 @@ no finite sample. Returns `NaN` only when neither search found a finite
 sample.
 """
 function maximize_1d_reference(
-    f::F, a::Float64, b::Float64, x0::Float64, w::Float64, tol::Float64;
-    max_iter::Int = 64
-) where {F}
+        f::F, a::Float64, b::Float64, x0::Float64, w::Float64, tol::Float64;
+        max_iter::Int = 64
+    ) where {F}
     xs::Float64 = clamp(x0, a, b)
     f0::Float64 = f(xs)
     seed_x::Float64 = NaN
@@ -372,30 +372,30 @@ and the man, built by `set_theta!` at the call site (see `ADR-0007`).
 Returns the converged `(hw, hm)` working-time pair.
 """
 function mutual_best_response_reference(
-  hw_init::Float64, hm_init::Float64, theta::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  eps=1.0e-3, max_sweeps=100
-)
-  hw = clamp(hw_init, 0.0, 1.0)
-  hm = clamp(hm_init, 0.0, 1.0)
-  for _ in 1:max_sweeps
-    # Each captured partner hour is bound immutably per iteration: a capture
-    # reassigned later in the loop would be boxed, turning every utility
-    # evaluation of the best-response search into an allocating dynamic call (see `MDR-0002`).
-    hw_new = let partner_h = hm
-      best_response_1d_reference(h -> individual_utility_reference(h, partner_h, theta, pw, config), hw)
+        hw_init::Float64, hm_init::Float64, theta::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        eps = 1.0e-3, max_sweeps = 100
+    )
+    hw = clamp(hw_init, 0.0, 1.0)
+    hm = clamp(hm_init, 0.0, 1.0)
+    for _ in 1:max_sweeps
+        # Each captured partner hour is bound immutably per iteration: a capture
+        # reassigned later in the loop would be boxed, turning every utility
+        # evaluation of the best-response search into an allocating dynamic call (see `MDR-0002`).
+        hw_new = let partner_h = hm
+            best_response_1d_reference(h -> individual_utility_reference(h, partner_h, theta, pw, config), hw)
+        end
+        isfinite(hw_new) || (hw_new = hw)
+        hm_new = let partner_h = hw_new
+            best_response_1d_reference(h -> individual_utility_reference(h, partner_h, theta, pm, config), hm)
+        end
+        isfinite(hm_new) || (hm_new = hm)
+        change = abs(hw_new - hw) + abs(hm_new - hm)
+        hw = clamp(hw_new, 0, 1)
+        hm = clamp(hm_new, 0, 1)
+        change <= eps && break
     end
-    isfinite(hw_new) || (hw_new = hw)
-    hm_new = let partner_h = hw_new
-      best_response_1d_reference(h -> individual_utility_reference(h, partner_h, theta, pm, config), hm)
-    end
-    isfinite(hm_new) || (hm_new = hm)
-    change = abs(hw_new - hw) + abs(hm_new - hm)
-    hw = clamp(hw_new, 0, 1)
-    hm = clamp(hm_new, 0, 1)
-    change <= eps && break
-  end
-  return (hw, hm)
+    return (hw, hm)
 end
 
 """
@@ -408,13 +408,13 @@ labour equilibrium with zero transfer. Port of the first lines of NetLogo
 `MDR-0005`. Returns `(uw_out, um_out)`.
 """
 function outside_options_reference(
-  hw_init::Float64, hm_init::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)
-  hw_out, hm_out = mutual_best_response_reference(hw_init, hm_init, 0.0, pw, pm, config)
-  uw_out = individual_utility_reference(hw_out, hm_out, 0.0, pw, config)
-  um_out = individual_utility_reference(hm_out, hw_out, 0.0, pm, config)
-  return uw_out, um_out
+        hw_init::Float64, hm_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )
+    hw_out, hm_out = mutual_best_response_reference(hw_init, hm_init, 0.0, pw, pm, config)
+    uw_out = individual_utility_reference(hw_out, hm_out, 0.0, pw, config)
+    um_out = individual_utility_reference(hm_out, hw_out, 0.0, pm, config)
+    return uw_out, um_out
 end
 
 """
@@ -427,16 +427,16 @@ and `hm`: the two utility gains over the outside options `uw_out` and
 `-Inf` (replacing the `-1` sentinel); see `MDR-0005`. Returns a `Float64`.
 """
 function nash_product_reference(
-  theta::Float64, hw::Float64, hm::Float64,
-  uw_out::Float64, um_out::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)::Float64
-  gain_w = individual_utility_reference(hw, hm, theta, pw, config) - uw_out
-  gain_m = individual_utility_reference(hm, hw, theta, pm, config) - um_out
-  if isfinite(gain_w) && isfinite(gain_m) && gain_w >= 0.0 && gain_m >= 0.0
-    return gain_w * gain_m
-  end
-  return -Inf
+        theta::Float64, hw::Float64, hm::Float64,
+        uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )::Float64
+    gain_w = individual_utility_reference(hw, hm, theta, pw, config) - uw_out
+    gain_m = individual_utility_reference(hm, hw, theta, pm, config) - um_out
+    if isfinite(gain_w) && isfinite(gain_m) && gain_w >= 0.0 && gain_m >= 0.0
+        return gain_w * gain_m
+    end
+    return -Inf
 end
 
 """
@@ -449,12 +449,12 @@ Labour equilibrium and Nash product at transfer `theta`, warm-started from
 state (see `MDR-0005`). Returns `(payoff, hw, hm)`.
 """
 function equilibrium_payoff_reference(
-  theta::Float64, hw_start::Float64, hm_start::Float64,
-  uw_out::Float64, um_out::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
-)
-  hw, hm = mutual_best_response_reference(hw_start, hm_start, theta, pw, pm, config)
-  return nash_product_reference(theta, hw, hm, uw_out, um_out, pw, pm, config), hw, hm
+        theta::Float64, hw_start::Float64, hm_start::Float64,
+        uw_out::Float64, um_out::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig
+    )
+    hw, hm = mutual_best_response_reference(hw_start, hm_start, theta, pw, pm, config)
+    return nash_product_reference(theta, hw, hm, uw_out, um_out, pw, pm, config), hw, hm
 end
 
 # Absolute argument tolerance of the transfer search: the resolution of the
@@ -475,21 +475,21 @@ status-quo labour equilibrium; `tol` is the absolute argument tolerance
 recorded in `MDR-0005`. Returns `(theta, hw, hm)`.
 """
 function bargain_transfer_reference(
-  hw_init::Float64, hm_init::Float64, theta_init::Float64,
-  pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
-  tol::Float64=TRANSFER_TOL
-)
-  theta0 = clamp(theta_init, -1.0, 1.0)
-  uw_out, um_out = outside_options_reference(hw_init, hm_init, pw, pm, config)
-  hw_status, hm_status = mutual_best_response_reference(hw_init, hm_init, theta0, pw, pm, config)
-  status_payoff = nash_product_reference(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
-  objective(theta) = first(equilibrium_payoff_reference(theta, hw_status, hm_status, uw_out, um_out, pw, pm, config))
-  theta_best = maximize_1d_reference(objective, -1.0, 1.0, tol)
-  if isfinite(theta_best)
-    payoff_best, hw_best, hm_best = equilibrium_payoff_reference(theta_best, hw_status, hm_status, uw_out, um_out, pw, pm, config)
-    if isfinite(payoff_best) && payoff_best > status_payoff
-      return theta_best, hw_best, hm_best
+        hw_init::Float64, hm_init::Float64, theta_init::Float64,
+        pw::AgentPayoffParams, pm::AgentPayoffParams, config::UtilityConfig;
+        tol::Float64 = TRANSFER_TOL
+    )
+    theta0 = clamp(theta_init, -1.0, 1.0)
+    uw_out, um_out = outside_options_reference(hw_init, hm_init, pw, pm, config)
+    hw_status, hm_status = mutual_best_response_reference(hw_init, hm_init, theta0, pw, pm, config)
+    status_payoff = nash_product_reference(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+    objective(theta) = first(equilibrium_payoff_reference(theta, hw_status, hm_status, uw_out, um_out, pw, pm, config))
+    theta_best = maximize_1d_reference(objective, -1.0, 1.0, tol)
+    if isfinite(theta_best)
+        payoff_best, hw_best, hm_best = equilibrium_payoff_reference(theta_best, hw_status, hm_status, uw_out, um_out, pw, pm, config)
+        if isfinite(payoff_best) && payoff_best > status_payoff
+            return theta_best, hw_best, hm_best
+        end
     end
-  end
-  return theta0, hw_status, hm_status
+    return theta0, hw_status, hm_status
 end

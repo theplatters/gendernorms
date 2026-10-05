@@ -50,7 +50,7 @@ if !isdefined(@__MODULE__, :veq)
     `isequal` otherwise (and for non-finite values).
     """
     veq(a::Float64, b::Float64)::Bool =
-        (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol=1.0e-10, rtol=1.0e-9) : isequal(a, b)
+        (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol = 1.0e-10, rtol = 1.0e-9) : isequal(a, b)
 end
 
 """
@@ -106,7 +106,7 @@ manufactured `payoff_of` objective. Returns
 """
 function run_synthetic(theta0::Float64, payoff_of)
     requested = Float64[]
-    cache = Dict{Float64,GN.TransferObjectiveValue}()
+    cache = Dict{Float64, GN.TransferObjectiveValue}()
     cache[theta0] = GN.TransferObjectiveValue(NaN, NaN, payoff_of(theta0), NaN, NaN)
     best_theta = GN._transfer_search!(
         cache, recording_evaluator(requested, payoff_of), theta0, GN.TRANSFER_REFINE_TOL
@@ -172,9 +172,9 @@ execution order, or `0` for a probe outside every expected bracket (a
 search-contract violation).
 """
 function refinement_runs(
-    requested::Vector{Float64}, sampled::Vector{Float64},
-    brackets::Vector{Tuple{Float64,Float64}},
-)::Vector{Int}
+        requested::Vector{Float64}, sampled::Vector{Float64},
+        brackets::Vector{Tuple{Float64, Float64}},
+    )::Vector{Int}
     runs = Int[]
     for theta in requested
         any(isequal(theta), sampled) && continue
@@ -305,7 +305,7 @@ end
     representative = sampled_plateau[1]
     for theta in sampled_plateau[2:end]
         if abs(theta - theta0) < abs(representative - theta0) ||
-            (abs(theta - theta0) == abs(representative - theta0) && theta < representative)
+                (abs(theta - theta0) == abs(representative - theta0) && theta < representative)
             representative = theta
         end
     end
@@ -485,14 +485,14 @@ GN.material(::ConstantMaterial, x::Float64, Q::Float64, alpha::Float64) = 1.0
     # Constructed case with every candidate payoff exactly equal to the
     # status-quo payoff: the constant material utility makes every gain
     # exactly zero, so the search must stay at the status quo.
-    config = GN.UtilityConfig(func=ConstantMaterial())
+    config = GN.UtilityConfig(func = ConstantMaterial())
     pw = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=true,
+        wage_self = 1.0, wage_spouse = 1.0, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.25, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.0, wage_spouse=1.0, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.25, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.0, wage_spouse = 1.0, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.25, N_h_spouse = 0.5, is_woman = false,
     )
     theta, hw, hm = GN.bargain_transfer(0.5, 0.5, 0.25, pw, pm, config)
     status_w, status_m = GN.mutual_best_response(0.5, 0.5, 0.25, pw, pm, config)
@@ -545,10 +545,10 @@ The `MDR-0002` alternation of `mutual_best_response` with the seeded
 best responses: the chain that recorded the demonstration fixtures.
 """
 function legacy_mutual_best_response(
-    hw_init::Float64, hm_init::Float64, theta::Float64,
-    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig;
-    eps=1.0e-3, max_sweeps=100,
-)
+        hw_init::Float64, hm_init::Float64, theta::Float64,
+        pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig;
+        eps = 1.0e-3, max_sweeps = 100,
+    )
     hw = clamp(hw_init, 0.0, 1.0)
     hm = clamp(hm_init, 0.0, 1.0)
     for _ in 1:max_sweeps
@@ -588,26 +588,26 @@ end
     )
     @test length(fixture["household"]) == 3
     @testset "household $(h["id"])" for h in fixture["household"]
-        config = GN.UtilityConfig(func=GN.CES(beta=t64(h["beta"])))
+        config = GN.UtilityConfig(func = GN.CES(beta = t64(h["beta"])))
         pw = GN.AgentPayoffParams(
-            wage_self=t64(h["pw_wage_self"]),
-            wage_spouse=t64(h["pw_wage_spouse"]),
-            alpha=t64(h["pw_alpha"]),
-            conformism=t64(h["pw_conformism"]),
-            N_h=t64(h["pw_N_h"]),
-            N_theta=t64(h["pw_N_theta"]),
-            N_h_spouse=t64(h["pw_N_h_spouse"]),
-            is_woman=true,
+            wage_self = t64(h["pw_wage_self"]),
+            wage_spouse = t64(h["pw_wage_spouse"]),
+            alpha = t64(h["pw_alpha"]),
+            conformism = t64(h["pw_conformism"]),
+            N_h = t64(h["pw_N_h"]),
+            N_theta = t64(h["pw_N_theta"]),
+            N_h_spouse = t64(h["pw_N_h_spouse"]),
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=t64(h["pm_wage_self"]),
-            wage_spouse=t64(h["pm_wage_spouse"]),
-            alpha=t64(h["pm_alpha"]),
-            conformism=t64(h["pm_conformism"]),
-            N_h=t64(h["pm_N_h"]),
-            N_theta=t64(h["pm_N_theta"]),
-            N_h_spouse=t64(h["pm_N_h_spouse"]),
-            is_woman=false,
+            wage_self = t64(h["pm_wage_self"]),
+            wage_spouse = t64(h["pm_wage_spouse"]),
+            alpha = t64(h["pm_alpha"]),
+            conformism = t64(h["pm_conformism"]),
+            N_h = t64(h["pm_N_h"]),
+            N_theta = t64(h["pm_N_theta"]),
+            N_h_spouse = t64(h["pm_N_h_spouse"]),
+            is_woman = false,
         )
         hw_init, hm_init, theta_init = t64(h["hw_init"]), t64(h["hm_init"]), t64(h["theta_init"])
         demo_theta, demo_payoff = t64(h["demo_theta"]), t64(h["demo_payoff"])

@@ -27,7 +27,7 @@ register themselves with `MODEL_REGISTRY["name"] = ModelType`;
 `resolve_model` looks the type up during specification parsing and
 world creation.
 """
-const MODEL_REGISTRY = Dict{String,Type{<:AbstractModel}}()
+const MODEL_REGISTRY = Dict{String, Type{<:AbstractModel}}()
 
 """
     resolve_model(name::AbstractString) -> Type{<:AbstractModel}
@@ -51,7 +51,7 @@ Specification name of the model binding (see `ADR-0012`). Returns the
 `MODEL_REGISTRY`. The generic fallback throws `ArgumentError`; every
 binding overrides it.
 """
-function model_name(::Type{M})::String where {M<:AbstractModel}
+function model_name(::Type{M})::String where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement model_name"))
 end
 
@@ -65,7 +65,7 @@ Throws `RunSpecError` aggregating one problem line per invalid key,
 with paths prefixed `[model`, on invalid input. The generic fallback
 throws `ArgumentError`; every binding overrides it.
 """
-function parse_model_config(::Type{M}, raw::Dict{String,Any}) where {M<:AbstractModel}
+function parse_model_config(::Type{M}, raw::Dict{String, Any}) where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement parse_model_config"))
 end
 
@@ -78,7 +78,7 @@ model type, the validated configuration from `parse_model_config`,
 and the seeded run RNG, and returns the initialized `Ark.World`. The
 generic fallback throws `ArgumentError`; every binding overrides it.
 """
-function setup_world(::Type{M}, config, rng)::Ark.World where {M<:AbstractModel}
+function setup_world(::Type{M}, config, rng)::Ark.World where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement setup_world"))
 end
 
@@ -91,7 +91,7 @@ count, which counts like the NetLogo `ticks` reporter at `go` entry:
 the first call sees 0. Returns nothing. The generic fallback throws
 `ArgumentError`; every binding overrides it.
 """
-function step_model!(::Type{M}, world, config, tick::Int) where {M<:AbstractModel}
+function step_model!(::Type{M}, world, config, tick::Int) where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement step_model!"))
 end
 
@@ -104,7 +104,7 @@ returning a `Real`. The runner evaluates the configured subset after
 every tick. The generic fallback throws `ArgumentError`; every
 binding overrides it.
 """
-function model_metrics(::Type{M})::Dict{String,Function} where {M<:AbstractModel}
+function model_metrics(::Type{M})::Dict{String, Function} where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement model_metrics"))
 end
 
@@ -118,6 +118,6 @@ returns a plain dictionary whose keys are accepted back by
 configuration. The generic fallback throws `ArgumentError`; every
 binding overrides it.
 """
-function config_to_dict(::Type{M}, config)::Dict{String,Any} where {M<:AbstractModel}
+function config_to_dict(::Type{M}, config)::Dict{String, Any} where {M <: AbstractModel}
     throw(ArgumentError("$M does not implement config_to_dict"))
 end

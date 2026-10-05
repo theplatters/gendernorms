@@ -9,7 +9,7 @@ using TOML
     raw = make_dummy_raw(;
         seed = 4,
         ticks = 3,
-        outputs = Any[Dict{String,Any}("type" => "toml", "directory" => dir)],
+        outputs = Any[Dict{String, Any}("type" => "toml", "directory" => dir)],
     )
     spec = GN.parse_spec(raw)
     result = GN.run(GN.create_world(spec))
@@ -32,7 +32,7 @@ end
     raw = make_dummy_raw(;
         ticks = 3,
         fail_at = 1,
-        outputs = Any[Dict{String,Any}("type" => "toml", "directory" => dir)],
+        outputs = Any[Dict{String, Any}("type" => "toml", "directory" => dir)],
     )
     result = GN.run(GN.create_world(GN.parse_spec(raw)))
     @test result.status == GN.RUN_FAILURE
@@ -47,7 +47,7 @@ end
         seed = 4,
         ticks = 2,
         metrics = String[],
-        outputs = Any[Dict{String,Any}("type" => "toml", "directory" => dir)],
+        outputs = Any[Dict{String, Any}("type" => "toml", "directory" => dir)],
     )
     spec = GN.parse_spec(raw)
     @test spec.logging.metrics == String[]
@@ -67,7 +67,7 @@ end
 
 @testset "parse_spec rejects an unknown logging output key" begin
     raw = make_dummy_raw(;
-        outputs = Any[Dict{String,Any}("type" => "toml", "bogus" => true)],
+        outputs = Any[Dict{String, Any}("type" => "toml", "bogus" => true)],
     )
     e = try
         GN.parse_spec(raw)

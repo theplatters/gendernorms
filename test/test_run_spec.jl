@@ -6,10 +6,10 @@
 using TOML
 
 @testset "valid minimal spec parses with defaults" begin
-    raw = Dict{String,Any}(
-        "run" => Dict{String,Any}("seed" => 5),
-        "model" => Dict{String,Any}("name" => "dummy"),
-        "runtime" => Dict{String,Any}("ticks" => 2),
+    raw = Dict{String, Any}(
+        "run" => Dict{String, Any}("seed" => 5),
+        "model" => Dict{String, Any}("name" => "dummy"),
+        "runtime" => Dict{String, Any}("ticks" => 2),
     )
     spec = GN.parse_spec(raw)
     @test spec.name == "unnamed"
@@ -28,7 +28,7 @@ end
         fail_at = -1,
         scale = 2.5,
         metrics = ["value"],
-        outputs = Any[Dict{String,Any}("type" => "toml", "directory" => "runs")],
+        outputs = Any[Dict{String, Any}("type" => "toml", "directory" => "runs")],
     )
     spec = GN.parse_spec(raw)
     @test spec.name == "full"
@@ -96,7 +96,7 @@ end
 end
 
 @testset "missing model.name reports its key path" begin
-    raw = with_model(make_dummy_raw(), Dict{String,Any}("fail_at" => -1))
+    raw = with_model(make_dummy_raw(), Dict{String, Any}("fail_at" => -1))
     @test occursin("[model]", spec_message(raw))
     @test occursin("name", spec_message(raw))
 end
@@ -118,7 +118,7 @@ end
 
 @testset "unknown top-level key is rejected" begin
     raw = make_dummy_raw()
-    raw["experiment"] = Dict{String,Any}()
+    raw["experiment"] = Dict{String, Any}()
     message = spec_message(raw)
     @test occursin("experiment", message)
 end
@@ -132,7 +132,7 @@ end
 end
 
 @testset "unknown model name lists registered models" begin
-    raw = with_model(make_dummy_raw(), Dict{String,Any}("name" => "nope"))
+    raw = with_model(make_dummy_raw(), Dict{String, Any}("name" => "nope"))
     message = spec_message(raw)
     @test occursin("[model.name]", message)
     @test occursin("dummy", message)
@@ -147,7 +147,7 @@ end
 end
 
 @testset "unknown output type lists known backends" begin
-    raw = make_dummy_raw(; outputs = Any[Dict{String,Any}("type" => "csv")])
+    raw = make_dummy_raw(; outputs = Any[Dict{String, Any}("type" => "csv")])
     message = spec_message(raw)
     @test occursin("[logging.outputs[1]]", message)
     @test occursin("csv", message)
@@ -155,7 +155,7 @@ end
 end
 
 @testset "bad output argument type keeps its entry index" begin
-    raw = make_dummy_raw(; outputs = Any[Dict{String,Any}("type" => "toml", "directory" => 7)])
+    raw = make_dummy_raw(; outputs = Any[Dict{String, Any}("type" => "toml", "directory" => 7)])
     message = spec_message(raw)
     @test occursin("[logging.outputs[1]]", message)
     @test occursin("directory", message)
@@ -164,8 +164,8 @@ end
 @testset "second bad output entry keeps its own index" begin
     raw = make_dummy_raw(;
         outputs = Any[
-            Dict{String,Any}("type" => "toml"),
-            Dict{String,Any}("type" => "toml", "directory" => 7),
+            Dict{String, Any}("type" => "toml"),
+            Dict{String, Any}("type" => "toml", "directory" => 7),
         ],
     )
     message = spec_message(raw)
@@ -192,7 +192,7 @@ end
 @testset "unknown model-section key is rejected" begin
     raw = with_model(
         make_dummy_raw(),
-        Dict{String,Any}("name" => "dummy", "bogus" => 1),
+        Dict{String, Any}("name" => "dummy", "bogus" => 1),
     )
     message = spec_message(raw)
     @test occursin("[model]", message)

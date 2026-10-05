@@ -40,6 +40,7 @@ function make_threading_world(network::GN.NetworkSpec, n::Int, seed::Int)
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
+        GN.CommittedUtility,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
     Ark.add_resource!(world, GN.PaidTime())
@@ -122,16 +123,16 @@ end
 # entry point (fresh scratch per household), matching the mode
 # `set_theta!` passes to its task-owned scratch; the default reproduces
 # the historical call exactly.
-function serial_set_theta!(world, config::GN.UtilityConfig; search::Symbol=:local)
+function serial_set_theta!(world, config::GN.UtilityConfig; search::Symbol = :local)
     net = Ark.get_resource(world, GN.SocialNetwork)
     properties = Ark.get_resource(world, GN.ModelProperties)
     globals = properties.network isa GN.HomogeneousMixing ? GN.norm_global_means(world, net) : nothing
     women_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.women_entities))
     men_index = Dict(entity => vertex for (vertex, entity) in enumerate(net.men_entities))
-    component_types = (GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism, GN.PreferencePrivate, GN.Spouse)
+    component_types = (GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism, GN.PreferencePrivate, GN.Spouse, GN.CommittedUtility)
     spouse_seen = Ark.Entity[]
-    for (entities, wages, times, transfers, conformisms, preferences, spouses) in
-        Ark.Query(world, component_types; with=(GN.Female,))
+    for (entities, wages, times, transfers, conformisms, preferences, spouses, utilities) in
+        Ark.Query(world, component_types; with = (GN.Female,))
         for f in eachindex(entities)
             woman = entities[f]
             man = spouses[f].entity
@@ -156,14 +157,25 @@ function serial_set_theta!(world, config::GN.UtilityConfig; search::Symbol=:loca
 
             theta, hw, hm = GN.bargain_transfer(
                 times[f].current, man_time.current, transfers[f].current, pw, pm, config;
-                search=search,
+                search = search,
             )
+            # committed-bundle utility observation (`MDR-0019`), verbatim
+            # the `set_theta!` commit step
+            utility_woman = GN.individual_utility(hw, hm, theta, pw, config)
+            utility_man = GN.individual_utility(hm, hw, theta, pm, config)
             # the woman is in the query, so the views write in place
             times[f] = GN.WorkingTime(hw, times[f].old)
             transfers[f] = GN.TransferToWoman(theta, transfers[f].old)
+            utilities[f] = GN.CommittedUtility(utility_woman)
             # the man is not in the women's query, so only the entity API exists
             Ark.set_components!(
-                world, man, (GN.WorkingTime(hm, man_time.old), GN.TransferToWoman(theta, man_transfer.old))
+                world,
+                man,
+                (
+                    GN.WorkingTime(hm, man_time.old),
+                    GN.TransferToWoman(theta, man_transfer.old),
+                    GN.CommittedUtility(utility_man),
+                ),
             )
         end
     end
@@ -172,12 +184,18 @@ end
 
 function threading_snapshot(world, entities)
     return map(entities) do entity
-        time, transfer, param, percept = Ark.get_components(
+        time, transfer, param, percept, utility = Ark.get_components(
             world,
             entity,
-            (GN.WorkingTime, GN.TransferToWoman, GN.NormParameter, GN.PerceptionNormDivisionOfLabor),
+            (
+                GN.WorkingTime,
+                GN.TransferToWoman,
+                GN.NormParameter,
+                GN.PerceptionNormDivisionOfLabor,
+                GN.CommittedUtility,
+            ),
         )
-        (time.current, time.old, transfer.current, transfer.old, param.amount, percept.amount)
+        (time.current, time.old, transfer.current, transfer.old, param.amount, percept.amount, utility.value)
     end
 end
 
@@ -190,6 +208,7 @@ function threading_means(snapshot)
         sum(s[4] for s in snapshot) / n,
         sum(s[5] for s in snapshot) / n,
         sum(s[6] for s in snapshot) / n,
+        sum(s[7] for s in snapshot) / n,
     )
 end
 
@@ -206,18 +225,18 @@ threading_bits(snapshot) = map(row -> map(x -> reinterpret(UInt64, x), row), sna
 function threading_regimes(rng, n::Int)
     return map(1:n) do _
         (
-            h_w=0.1 + 0.5 * rand(rng),
-            h_w_old=0.1 + 0.5 * rand(rng),
-            h_m=0.4 + 0.6 * rand(rng),
-            h_m_old=0.4 + 0.6 * rand(rng),
-            theta=2 * rand(rng) - 1,
-            theta_old=2 * rand(rng) - 1,
-            c_w=0.5 + 3.0 * rand(rng),
-            c_m=0.5 + 3.0 * rand(rng),
-            wage_w=0.6 + 1.2 * rand(rng),
-            wage_m=0.6 + 1.2 * rand(rng),
-            pref_w=0.2 + 0.6 * rand(rng),
-            pref_m=0.2 + 0.6 * rand(rng),
+            h_w = 0.1 + 0.5 * rand(rng),
+            h_w_old = 0.1 + 0.5 * rand(rng),
+            h_m = 0.4 + 0.6 * rand(rng),
+            h_m_old = 0.4 + 0.6 * rand(rng),
+            theta = 2 * rand(rng) - 1,
+            theta_old = 2 * rand(rng) - 1,
+            c_w = 0.5 + 3.0 * rand(rng),
+            c_m = 0.5 + 3.0 * rand(rng),
+            wage_w = 0.6 + 1.2 * rand(rng),
+            wage_m = 0.6 + 1.2 * rand(rng),
+            pref_w = 0.2 + 0.6 * rand(rng),
+            pref_m = 0.2 + 0.6 * rand(rng),
         )
     end
 end
@@ -260,9 +279,9 @@ end
 # household `regimes` applied and its own copy of the scenario graphs
 # of `threading_graphs(kind, n)`.
 function threading_cohort(
-    network::GN.NetworkSpec, kind::Symbol, n::Int, seed::Int, regimes, count::Int
-)
-    cohort = Tuple{Ark.World,Vector{Ark.Entity},Vector{Ark.Entity}}[]
+        network::GN.NetworkSpec, kind::Symbol, n::Int, seed::Int, regimes, count::Int
+    )
+    cohort = Tuple{Ark.World, Vector{Ark.Entity}, Vector{Ark.Entity}}[]
     for _ in 1:count
         world, women, men = make_threading_world(network, n, seed)
         threading_apply_regimes!(world, women, men, regimes)
@@ -279,15 +298,15 @@ end
 # snapshot pair, `runs` one snapshot pair per variant in order. All
 # cross-comparisons must use `threading_bits` (bitwise identity).
 function threading_theta_variants(
-    cohort, config::GN.UtilityConfig, variants; search::Symbol=:local
-)
+        cohort, config::GN.UtilityConfig, variants; search::Symbol = :local
+    )
     world_a, women_a, men_a = cohort[1]
-    serial_set_theta!(world_a, config; search=search)
+    serial_set_theta!(world_a, config; search = search)
     reference = (threading_snapshot(world_a, women_a), threading_snapshot(world_a, men_a))
     runs = typeof(reference)[]
     for (index, (chunk, schedule)) in enumerate(variants)
         world_b, women_b, men_b = cohort[index + 1]
-        GN.set_theta!(world_b, config; search=search, chunk=chunk, schedule=schedule)
+        GN.set_theta!(world_b, config; search = search, chunk = chunk, schedule = schedule)
         push!(runs, (threading_snapshot(world_b, women_b), threading_snapshot(world_b, men_b)))
     end
     return reference, runs
@@ -305,7 +324,7 @@ function threading_norm_variants(cohort, config::GN.UtilityConfig, variants)
     runs = typeof(reference)[]
     for (index, (chunk, schedule)) in enumerate(variants)
         world_b, women_b, men_b = cohort[index + 1]
-        GN.calculate_norm_perception!(world_b, config; chunk=chunk, schedule=schedule)
+        GN.calculate_norm_perception!(world_b, config; chunk = chunk, schedule = schedule)
         push!(runs, (threading_snapshot(world_b, women_b), threading_snapshot(world_b, men_b)))
     end
     return reference, runs
@@ -317,7 +336,7 @@ end
 # wired to man 2 as spouse, so `norm_means` deduplicates the shared
 # spouse (`MDR-0004` first-occurrence order).
 function threading_shared_spouse_cohort(count::Int)
-    cohort = Tuple{Ark.World,Vector{Ark.Entity},Vector{Ark.Entity}}[]
+    cohort = Tuple{Ark.World, Vector{Ark.Entity}, Vector{Ark.Entity}}[]
     for _ in 1:count
         world, women, men = make_threading_world(GN.NoNetwork(), 4, 9)
         set_threading_state!(world, women, men, 10)
@@ -347,10 +366,12 @@ function run_threading_driver(nthreads::Int)
     driver = joinpath(@__DIR__, "threading_driver.jl")
     project = pkgdir(GenderNorms)
     io = IOBuffer()
-    run(pipeline(
-        `$(Base.julia_cmd()) --startup-file=no --project=$project -t $nthreads $driver`;
-        stdout = io,
-    ))
+    run(
+        pipeline(
+            `$(Base.julia_cmd()) --startup-file=no --project=$project -t $nthreads $driver`;
+            stdout = io,
+        )
+    )
     return String(take!(io))
 end
 
@@ -407,6 +428,7 @@ function threading_unindexed_spouse!(world, women, men)
             GN.PerceptionNormDivisionOfLabor,
             GN.Lambda,
             GN.TransferToWoman,
+            GN.CommittedUtility,
             GN.Spouse,
         ),
     )
@@ -422,7 +444,7 @@ end
 # two snapshots of the same world.
 function threading_state_bits(world, entities)
     return map(entities) do entity
-        time, transfer, wage, pref, conf, param, percept, lambda, spouse = Ark.get_components(
+        time, transfer, wage, pref, conf, param, percept, lambda, utility, spouse = Ark.get_components(
             world,
             entity,
             (
@@ -434,6 +456,7 @@ function threading_state_bits(world, entities)
                 GN.NormParameter,
                 GN.PerceptionNormDivisionOfLabor,
                 GN.Lambda,
+                GN.CommittedUtility,
                 GN.Spouse,
             ),
         )
@@ -452,6 +475,7 @@ function threading_state_bits(world, entities)
                 param.amount,
                 percept.amount,
                 lambda.amount,
+                utility.value,
                 spouse.entity,
             ),
         )
@@ -479,19 +503,16 @@ end
 
             serial_calculate_norm_perception!(world_a, config)
             for schedule in (:parallel, :serial)
-                GN.calculate_norm_perception!(world_b, config; chunk=3, schedule=schedule)
+                GN.calculate_norm_perception!(world_b, config; chunk = 3, schedule = schedule)
                 for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
                     snap_a = threading_snapshot(world_a, entities_a)
                     snap_b = threading_snapshot(world_b, entities_b)
-                    # The globals-based `:homogeneous_mixing` branch
-                    # compares bitwise (as in `threading_bits`), so
-                    # signed zeros and NaNs cannot hide a divergence.
-                    if kind === :homogeneous_mixing
-                        @test threading_bits(snap_a) == threading_bits(snap_b)
-                    else
-                        @test snap_a == snap_b
-                    end
-                    @test threading_means(snap_a) == threading_means(snap_b)
+                    # Bitwise comparison (as in `threading_bits`), so
+                    # signed zeros and NaNs (the unobserved
+                    # `CommittedUtility` of norm-only runs) cannot hide
+                    # a divergence.
+                    @test threading_bits(snap_a) == threading_bits(snap_b)
+                    @test isequal(threading_means(snap_a), threading_means(snap_b))
                 end
             end
 
@@ -500,8 +521,8 @@ end
             for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
                 snap_a = threading_snapshot(world_a, entities_a)
                 snap_b = threading_snapshot(world_b, entities_b)
-                @test snap_a == snap_b
-                @test threading_means(snap_a) == threading_means(snap_b)
+                @test threading_bits(snap_a) == threading_bits(snap_b)
+                @test isequal(threading_means(snap_a), threading_means(snap_b))
             end
         end
     end
@@ -524,12 +545,12 @@ end
 
             serial_calculate_norm_perception!(world_a, config)
             for schedule in (:parallel, :serial)
-                GN.calculate_norm_perception!(world_b, config; chunk=3, schedule=schedule)
+                GN.calculate_norm_perception!(world_b, config; chunk = 3, schedule = schedule)
                 for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
                     snap_a = threading_snapshot(world_a, entities_a)
                     snap_b = threading_snapshot(world_b, entities_b)
-                    @test snap_a == snap_b
-                    @test threading_means(snap_a) == threading_means(snap_b)
+                    @test threading_bits(snap_a) == threading_bits(snap_b)
+                    @test isequal(threading_means(snap_a), threading_means(snap_b))
                 end
             end
 
@@ -538,8 +559,8 @@ end
             for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
                 snap_a = threading_snapshot(world_a, entities_a)
                 snap_b = threading_snapshot(world_b, entities_b)
-                @test snap_a == snap_b
-                @test threading_means(snap_a) == threading_means(snap_b)
+                @test threading_bits(snap_a) == threading_bits(snap_b)
+                @test isequal(threading_means(snap_a), threading_means(snap_b))
             end
         end
     end
@@ -566,12 +587,12 @@ end
 
     serial_calculate_norm_perception!(world_a, config)
     for schedule in (:parallel, :serial)
-        GN.calculate_norm_perception!(world_b, config; chunk=3, schedule=schedule)
+        GN.calculate_norm_perception!(world_b, config; chunk = 3, schedule = schedule)
         for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
             snap_a = threading_snapshot(world_a, entities_a)
             snap_b = threading_snapshot(world_b, entities_b)
-            @test snap_a == snap_b
-            @test threading_means(snap_a) == threading_means(snap_b)
+            @test threading_bits(snap_a) == threading_bits(snap_b)
+            @test isequal(threading_means(snap_a), threading_means(snap_b))
         end
     end
 end
@@ -586,7 +607,7 @@ end
     # chunks, and the worker path at tiny and huge chunk counts must not
     # change a single bit (TASK-0026).
     config = GN.UtilityConfig()
-    variants = Tuple{Int,Symbol}[
+    variants = Tuple{Int, Symbol}[
         (chunk, schedule) for schedule in (:serial, :parallel, :auto) for chunk in (1, 3, 16, 64, 256)
     ]
     regimes = threading_regimes(Random.MersenneTwister(8), 17)
@@ -594,9 +615,9 @@ end
         GN.NoNetwork(), :connected, 17, 7, regimes, length(variants) + 1
     )
     for (label, cohort) in (
-        ("short-chunk n = 17", short_cohort),
-        ("shared-spouse n = 4", threading_shared_spouse_cohort(length(variants) + 1)),
-    )
+            ("short-chunk n = 17", short_cohort),
+            ("shared-spouse n = 4", threading_shared_spouse_cohort(length(variants) + 1)),
+        )
         @testset "$label" begin
             reference, runs = threading_norm_variants(cohort, config, variants)
             for run in runs
@@ -631,7 +652,7 @@ end
     GN.calculate_norm_perception!(world_b, config)
     push!(runs, (threading_snapshot(world_b, women_b), threading_snapshot(world_b, men_b)))
     world_c, women_c, men_c = cohort[3]
-    GN.calculate_norm_perception!(world_c, config; chunk=1, schedule=:auto)
+    GN.calculate_norm_perception!(world_c, config; chunk = 1, schedule = :auto)
     push!(runs, (threading_snapshot(world_c, women_c), threading_snapshot(world_c, men_c)))
     for run in runs
         @test threading_bits(run[1]) == threading_bits(reference[1])
@@ -686,12 +707,12 @@ end
 
 @testset "norm perception validates chunk and schedule before touching the world" begin
     config = GN.UtilityConfig()
-    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; chunk=0)
-    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; chunk=-1)
+    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; chunk = 0)
+    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; chunk = -1)
     @test_throws ArgumentError GN.calculate_norm_perception!(
-        Ark.World(), config; chunk=-3, schedule=:parallel
+        Ark.World(), config; chunk = -3, schedule = :parallel
     )
-    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; schedule=:bogus)
+    @test_throws ArgumentError GN.calculate_norm_perception!(Ark.World(), config; schedule = :bogus)
     # All validation precedes every write and every worker task: a
     # populated world is bit-untouched by the failing calls (TASK-0026).
     regimes = threading_regimes(Random.MersenneTwister(8), 4)
@@ -701,13 +722,13 @@ end
         threading_bits(threading_snapshot(world, men)),
     )
     @test_throws ArgumentError GN.calculate_norm_perception!(
-        world, config; chunk=0, schedule=:parallel
+        world, config; chunk = 0, schedule = :parallel
     )
     @test_throws ArgumentError GN.calculate_norm_perception!(
-        world, config; chunk=-1, schedule=:parallel
+        world, config; chunk = -1, schedule = :parallel
     )
     @test_throws ArgumentError GN.calculate_norm_perception!(
-        world, config; chunk=4, schedule=:bogus
+        world, config; chunk = 4, schedule = :bogus
     )
     after = (
         threading_bits(threading_snapshot(world, women)),
@@ -729,7 +750,7 @@ end
         threading_bits(threading_snapshot(world, men)),
     )
     for schedule in (:auto, :serial, :parallel)
-        @test GN.calculate_norm_perception!(world, config; chunk=4, schedule=schedule) === nothing
+        @test GN.calculate_norm_perception!(world, config; chunk = 4, schedule = schedule) === nothing
     end
     after = (
         threading_bits(threading_snapshot(world, women)),
@@ -755,7 +776,7 @@ end
     end
     serial_calculate_norm_perception!(world_a, config)
     for schedule in (:auto, :serial, :parallel)
-        GN.calculate_norm_perception!(world_b, config; chunk=3, schedule=schedule)
+        GN.calculate_norm_perception!(world_b, config; chunk = 3, schedule = schedule)
         for (entities_a, entities_b) in ((women_a, women_b), (men_a, men_b))
             @test threading_bits(threading_snapshot(world_a, entities_a)) ==
                 threading_bits(threading_snapshot(world_b, entities_b))
@@ -778,7 +799,7 @@ end
     end
     serial_calculate_norm_perception!(world_c, config)
     for schedule in (:auto, :serial, :parallel)
-        GN.calculate_norm_perception!(world_d, config; chunk=3, schedule=schedule)
+        GN.calculate_norm_perception!(world_d, config; chunk = 3, schedule = schedule)
         for (entities_c, entities_d) in ((women_c, women_d), (men_c, men_d))
             @test threading_bits(threading_snapshot(world_c, entities_c)) ==
                 threading_bits(threading_snapshot(world_d, entities_d))
@@ -812,7 +833,7 @@ end
     for search in (:local, :discovery)
         @testset "$search" begin
             cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             chunk4 = runs[1]
             for run in runs
                 @test threading_bits(run[1]) == threading_bits(reference[1])
@@ -835,7 +856,7 @@ end
                 regimes = threading_regimes(Random.MersenneTwister(8), n)
                 variants = ((chunk, :parallel), (chunk, :serial), (chunk, :auto))
                 cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-                reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+                reference, runs = threading_theta_variants(cohort, config, variants; search = search)
                 for run in runs
                     @test threading_bits(run[1]) == threading_bits(reference[1])
                     @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -859,7 +880,7 @@ end
     for search in (:local, :discovery)
         @testset "$search" begin
             cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             for run in runs
                 @test threading_bits(run[1]) == threading_bits(reference[1])
                 @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -887,7 +908,7 @@ end
             )
             for schedule in (:auto, :serial, :parallel)
                 @test GN.set_theta!(
-                    world, config; search=search, chunk=4, schedule=schedule
+                    world, config; search = search, chunk = 4, schedule = schedule
                 ) === nothing
             end
             after = (
@@ -912,7 +933,7 @@ end
                 regimes = threading_regimes(Random.MersenneTwister(8), n)
                 variants = ((chunk, :parallel), (chunk, :auto))
                 cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-                reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+                reference, runs = threading_theta_variants(cohort, config, variants; search = search)
                 for run in runs
                     @test threading_bits(run[1]) == threading_bits(reference[1])
                     @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -936,7 +957,7 @@ end
                 regimes = threading_regimes(Random.MersenneTwister(8), n)
                 variants = ((chunk, :parallel),)
                 cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-                reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+                reference, runs = threading_theta_variants(cohort, config, variants; search = search)
                 for run in runs
                     @test threading_bits(run[1]) == threading_bits(reference[1])
                     @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -954,20 +975,20 @@ end
     # between workers, never change results (TASK-0025 item 7).
     config = GN.UtilityConfig()
     easy = (
-        h_w=0.5, h_w_old=0.5, h_m=0.5, h_m_old=0.5, theta=0.0, theta_old=0.0,
-        c_w=0.0, c_m=0.0, wage_w=1.0, wage_m=1.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.5, h_w_old = 0.5, h_m = 0.5, h_m_old = 0.5, theta = 0.0, theta_old = 0.0,
+        c_w = 0.0, c_m = 0.0, wage_w = 1.0, wage_m = 1.0, pref_w = 0.5, pref_m = 0.5,
     )
     hard = (
-        h_w=0.05, h_w_old=0.2, h_m=0.98, h_m_old=0.8, theta=0.93, theta_old=-0.6,
-        c_w=12.0, c_m=25.0, wage_w=0.15, wage_m=3.5, pref_w=0.85, pref_m=0.15,
+        h_w = 0.05, h_w_old = 0.2, h_m = 0.98, h_m_old = 0.8, theta = 0.93, theta_old = -0.6,
+        c_w = 12.0, c_m = 25.0, wage_w = 0.15, wage_m = 3.5, pref_w = 0.85, pref_m = 0.15,
     )
     fallback = (
-        h_w=0.3, h_w_old=0.3, h_m=0.7, h_m_old=0.7, theta=-0.7, theta_old=0.2,
-        c_w=5.0, c_m=5.0, wage_w=0.0, wage_m=0.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.3, h_w_old = 0.3, h_m = 0.7, h_m_old = 0.7, theta = -0.7, theta_old = 0.2,
+        c_w = 5.0, c_m = 5.0, wage_w = 0.0, wage_m = 0.0, pref_w = 0.5, pref_m = 0.5,
     )
     corner = (
-        h_w=0.0, h_w_old=0.1, h_m=1.0, h_m_old=0.9, theta=-0.999, theta_old=0.999,
-        c_w=25.0, c_m=1.0, wage_w=4.0, wage_m=0.05, pref_w=0.02, pref_m=0.98,
+        h_w = 0.0, h_w_old = 0.1, h_m = 1.0, h_m_old = 0.9, theta = -0.999, theta_old = 0.999,
+        c_w = 25.0, c_m = 1.0, wage_w = 4.0, wage_m = 0.05, pref_w = 0.02, pref_m = 0.98,
     )
     families = (easy, hard, fallback, corner)
     regimes = [families[mod1(i, 4)] for i in 1:24]
@@ -975,7 +996,7 @@ end
     for search in (:local, :discovery)
         @testset "$search" begin
             cohort = threading_cohort(GN.NoNetwork(), :connected, 24, 7, regimes, length(variants) + 1)
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             for run in runs
                 @test threading_bits(run[1]) == threading_bits(reference[1])
                 @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -992,20 +1013,20 @@ end
     # cannot hide a divergence (TASK-0025 item 8).
     config = GN.UtilityConfig()
     zero_wage_neg = (
-        h_w=0.3, h_w_old=0.3, h_m=0.6, h_m_old=0.6, theta=-0.0, theta_old=0.4,
-        c_w=1.0, c_m=1.0, wage_w=0.0, wage_m=0.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.3, h_w_old = 0.3, h_m = 0.6, h_m_old = 0.6, theta = -0.0, theta_old = 0.4,
+        c_w = 1.0, c_m = 1.0, wage_w = 0.0, wage_m = 0.0, pref_w = 0.5, pref_m = 0.5,
     )
     zero_wage_pos = (
-        h_w=0.3, h_w_old=0.3, h_m=0.6, h_m_old=0.6, theta=0.0, theta_old=0.4,
-        c_w=1.0, c_m=1.0, wage_w=0.0, wage_m=0.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.3, h_w_old = 0.3, h_m = 0.6, h_m_old = 0.6, theta = 0.0, theta_old = 0.4,
+        c_w = 1.0, c_m = 1.0, wage_w = 0.0, wage_m = 0.0, pref_w = 0.5, pref_m = 0.5,
     )
     symmetric_neg = (
-        h_w=0.5, h_w_old=0.5, h_m=0.5, h_m_old=0.5, theta=-0.0, theta_old=0.3,
-        c_w=0.0, c_m=0.0, wage_w=1.0, wage_m=1.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.5, h_w_old = 0.5, h_m = 0.5, h_m_old = 0.5, theta = -0.0, theta_old = 0.3,
+        c_w = 0.0, c_m = 0.0, wage_w = 1.0, wage_m = 1.0, pref_w = 0.5, pref_m = 0.5,
     )
     symmetric_pos = (
-        h_w=0.5, h_w_old=0.5, h_m=0.5, h_m_old=0.5, theta=0.0, theta_old=0.3,
-        c_w=0.0, c_m=0.0, wage_w=1.0, wage_m=1.0, pref_w=0.5, pref_m=0.5,
+        h_w = 0.5, h_w_old = 0.5, h_m = 0.5, h_m_old = 0.5, theta = 0.0, theta_old = 0.3,
+        c_w = 0.0, c_m = 0.0, wage_w = 1.0, wage_m = 1.0, pref_w = 0.5, pref_m = 0.5,
     )
     regimes = [
         zero_wage_neg,
@@ -1013,27 +1034,27 @@ end
         symmetric_neg,
         symmetric_pos,
         (
-            h_w=0.35, h_w_old=0.3, h_m=0.72, h_m_old=0.7, theta=-0.0, theta_old=0.1,
-            c_w=2.0, c_m=1.5, wage_w=1.2, wage_m=0.8, pref_w=0.4, pref_m=0.6,
+            h_w = 0.35, h_w_old = 0.3, h_m = 0.72, h_m_old = 0.7, theta = -0.0, theta_old = 0.1,
+            c_w = 2.0, c_m = 1.5, wage_w = 1.2, wage_m = 0.8, pref_w = 0.4, pref_m = 0.6,
         ),
         (
-            h_w=0.55, h_w_old=0.5, h_m=0.85, h_m_old=0.8, theta=0.0, theta_old=0.2,
-            c_w=1.0, c_m=2.5, wage_w=0.9, wage_m=1.1, pref_w=0.5, pref_m=0.45,
+            h_w = 0.55, h_w_old = 0.5, h_m = 0.85, h_m_old = 0.8, theta = 0.0, theta_old = 0.2,
+            c_w = 1.0, c_m = 2.5, wage_w = 0.9, wage_m = 1.1, pref_w = 0.5, pref_m = 0.45,
         ),
         (
-            h_w=0.35, h_w_old=0.3, h_m=0.72, h_m_old=0.7, theta=-0.31, theta_old=0.1,
-            c_w=2.0, c_m=1.5, wage_w=1.2, wage_m=0.8, pref_w=0.4, pref_m=0.6,
+            h_w = 0.35, h_w_old = 0.3, h_m = 0.72, h_m_old = 0.7, theta = -0.31, theta_old = 0.1,
+            c_w = 2.0, c_m = 1.5, wage_w = 1.2, wage_m = 0.8, pref_w = 0.4, pref_m = 0.6,
         ),
         (
-            h_w=0.55, h_w_old=0.5, h_m=0.85, h_m_old=0.8, theta=0.42, theta_old=0.2,
-            c_w=1.0, c_m=2.5, wage_w=0.9, wage_m=1.1, pref_w=0.5, pref_m=0.45,
+            h_w = 0.55, h_w_old = 0.5, h_m = 0.85, h_m_old = 0.8, theta = 0.42, theta_old = 0.2,
+            c_w = 1.0, c_m = 2.5, wage_w = 0.9, wage_m = 1.1, pref_w = 0.5, pref_m = 0.45,
         ),
     ]
     variants = ((3, :parallel), (3, :serial), (3, :auto))
     for search in (:local, :discovery)
         @testset "$search" begin
             cohort = threading_cohort(GN.NoNetwork(), :connected, 8, 7, regimes, length(variants) + 1)
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             for (women_snap, men_snap) in vcat([reference], runs)
                 # Households 1 and 2 (zero wages, non-finite outside
                 # options) and households 3 and 4 (symmetric, the
@@ -1070,7 +1091,7 @@ end
     for search in (:local, :discovery)
         @testset "$search" begin
             cohort = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, length(variants) + 1)
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             for run in runs
                 @test threading_bits(run[1]) == threading_bits(reference[1])
                 @test threading_bits(run[2]) == threading_bits(reference[2])
@@ -1081,11 +1102,11 @@ end
 
 @testset "set_theta! validates chunk and schedule before touching the world" begin
     config = GN.UtilityConfig()
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk=0)
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk=-1)
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk=-3, schedule=:parallel)
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; schedule=:bogus)
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; search=:unknown)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk = 0)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk = -1)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; chunk = -3, schedule = :parallel)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; schedule = :bogus)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; search = :unknown)
     # All validation precedes every write and every worker task: a
     # populated world is bit-untouched by the failing calls
     # (TASK-0025 item 12).
@@ -1095,10 +1116,10 @@ end
         threading_bits(threading_snapshot(world, women)),
         threading_bits(threading_snapshot(world, men)),
     )
-    @test_throws ArgumentError GN.set_theta!(world, config; chunk=0, schedule=:parallel)
-    @test_throws ArgumentError GN.set_theta!(world, config; chunk=-1, schedule=:parallel)
-    @test_throws ArgumentError GN.set_theta!(world, config; chunk=4, schedule=:bogus)
-    @test_throws ArgumentError GN.set_theta!(world, config; search=:unknown, schedule=:parallel)
+    @test_throws ArgumentError GN.set_theta!(world, config; chunk = 0, schedule = :parallel)
+    @test_throws ArgumentError GN.set_theta!(world, config; chunk = -1, schedule = :parallel)
+    @test_throws ArgumentError GN.set_theta!(world, config; chunk = 4, schedule = :bogus)
+    @test_throws ArgumentError GN.set_theta!(world, config; search = :unknown, schedule = :parallel)
     after = (
         threading_bits(threading_snapshot(world, women)),
         threading_bits(threading_snapshot(world, men)),
@@ -1136,7 +1157,7 @@ end
             world_o, women_o, men_o = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, 1)[1]
             ghost_o = threading_unindexed_spouse!(world_o, women_o, men_o)
             entities_o = vcat(women_o, men_o, [ghost_o])
-            err_o = threading_captured(() -> serial_set_theta!(world_o, config; search=search))
+            err_o = threading_captured(() -> serial_set_theta!(world_o, config; search = search))
             @test err_o isa ArgumentError
             @test err_o isa ArgumentError &&
                 occursin("man is not in the men entity vector", err_o.msg)
@@ -1146,7 +1167,7 @@ end
             # Recovery oracle: the deterministic failed state plus one
             # full `set_theta!` application on the repaired world.
             Ark.set_components!(world_o, women_o[end], (GN.Spouse(men_o[end]),))
-            @test serial_set_theta!(world_o, config; search=search) === nothing
+            @test serial_set_theta!(world_o, config; search = search) === nothing
             recovery_o = threading_state_bits(world_o, entities_o)
 
             for (chunk, schedule) in variants
@@ -1154,9 +1175,11 @@ end
                     world, women, men = threading_cohort(GN.NoNetwork(), :connected, n, 7, regimes, 1)[1]
                     ghost = threading_unindexed_spouse!(world, women, men)
                     entities = vcat(women, men, [ghost])
-                    err = threading_captured(() -> GN.set_theta!(
-                        world, config; search=search, chunk=chunk, schedule=schedule
-                    ))
+                    err = threading_captured(
+                        () -> GN.set_theta!(
+                            world, config; search = search, chunk = chunk, schedule = schedule
+                        )
+                    )
                     # The call throws and the root cause of the chain is
                     # the guard `ArgumentError`; no other failure kind
                     # appears anywhere in it.
@@ -1198,7 +1221,7 @@ end
                     # recovery state.
                     Ark.set_components!(world, women[end], (GN.Spouse(men[end]),))
                     @test GN.set_theta!(
-                        world, config; search=search, chunk=chunk, schedule=schedule
+                        world, config; search = search, chunk = chunk, schedule = schedule
                     ) === nothing
                     @test threading_state_bits(world, entities) == recovery_o
                 end
@@ -1240,14 +1263,16 @@ end
             # Fixture sanity: the query really iterates more than one
             # batch, and every woman is still in exactly one of them.
             world_a, _, _ = cohort[1]
-            groups = collect(Ark.Query(
-                world_a,
-                (GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism, GN.PreferencePrivate, GN.Spouse);
-                with=(GN.Female,),
-            ))
+            groups = collect(
+                Ark.Query(
+                    world_a,
+                    (GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism, GN.PreferencePrivate, GN.Spouse, GN.CommittedUtility);
+                    with = (GN.Female,),
+                )
+            )
             @test length(groups) >= 2
             @test sum(batch -> length(first(batch)), groups) == n
-            reference, runs = threading_theta_variants(cohort, config, variants; search=search)
+            reference, runs = threading_theta_variants(cohort, config, variants; search = search)
             for run in runs
                 @test threading_bits(run[1]) == threading_bits(reference[1])
                 @test threading_bits(run[2]) == threading_bits(reference[2])

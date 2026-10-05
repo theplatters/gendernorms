@@ -46,7 +46,7 @@ if !isdefined(@__MODULE__, :veq)
     `isequal` otherwise (and for non-finite values).
     """
     veq(a::Float64, b::Float64)::Bool =
-        (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol=1.0e-10, rtol=1.0e-9) : isequal(a, b)
+        (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol = 1.0e-10, rtol = 1.0e-9) : isequal(a, b)
 end
 
 # `MDR-0017` validated-equivalence helpers (defined in
@@ -82,8 +82,8 @@ if !isdefined(@__MODULE__, :solver_relaxed)
     `test/test_bargaining_equivalence.jl`).
     """
     function equiv(
-        a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64=0.0
-    )::Bool
+            a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64 = 0.0
+        )::Bool
         relaxed && return (isfinite(a) && isfinite(b)) ?
             abs(a - b) <= atol + rtol * max(abs(a), abs(b)) : isequal(a, b)
         arith_changed(config) && return veq(a, b)
@@ -127,7 +127,7 @@ function cert_config(utility::String, beta::Float64, weights)
     if utility == "additive"
         func = GN.Additive()
     elseif utility == "ces"
-        func = GN.CES(beta=beta)
+        func = GN.CES(beta = beta)
     elseif utility == "multiplicative"
         func = GN.Multiplicative()
     elseif utility == "multiplicative_weighted"
@@ -136,7 +136,7 @@ function cert_config(utility::String, beta::Float64, weights)
         error("unknown utility spec $(repr(utility))")
     end
     return GN.UtilityConfig(
-        func=func, w_self=w_self, w_partner=w_partner, w_transfer=w_transfer
+        func = func, w_self = w_self, w_partner = w_partner, w_transfer = w_transfer
     )
 end
 
@@ -155,12 +155,12 @@ function real_payer_material(spec, x::Float64, Q::Float64, alpha::Float64)
 end
 
 @testset "bargain certificate: envelope dominates brute force" begin
-    rng = MersenneTwister(0x0EA7E1)
+    rng = MersenneTwister(0x000EA7E1)
     specs = (
         GN.Additive(),
-        GN.CES(beta=0.2),
-        GN.CES(beta=0.5),
-        GN.CES(beta=1.5),
+        GN.CES(beta = 0.2),
+        GN.CES(beta = 0.5),
+        GN.CES(beta = 1.5),
         GN.Multiplicative(),
         GN.MultiplicativeWeighted(),
     )
@@ -176,7 +176,7 @@ end
         bound = GN._material_envelope(spec, q, d, alpha, recipient)
         isnan(bound) && continue
         grid_max = 0.0
-        for v in range(0.0, d; length=4001)
+        for v in range(0.0, d; length = 4001)
             x = q * v
             Q = 2.0 - v
             value = recipient ? GN.material(spec, x, Q, alpha) :
@@ -197,9 +197,9 @@ end
     @test isnan(GN._material_envelope(GN.Additive(), 1.0, 0.0, 0.5, true))
     @test isnan(GN._material_envelope(GN.Additive(), 1.0, 1.0, -0.1, true))
     @test isnan(GN._material_envelope(GN.Additive(), 1.0, 1.0, 1.1, true))
-    @test isnan(GN._material_envelope(GN.CES(beta=0.0), 1.0, 1.0, 0.5, true))
-    @test isnan(GN._material_envelope(GN.CES(beta=-0.5), 1.0, 1.0, 0.5, true))
-    @test isnan(GN._material_envelope(GN.CES(beta=NaN), 1.0, 1.0, 0.5, true))
+    @test isnan(GN._material_envelope(GN.CES(beta = 0.0), 1.0, 1.0, 0.5, true))
+    @test isnan(GN._material_envelope(GN.CES(beta = -0.5), 1.0, 1.0, 0.5, true))
+    @test isnan(GN._material_envelope(GN.CES(beta = NaN), 1.0, 1.0, 0.5, true))
     @test isnan(GN._material_envelope(GN.Multiplicative(), Inf, 1.0, 0.5, true))
 end
 
@@ -211,7 +211,7 @@ end
     # the envelope candidates, and keep the analytic maximizer of the
     # closed form. Checked on dense brute-force grids with tiny, huge,
     # and asymmetric wages and alpha at and near its endpoints.
-    spec = GN.CES(beta=0.5)
+    spec = GN.CES(beta = 0.5)
     qs = (1.0e-8, 0.05, 0.125, 0.5, 1.0, 2.0, 40.0)
     alphas = (0.0, 1.0e-8, 0.1, 0.5, 0.9, 1.0 - 1.0e-8, 1.0)
     checked = 0
@@ -223,7 +223,7 @@ end
         # candidate, so the only slack is the rounding of the computed
         # consumption and leisure against `q * v` and `2 - v`).
         grid_max = 0.0
-        for v in range(0.0, d; length=20001)
+        for v in range(0.0, d; length = 20001)
             value = GN.material(spec, q * v, 2.0 - v, alpha)
             value > grid_max && (grid_max = value)
         end
@@ -258,18 +258,18 @@ end
     # computed `individual_utility` over a dense hours grid.
     margin = GN.OBJECTIVE_CERT_MARGIN
     for (wage_self, wage_spouse) in ((1.0e-8, 1.0), (1.0, 40.0), (40.0, 1.0), (0.125, 0.25)),
-        is_woman in (true, false),
-        theta in (-1.0, -0.3, 0.0, 0.3, 1.0)
+            is_woman in (true, false),
+            theta in (-1.0, -0.3, 0.0, 0.3, 1.0)
         config = cert_config("ces", 0.5, (1.0, 1.0, 1.0))
         p = GN.AgentPayoffParams(
-            wage_self=wage_self, wage_spouse=wage_spouse,
-            alpha=0.4, conformism=10.0,
-            N_h=0.5, N_theta=0.1, N_h_spouse=0.5, is_woman=is_woman,
+            wage_self = wage_self, wage_spouse = wage_spouse,
+            alpha = 0.4, conformism = 10.0,
+            N_h = 0.5, N_theta = 0.1, N_h_spouse = 0.5, is_woman = is_woman,
         )
         bound = GN._payoff_upper_bound(theta, p, config)
         isnan(bound) && continue
         worst = -Inf
-        for h_self in range(0.0, 1.0; length=201), h_spouse in range(0.0, 1.0; length=201)
+        for h_self in range(0.0, 1.0; length = 201), h_spouse in range(0.0, 1.0; length = 201)
             u = GN.individual_utility(h_self, h_spouse, theta, p, config)
             u > worst && (worst = u)
         end
@@ -305,20 +305,20 @@ end
     thetas = (-1.0, -0.3, 0.0, 0.3, 1.0)
     weights = ((1.0, 1.0, 1.0), (0.0, 0.0, 0.0), (0.5, 2.0, 1.5))
     margin = GN.OBJECTIVE_CERT_MARGIN
-    hours = range(0.0, 1.0; length=101)
+    hours = range(0.0, 1.0; length = 101)
     draws = 0
     bounded = 0
     for (utility, beta) in specs, is_woman in (true, false), _ in 1:25
         config = cert_config(utility, beta, rand(rng, weights))
         wage_self, wage_spouse = rand(rng, wage_pairs)
         p = GN.AgentPayoffParams(
-            wage_self=wage_self, wage_spouse=wage_spouse,
-            alpha=rand(rng, alphas),
-            conformism=rand(rng, conformisms),
-            N_h=rand(rng) * 1.5 - 0.25,
-            N_theta=rand(rng) * 2.0 - 1.0,
-            N_h_spouse=rand(rng) * 1.5 - 0.25,
-            is_woman=is_woman,
+            wage_self = wage_self, wage_spouse = wage_spouse,
+            alpha = rand(rng, alphas),
+            conformism = rand(rng, conformisms),
+            N_h = rand(rng) * 1.5 - 0.25,
+            N_theta = rand(rng) * 2.0 - 1.0,
+            N_h_spouse = rand(rng) * 1.5 - 0.25,
+            is_woman = is_woman,
         )
         theta = rand(rng, thetas)
         draws += 1
@@ -352,12 +352,12 @@ end
     # `_objective_prunable` certify while `nash_product` stayed finite.
     config = cert_config("ces", 1.0e-12, (0.0, 0.0, 0.0))
     pm = GN.AgentPayoffParams(
-        wage_self=0.125, wage_spouse=0.25, alpha=0.3, conformism=0.0,
-        N_h=0.0, N_theta=0.0, N_h_spouse=0.0, is_woman=false,
+        wage_self = 0.125, wage_spouse = 0.25, alpha = 0.3, conformism = 0.0,
+        N_h = 0.0, N_theta = 0.0, N_h_spouse = 0.0, is_woman = false,
     )
     pw = GN.AgentPayoffParams(
-        wage_self=0.25, wage_spouse=0.125, alpha=0.3, conformism=0.0,
-        N_h=0.0, N_theta=0.0, N_h_spouse=0.0, is_woman=true,
+        wage_self = 0.25, wage_spouse = 0.125, alpha = 0.3, conformism = 0.0,
+        N_h = 0.0, N_theta = 0.0, N_h_spouse = 0.0, is_woman = true,
     )
     theta = 0.2
     u = GN.individual_utility(598 / 1001, 0.0, theta, pm, config)
@@ -382,7 +382,7 @@ end
     bound = GN._payoff_upper_bound(theta, pm, config_floor)
     @test isfinite(bound)
     worst = -Inf
-    for h_self in range(0.0, 1.0; length=101), h_spouse in range(0.0, 1.0; length=101)
+    for h_self in range(0.0, 1.0; length = 101), h_spouse in range(0.0, 1.0; length = 101)
         v = GN.individual_utility(h_self, h_spouse, theta, pm, config_floor)
         v > worst && (worst = v)
     end
@@ -390,7 +390,7 @@ end
 end
 
 @testset "bargain certificate: soundness fuzz" begin
-    rng = MersenneTwister(0x5A17D)
+    rng = MersenneTwister(0x0005A17D)
     specs = (
         ("additive", 0.5),
         ("ces", 0.2),
@@ -412,32 +412,34 @@ end
     for _ in 1:1400
         utility, beta = rand(rng, specs)
         config = cert_config(utility, beta, rand(rng, weights))
-        wage_pair = rand(rng, (
-            (0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 40.0), (40.0, 1.0),
-            (0.05, 2.0), (2.0, 0.05),
-        ))
+        wage_pair = rand(
+            rng, (
+                (0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 40.0), (40.0, 1.0),
+                (0.05, 2.0), (2.0, 0.05),
+            )
+        )
         if rand(rng) < 0.5
             wage_pair = (wage_pair[1] * rand(rng), wage_pair[2] * rand(rng))
         end
         pw = GN.AgentPayoffParams(
-            wage_self=wage_pair[1],
-            wage_spouse=wage_pair[2],
-            alpha=rand(rng, alphas),
-            conformism=rand(rng, conformisms) * (rand(rng) < 0.5 ? 1.0 : rand(rng)),
-            N_h=rand(rng) * 1.5 - 0.25,
-            N_theta=rand(rng) * 2.0 - 1.0,
-            N_h_spouse=rand(rng) * 1.5 - 0.25,
-            is_woman=true,
+            wage_self = wage_pair[1],
+            wage_spouse = wage_pair[2],
+            alpha = rand(rng, alphas),
+            conformism = rand(rng, conformisms) * (rand(rng) < 0.5 ? 1.0 : rand(rng)),
+            N_h = rand(rng) * 1.5 - 0.25,
+            N_theta = rand(rng) * 2.0 - 1.0,
+            N_h_spouse = rand(rng) * 1.5 - 0.25,
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=wage_pair[2],
-            wage_spouse=wage_pair[1],
-            alpha=rand(rng, alphas),
-            conformism=rand(rng, conformisms) * (rand(rng) < 0.5 ? 1.0 : rand(rng)),
-            N_h=rand(rng) * 1.5 - 0.25,
-            N_theta=rand(rng) * 2.0 - 1.0,
-            N_h_spouse=rand(rng) * 1.5 - 0.25,
-            is_woman=false,
+            wage_self = wage_pair[2],
+            wage_spouse = wage_pair[1],
+            alpha = rand(rng, alphas),
+            conformism = rand(rng, conformisms) * (rand(rng) < 0.5 ? 1.0 : rand(rng)),
+            N_h = rand(rng) * 1.5 - 0.25,
+            N_theta = rand(rng) * 2.0 - 1.0,
+            N_h_spouse = rand(rng) * 1.5 - 0.25,
+            is_woman = false,
         )
         hw_init = rand(rng, (0.0, 1.0, 0.5)) + (rand(rng) < 0.5 ? 0.0 : 0.4 * rand(rng))
         hm_init = rand(rng, (0.0, 1.0, 0.5)) + (rand(rng) < 0.5 ? 0.0 : 0.4 * rand(rng))
@@ -457,16 +459,20 @@ end
         for theta in thetas
             decisions += 1
             prunable = GN._objective_prunable(theta, uw_out, um_out, pw, pm, config)
-            payoff = first(equilibrium_payoff_reference(
-                theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
-            ))
+            payoff = first(
+                equilibrium_payoff_reference(
+                    theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
+                )
+            )
             # Objective-level equality: the live solver chain equals the
             # frozen reference bitwise where the arithmetic is unchanged
             # and within the `MDR-0013` validated-equivalence envelope
             # for `CES` `beta == 0.5`.
-            live_payoff = first(GN.equilibrium_payoff(
-                theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
-            ))
+            live_payoff = first(
+                GN.equilibrium_payoff(
+                    theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
+                )
+            )
             relaxed = solver_relaxed(config, theta0, pw, pm)
             @test payoff_equiv(live_payoff, payoff, config, relaxed)
             if prunable
@@ -503,14 +509,14 @@ end
     )
     for (config, wage_self, wage_spouse, conformism, alpha, n_theta) in cases
         pw = GN.AgentPayoffParams(
-            wage_self=wage_self, wage_spouse=wage_spouse, alpha=alpha,
-            conformism=conformism, N_h=0.5, N_theta=n_theta, N_h_spouse=0.5,
-            is_woman=true,
+            wage_self = wage_self, wage_spouse = wage_spouse, alpha = alpha,
+            conformism = conformism, N_h = 0.5, N_theta = n_theta, N_h_spouse = 0.5,
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=wage_spouse, wage_spouse=wage_self, alpha=alpha,
-            conformism=conformism, N_h=0.5, N_theta=n_theta, N_h_spouse=0.5,
-            is_woman=false,
+            wage_self = wage_spouse, wage_spouse = wage_self, alpha = alpha,
+            conformism = conformism, N_h = 0.5, N_theta = n_theta, N_h_spouse = 0.5,
+            is_woman = false,
         )
         hw_init, hm_init = 0.5, 0.5
         uw_out, um_out = outside_options_reference(hw_init, hm_init, pw, pm, config)
@@ -525,7 +531,7 @@ end
         bracket = nothing
         prev_theta = -1.0
         prev_decision = certified(prev_theta)
-        for theta in range(-1.0, 1.0; length=2001)
+        for theta in range(-1.0, 1.0; length = 2001)
             decision = certified(theta)
             if decision != prev_decision
                 # Keep two consecutive grid points with opposite
@@ -560,16 +566,20 @@ end
         @test certified(lo) != certified(hi)
         for theta in (lo, hi, prevfloat(lo), nextfloat(hi))
             prunable = GN._objective_prunable(theta, uw_out, um_out, pw, pm, config)
-            payoff = first(equilibrium_payoff_reference(
-                theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
-            ))
+            payoff = first(
+                equilibrium_payoff_reference(
+                    theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
+                )
+            )
             if prunable
                 @test isequal(payoff, -Inf)
             end
             objective_value = prunable ? -Inf :
-                first(GN.equilibrium_payoff(
-                    theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
-                ))
+                first(
+                    GN.equilibrium_payoff(
+                        theta, hw_status, hm_status, uw_out, um_out, pw, pm, config
+                    )
+                )
             relaxed = solver_relaxed(config, theta, pw, pm)
             @test equiv(objective_value, payoff, VE_PAYOFF_ATOL, config, relaxed)
         end
@@ -596,18 +606,18 @@ end
     # result contract is checked in `test/test_bargaining_equivalence.jl`
     # and `test/test_transfer_search.jl` (see `MDR-0012`).
     for (utility, beta) in specs, alpha in (0.0, 1.0), (w_self, w_spouse) in (
-        (0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 40.0), (40.0, 1.0),
-    ), theta_init in (-1.0, 1.0, -1.5, 1.5, 0.0, -0.0), weights in (
-        (1.0, 1.0, 1.0), (0.0, 0.0, 0.0),
-    ), conformism in (0.0, 50.0)
+                (0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 40.0), (40.0, 1.0),
+            ), theta_init in (-1.0, 1.0, -1.5, 1.5, 0.0, -0.0), weights in (
+                (1.0, 1.0, 1.0), (0.0, 0.0, 0.0),
+            ), conformism in (0.0, 50.0)
         config = cert_config(utility, beta, weights)
         pw = GN.AgentPayoffParams(
-            wage_self=w_self, wage_spouse=w_spouse, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+            wage_self = w_self, wage_spouse = w_spouse, alpha = alpha, conformism = conformism,
+            N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=w_spouse, wage_spouse=w_self, alpha=alpha, conformism=conformism,
-            N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+            wage_self = w_spouse, wage_spouse = w_self, alpha = alpha, conformism = conformism,
+            N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
         )
         theta0 = clamp(theta_init, -1.0, 1.0)
         relaxed = solver_relaxed(config, theta0, pw, pm)
@@ -617,8 +627,8 @@ end
         @test equiv(live_mbr[2], ref_mbr[2], VE_HOURS_ATOL, config, relaxed)
         live_uw, live_um = GN.outside_options(0.5, 0.4, pw, pm, config)
         ref_uw, ref_um = outside_options_reference(0.5, 0.4, pw, pm, config)
-        @test equiv(live_uw, ref_uw, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
-        @test equiv(live_um, ref_um, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
+        @test equiv(live_uw, ref_uw, VE_UTIL_ATOL, config, relaxed; rtol = VE_UTIL_RTOL)
+        @test equiv(live_um, ref_um, VE_UTIL_ATOL, config, relaxed; rtol = VE_UTIL_RTOL)
         @test payoff_equiv(
             GN.nash_product(theta0, live_mbr..., live_uw, live_um, pw, pm, config),
             nash_product_reference(theta0, ref_mbr..., ref_uw, ref_um, pw, pm, config),
@@ -626,12 +636,16 @@ end
         )
         for theta in (-1.0, -0.3, 0.0, 0.3, 1.0)
             prunable = GN._objective_prunable(theta, live_uw, live_um, pw, pm, config)
-            ref_payoff = first(equilibrium_payoff_reference(
-                theta, ref_mbr..., ref_uw, ref_um, pw, pm, config
-            ))
-            live_payoff = first(GN.equilibrium_payoff(
-                theta, live_mbr..., live_uw, live_um, pw, pm, config
-            ))
+            ref_payoff = first(
+                equilibrium_payoff_reference(
+                    theta, ref_mbr..., ref_uw, ref_um, pw, pm, config
+                )
+            )
+            live_payoff = first(
+                GN.equilibrium_payoff(
+                    theta, live_mbr..., live_uw, live_um, pw, pm, config
+                )
+            )
             @test payoff_equiv(live_payoff, ref_payoff, config, relaxed)
             if prunable
                 # The certificate bounds the computed utility over every
@@ -665,8 +679,9 @@ function GN.material(::ProbeCounted, x::Float64, Q::Float64, alpha::Float64)
     return alpha * sqrt(x) + (1.0 - alpha) * sqrt(Q)
 end
 
-function GN.material(::ProbeCountedNaN, x::Float64, Q::Float64, alpha::Float64
-)
+function GN.material(
+        ::ProbeCountedNaN, x::Float64, Q::Float64, alpha::Float64
+    )
     PROBE_COUNT[] += 1
     return NaN
 end
@@ -704,8 +719,8 @@ with the probe `config`, which must use one of the counting probe
 specs.
 """
 function probe_replay_count(
-    theta_init::Float64, pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config
-)
+        theta_init::Float64, pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config
+    )
     theta0 = clamp(theta_init, -1.0, 1.0)
     before = PROBE_COUNT[]
     hw_out, hm_out = GN.mutual_best_response(0.5, 0.4, 0.0, pw, pm, config)
@@ -719,17 +734,17 @@ end
 
 @testset "bargain certificate: non-finite-outside fast path" begin
     pw = GN.AgentPayoffParams(
-        wage_self=0.6, wage_spouse=1.2, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.2, wage_spouse=0.6, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
     )
     for theta_init in (0.0, 0.3, -0.3)
         # Control run with finite outside options: the search runs and
         # evaluates more utilities than the pre-search phase alone.
-        config = GN.UtilityConfig(func=ProbeCounted())
+        config = GN.UtilityConfig(func = ProbeCounted())
         expected = probe_replay_count(theta_init, pw, pm, config)
         PROBE_COUNT[] = 0
         live = GN.bargain_transfer(0.5, 0.4, theta_init, pw, pm, config)
@@ -741,7 +756,7 @@ end
         # pre-search phase exactly, and the result stays bit-identical
         # to the frozen reference (which runs the full search on an
         # all-non-finite objective and falls back to the status quo).
-        config_nan = GN.UtilityConfig(func=ProbeCountedNaN())
+        config_nan = GN.UtilityConfig(func = ProbeCountedNaN())
         expected_nan = probe_replay_count(theta_init, pw, pm, config_nan)
         PROBE_COUNT[] = 0
         live_nan = GN.bargain_transfer(0.5, 0.4, theta_init, pw, pm, config_nan)
@@ -759,12 +774,12 @@ end
 
 @testset "bargain certificate: decision helper allocations" begin
     pw = GN.AgentPayoffParams(
-        wage_self=0.6, wage_spouse=1.2, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.2, wage_spouse=0.6, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
     )
     config = cert_config("ces", 0.5, (1.0, 1.0, 1.0))
     GN._objective_prunable(0.3, 1.0, 1.0, pw, pm, config)

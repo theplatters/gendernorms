@@ -116,8 +116,8 @@ non-finite or subnormal (see `_envelope_peak`). The argument
 `ADR-0015`, not a ported NetLogo behavior.
 """
 function _material_envelope(
-    ::Additive, q::Float64, d::Float64, alpha::Float64, recipient::Bool
-)::Float64
+        ::Additive, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+    )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
     ok || return NaN
@@ -237,8 +237,8 @@ floor when the whole sum underflows. The argument `recipient` is
 unused for this spec. See `ADR-0015` and `ADR-0019`.
 """
 function _material_envelope(
-    u::CES, q::Float64, d::Float64, alpha::Float64, recipient::Bool
-)::Float64
+        u::CES, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+    )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
     ok || return NaN
@@ -305,8 +305,8 @@ material function, but the uniform input guards apply. See
 `ADR-0015`.
 """
 function _material_envelope(
-    ::Multiplicative, q::Float64, d::Float64, alpha::Float64, recipient::Bool
-)::Float64
+        ::Multiplicative, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+    )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
     ok || return NaN
@@ -326,8 +326,8 @@ maximizer `v* = clamp(2*alpha/(1+alpha), 0, d)`. The argument
 `individual_utility` takes. See `ADR-0015`.
 """
 function _material_envelope(
-    ::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64, recipient::Bool
-)::Float64
+        ::MultiplicativeWeighted, q::Float64, d::Float64, alpha::Float64, recipient::Bool
+    )::Float64
     ok = isfinite(q) && q > 0.0 && isfinite(d) && d > 0.0 &&
         isfinite(alpha) && 0.0 <= alpha <= 1.0
     ok || return NaN
@@ -391,7 +391,7 @@ see the record). The formula is the `individual_utility` of NetLogo
 `calculate-utility` (ODD sections Material utility and conformity
 multiplier and Norm perception).
 """
-struct BestResponseObjective{S<:UtilitySpec}
+struct BestResponseObjective{S <: UtilitySpec}
     func::S
     alpha::Float64
     one_minus_alpha::Float64
@@ -420,9 +420,9 @@ computed exactly as `individual_utility` derives them. Returns the
 callable objective.
 """
 function BestResponseObjective(
-    theta::Float64, h_spouse::Float64,
-    self_params::AgentPayoffParams, config::UtilityConfig{S}
-) where {S}
+        theta::Float64, h_spouse::Float64,
+        self_params::AgentPayoffParams, config::UtilityConfig{S}
+    ) where {S}
     relevant_transfer = self_params.is_woman ? -theta : theta
     recipient = relevant_transfer < 0
     transfer_income::Float64 = 0.0
@@ -532,8 +532,8 @@ Return the best finite `(point, value)`; non-finite values remain worst.
 The original unseeded variant retains its golden-section initialization.
 """
 function _brent_maximize(
-    f::F, a::Float64, b::Float64, tol::Float64, max_iter::Int, x0::Float64
-) where {F}
+        f::F, a::Float64, b::Float64, tol::Float64, max_iter::Int, x0::Float64
+    ) where {F}
     a <= x0 <= b || throw(ArgumentError("Brent seed must lie in the bracket"))
     cgold::Float64 = 0.3819660112501051
     lo::Float64 = a
@@ -683,9 +683,9 @@ no finite sample. Returns `NaN` only when neither search found a finite
 sample.
 """
 function maximize_1d(
-    f::F, a::Float64, b::Float64, x0::Float64, w::Float64, tol::Float64;
-    max_iter::Int = 64
-) where {F}
+        f::F, a::Float64, b::Float64, x0::Float64, w::Float64, tol::Float64;
+        max_iter::Int = 64
+    ) where {F}
     xs::Float64 = clamp(x0, a, b)
     f0::Float64 = f(xs)
     seed_x::Float64 = NaN
@@ -808,14 +808,16 @@ are finite and non-negative with `A > 0 || B > 0`. Every other objective
 runs the `MDR-0002` fallback. Returns a `Bool`.
 """
 function _derivative_applicable(
-    obj::BestResponseObjective{S}, h_start::Float64
-)::Bool where {S}
+        obj::BestResponseObjective{S}, h_start::Float64
+    )::Bool where {S}
     isfinite(h_start) || return false
     func = obj.func
     eligible = func isa Additive || func isa Multiplicative ||
         func isa MultiplicativeWeighted ||
-        (func isa CES && isfinite(func.beta) &&
-            CES_DERIVATIVE_MIN_BETA <= func.beta <= 1.0)
+        (
+        func isa CES && isfinite(func.beta) &&
+            CES_DERIVATIVE_MIN_BETA <= func.beta <= 1.0
+    )
     eligible || return false
     ok = isfinite(obj.alpha) && 0.0 <= obj.alpha <= 1.0 &&
         isfinite(obj.one_minus_alpha) &&
@@ -848,14 +850,14 @@ open with `(NaN, NaN, NaN)` for an unenveloped spec. See `MDR-0017` for
 the formulas.
 """
 function _material_log_derivatives(
-    func::UtilitySpec, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
-)
+        func::UtilitySpec, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+    )
     return (NaN, NaN, NaN)
 end
 
 function _material_log_derivatives(
-    func::Multiplicative, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
-)
+        func::Multiplicative, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+    )
     inv_x = 1.0 / x
     inv_Q = 1.0 / Q
     ax = A * inv_x
@@ -866,9 +868,9 @@ function _material_log_derivatives(
 end
 
 function _material_log_derivatives(
-    func::MultiplicativeWeighted, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64
-)
+        func::MultiplicativeWeighted, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64
+    )
     inv_x = 1.0 / x
     inv_Q = 1.0 / Q
     ax = A * inv_x
@@ -887,8 +889,8 @@ function _material_log_derivatives(
 end
 
 function _material_log_derivatives(
-    func::Additive, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
-)
+        func::Additive, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+    )
     r = sqrt(x)
     s = sqrt(Q)
     m = obj.alpha * r + obj.one_minus_alpha * s
@@ -901,8 +903,8 @@ function _material_log_derivatives(
 end
 
 function _material_log_derivatives(
-    func::CES, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
-)
+        func::CES, obj::BestResponseObjective, x::Float64, Q::Float64, A::Float64
+    )
     beta = func.beta
     if beta == 0.5
         # The sqrt/square `material` specialization of `MDR-0013`:
@@ -984,16 +986,16 @@ fatal) for an unenveloped spec, when a positive denominator product
 is non-finite or subnormal, or when the residual is non-finite.
 """
 function _gradient_sign_residual(
-    func::UtilitySpec, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64, n_prime::Float64,
-)::Float64
+        func::UtilitySpec, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64, n_prime::Float64,
+    )::Float64
     return NaN
 end
 
 function _gradient_sign_residual(
-    func::Multiplicative, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64, n_prime::Float64,
-)::Float64
+        func::Multiplicative, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64, n_prime::Float64,
+    )::Float64
     xQ = x * Q
     (isfinite(xQ) && xQ >= floatmin(Float64)) || return NaN
     residual = A * Q - x + 2.0 * (n_prime * xQ)
@@ -1001,9 +1003,9 @@ function _gradient_sign_residual(
 end
 
 function _gradient_sign_residual(
-    func::MultiplicativeWeighted, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64, n_prime::Float64,
-)::Float64
+        func::MultiplicativeWeighted, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64, n_prime::Float64,
+    )::Float64
     xQ = x * Q
     (isfinite(xQ) && xQ >= floatmin(Float64)) || return NaN
     residual = if obj.recipient
@@ -1017,9 +1019,9 @@ function _gradient_sign_residual(
 end
 
 function _gradient_sign_residual(
-    func::Additive, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64, n_prime::Float64,
-)::Float64
+        func::Additive, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64, n_prime::Float64,
+    )::Float64
     r = sqrt(x)
     s = sqrt(Q)
     rs = r * s
@@ -1030,9 +1032,9 @@ function _gradient_sign_residual(
 end
 
 function _gradient_sign_residual(
-    func::CES, obj::BestResponseObjective,
-    x::Float64, Q::Float64, A::Float64, n_prime::Float64,
-)::Float64
+        func::CES, obj::BestResponseObjective,
+        x::Float64, Q::Float64, A::Float64, n_prime::Float64,
+    )::Float64
     beta = func.beta
     if beta == 0.5
         # The sqrt/square `material` specialization of `MDR-0013`
@@ -1082,13 +1084,13 @@ or the value is subnormal (the `_envelope_peak` guard style of
 `ADR-0015`).
 """
 function _best_response_derivatives(
-    obj::BestResponseObjective{S}, h::Float64
-)::Tuple{Float64,Float64,Float64} where {S}
+        obj::BestResponseObjective{S}, h::Float64
+    )::Tuple{Float64, Float64, Float64} where {S}
     x = obj.recipient ? (h * obj.wage_self + obj.transfer_income) :
         ((h * obj.wage_self) * obj.one_minus_transfer)
     Q = (2 - h) - obj.h_spouse
     if !(x >= floatmin(Float64)) || !(Q >= floatmin(Float64)) ||
-        h < 0.0 || h > 1.0 || obj.spouse_out_of_range
+            h < 0.0 || h > 1.0 || obj.spouse_out_of_range
         return (NaN, NaN, NaN)
     end
     A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
@@ -1130,8 +1132,8 @@ non-finite. The skipped-probe semantics are the
 hits a guard cannot confirm an enclosure.
 """
 function _best_response_gradient_sign(
-    obj::BestResponseObjective{S}, h::Float64
-)::Float64 where {S}
+        obj::BestResponseObjective{S}, h::Float64
+    )::Float64 where {S}
     A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
     k = obj.conformism * obj.norm_weight
     return _gradient_sign_at(obj, h, A, k)
@@ -1150,13 +1152,13 @@ and `n_prime` groupings and the point guards and `NaN` skip semantics
 of `_best_response_gradient_sign`. Returns a `Float64`.
 """
 function _gradient_sign_at(
-    obj::BestResponseObjective{S}, h::Float64, A::Float64, k::Float64
-)::Float64 where {S}
+        obj::BestResponseObjective{S}, h::Float64, A::Float64, k::Float64
+    )::Float64 where {S}
     x = obj.recipient ? (h * obj.wage_self + obj.transfer_income) :
         ((h * obj.wage_self) * obj.one_minus_transfer)
     Q = (2 - h) - obj.h_spouse
     if !(x >= floatmin(Float64)) || !(Q >= floatmin(Float64)) ||
-        h < 0.0 || h > 1.0 || obj.spouse_out_of_range
+            h < 0.0 || h > 1.0 || obj.spouse_out_of_range
         return NaN
     end
     dh = h - obj.norm_hours
@@ -1192,8 +1194,8 @@ the infeasible `h -> 0+`) or an indeterminate form (`NaN`) makes the
 solve fall back to `MDR-0002`. Returns a `Float64`.
 """
 function _one_sided_gradient(
-    obj::BestResponseObjective{S}, at_lower::Bool
-)::Float64 where {S}
+        obj::BestResponseObjective{S}, at_lower::Bool
+    )::Float64 where {S}
     func = obj.func
     A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
     k = obj.conformism * obj.norm_weight
@@ -1264,8 +1266,8 @@ The candidate value and the references are all same-pass `obj(h)` values
 of `_best_response_derivatives`. Returns a `Bool`.
 """
 function _derivative_response_accept(
-    value::Float64, v_lo::Float64, v_hi::Float64, v_seed::Float64
-)::Bool
+        value::Float64, v_lo::Float64, v_hi::Float64, v_seed::Float64
+    )::Bool
     (isfinite(value) && value > 0.0) || return false
     for v_ref in (v_lo, v_hi, v_seed)
         if isfinite(v_ref)
@@ -1318,8 +1320,8 @@ residual at both probes) certifies and keeps the seed, matching the
 legacy tie/seed return. Returns a `Bool`.
 """
 function _derivative_seed_certificate(
-    obj::BestResponseObjective{S}, h_start::Float64
-)::Bool where {S}
+        obj::BestResponseObjective{S}, h_start::Float64
+    )::Bool where {S}
     A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
     B = obj.recipient ? obj.transfer_income : 0.0
     lo_open = B == 0.0 && A > 0.0
@@ -1339,9 +1341,9 @@ in `[0, 1]` that is not at a guard-removed endpoint (both are checked
 here). Returns a `Bool`.
 """
 function _seed_certificate_probes(
-    obj::BestResponseObjective{S}, h_start::Float64, A::Float64,
-    lo_open::Bool, hi_open::Bool,
-)::Bool where {S}
+        obj::BestResponseObjective{S}, h_start::Float64, A::Float64,
+        lo_open::Bool, hi_open::Bool,
+    )::Bool where {S}
     (0.0 <= h_start <= 1.0) || return false
     ((lo_open && h_start == 0.0) || (hi_open && h_start == 1.0)) && return false
     tol = BEST_RESPONSE_TOL
@@ -1402,8 +1404,8 @@ acceptance falls back. The accepted tier-2 candidate passes
 values.
 """
 function _derivative_best_response(
-    obj::BestResponseObjective{S}, h_start::Float64
-)::Tuple{Float64,Bool} where {S}
+        obj::BestResponseObjective{S}, h_start::Float64
+    )::Tuple{Float64, Bool} where {S}
     _derivative_applicable(obj, h_start) || return (NaN, false)
     tol = DERIVATIVE_RESPONSE_TOL
     A = obj.recipient ? obj.wage_self : obj.wage_self * obj.one_minus_transfer
@@ -1523,7 +1525,7 @@ function _derivative_best_response(
             g_left = _best_response_gradient_sign(obj, h - tol)
             g_right = _best_response_gradient_sign(obj, h + tol)
             if isfinite(g_left) && isfinite(g_right) &&
-                !(g_left >= 0.0 && g_right <= 0.0)
+                    !(g_left >= 0.0 && g_right <= 0.0)
                 return (NaN, false)
             end
             _derivative_response_accept(v, v_lo, v_hi, v0) || return (NaN, false)
@@ -1556,7 +1558,7 @@ function _derivative_best_response(
                 g_left = _best_response_gradient_sign(obj, h_new - tol)
                 g_right = _best_response_gradient_sign(obj, h_new + tol)
                 if isfinite(g_left) && isfinite(g_right) &&
-                    g_left >= 0.0 && g_right <= 0.0
+                        g_left >= 0.0 && g_right <= 0.0
                     if _derivative_response_accept(v_new, v_lo, v_hi, v0)
                         return (h_new, true)
                     end

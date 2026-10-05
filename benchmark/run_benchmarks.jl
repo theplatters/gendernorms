@@ -275,7 +275,7 @@ even lies outside its own slider range). The constant order follows the
 mapping table in `MDR-0011`. Returns `(variable => value)` pairs with
 the values already XML-encoded.
 """
-function netlogo_constants(config::BenchConfig)::Vector{Pair{String,String}}
+function netlogo_constants(config::BenchConfig)::Vector{Pair{String, String}}
     return [
         "number-agents-each-type" => fmt_num(config.agents_per_gender),
         "network-structure" => netlogo_string(netlogo_network_name(config.network)),
@@ -347,8 +347,8 @@ function experiments_xml(config::BenchConfig, repetitions::Int)::String
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
         "<experiments>\n",
         "  <experiment name=\"$(config.id)\" repetitions=\"$repetitions\" " *
-        "sequentialRunOrder=\"true\" runMetricsEveryStep=\"true\" " *
-        "timeLimit=\"$(config.ticks)\">\n",
+            "sequentialRunOrder=\"true\" runMetricsEveryStep=\"true\" " *
+            "timeLimit=\"$(config.ticks)\">\n",
         "    <setup>setup</setup>\n",
         "    <go>go</go>\n",
         "    <metrics>\n",
@@ -375,28 +375,28 @@ and `rewiring = 0.1`, `preferential_attachment`, `similarity`, and
 `homophily` carry `m = 2` (NetLogo `preferential-attachment-min-degree`),
 and `similarity` carries `trait = "preference_private"`.
 """
-function julia_network_table(config::BenchConfig)::Dict{String,Any}
+function julia_network_table(config::BenchConfig)::Dict{String, Any}
     net = config.network
     if net == "random"
-        return Dict{String,Any}("type" => "random", "p" => 0.01)
+        return Dict{String, Any}("type" => "random", "p" => 0.01)
     elseif net == "watts_strogatz"
-        return Dict{String,Any}(
+        return Dict{String, Any}(
             "type" => "watts_strogatz",
             "neighbors_per_side" => WATTS_NEIGHBORS,
             "rewiring" => 0.1,
         )
     elseif net == "preferential_attachment"
-        return Dict{String,Any}("type" => "preferential_attachment", "m" => 2)
+        return Dict{String, Any}("type" => "preferential_attachment", "m" => 2)
     elseif net == "similarity"
-        return Dict{String,Any}(
+        return Dict{String, Any}(
             "type" => "similarity", "m" => 2, "trait" => "preference_private"
         )
     elseif net == "homophily"
-        return Dict{String,Any}("type" => "homophily", "m" => 2)
+        return Dict{String, Any}("type" => "homophily", "m" => 2)
     elseif net == "none"
-        return Dict{String,Any}("type" => "none")
+        return Dict{String, Any}("type" => "none")
     elseif net == "homogeneous_mixing"
-        return Dict{String,Any}("type" => "homogeneous_mixing")
+        return Dict{String, Any}("type" => "homogeneous_mixing")
     end
     error("unknown network type \"$net\"")
 end
@@ -411,8 +411,8 @@ returns the dictionary with the `type` string and the weights
 `weight-working-time-self`/`-partner`/`weight-transfer`), plus
 `beta = 0.5` for the `ces` type (NetLogo `CES_beta`).
 """
-function julia_utility_table(config::BenchConfig)::Dict{String,Any}
-    table = Dict{String,Any}(
+function julia_utility_table(config::BenchConfig)::Dict{String, Any}
+    table = Dict{String, Any}(
         "type" => config.utility,
         "w_self" => 1.0,
         "w_partner" => 1.0,
@@ -435,25 +435,25 @@ matches the NetLogo `lambda` slider), and `[runtime]`. Deliberately no
 `[logging]` table: the timed scope is the core loop only, matching the
 NetLogo `go` loop (see `MDR-0011`).
 """
-function julia_spec_dict(config::BenchConfig)::Dict{String,Any}
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "benchmark-" * config.id, "seed" => JULIA_SEED),
-        "model" => Dict{String,Any}(
+function julia_spec_dict(config::BenchConfig)::Dict{String, Any}
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "benchmark-" * config.id, "seed" => JULIA_SEED),
+        "model" => Dict{String, Any}(
             "name" => "gender_norms",
             "agents_per_gender" => config.agents_per_gender,
             "std_dev" => 0.2,
             "initial_transfer" => 0.0,
             "initial_lambda" => 0.002,
             "network" => julia_network_table(config),
-            "paid_time" => Dict{String,Any}("men" => 0.77, "women" => 0.36),
-            "mean_wage" => Dict{String,Any}("men" => 1.0, "women" => 0.9),
-            "mean_preference" => Dict{String,Any}("men" => 0.45, "women" => 0.48),
-            "initial_conformism" => Dict{String,Any}(
+            "paid_time" => Dict{String, Any}("men" => 0.77, "women" => 0.36),
+            "mean_wage" => Dict{String, Any}("men" => 1.0, "women" => 0.9),
+            "mean_preference" => Dict{String, Any}("men" => 0.45, "women" => 0.48),
+            "initial_conformism" => Dict{String, Any}(
                 "men" => config.conformism, "women" => config.conformism
             ),
             "utility" => julia_utility_table(config),
         ),
-        "runtime" => Dict{String,Any}("ticks" => config.ticks),
+        "runtime" => Dict{String, Any}("ticks" => config.ticks),
     )
 end
 
@@ -474,7 +474,7 @@ function split_csv_line(line::AbstractString)::Vector{String}
         c = chars[i]
         if quoted
             if c == '"'
-                if i < length(chars) && chars[i+1] == '"'
+                if i < length(chars) && chars[i + 1] == '"'
                     print(current, '"')
                     i += 1
                 else
@@ -504,14 +504,14 @@ Parse one BehaviorSpace table CSV. Takes the file path and returns the
 line (quotes stripped) and the data rows as string vectors. The six
 comment header lines above the column header are skipped.
 """
-function behaviorspace_table(path::AbstractString)::Tuple{Vector{String},Vector{Vector{String}}}
+function behaviorspace_table(path::AbstractString)::Tuple{Vector{String}, Vector{Vector{String}}}
     isfile(path) || error("BehaviorSpace table not found: $path")
     lines = readlines(path)
     header_idx = findfirst(l -> startswith(l, "\"[run number]\""), lines)
     header_idx === nothing && error("no \"[run number]\" header line in $path")
     columns = split_csv_line(lines[header_idx])
     rows = Vector{String}[]
-    for line in lines[(header_idx+1):end]
+    for line in lines[(header_idx + 1):end]
         isempty(strip(line)) && continue
         push!(rows, split_csv_line(line))
     end
@@ -550,12 +550,12 @@ function netlogo_runs(path::AbstractString, ticks::Int)::Vector{NetLogoRun}
     i_rtime = findfirst(==("run-time"), columns)
     (i_run === nothing || i_step === nothing || i_timer === nothing || i_rtime === nothing) &&
         error("missing expected columns in $path (need [run number], [step], timer, run-time)")
-    series = Dict{Int,Vector{Tuple{Int,Float64,Float64}}}()
+    series = Dict{Int, Vector{Tuple{Int, Float64, Float64}}}()
     for row in rows
         length(row) >= length(columns) || error("short row in $path")
         rep = parse(Int, row[i_run])
         push!(
-            get!(series, rep, Tuple{Int,Float64,Float64}[]),
+            get!(series, rep, Tuple{Int, Float64, Float64}[]),
             (parse(Int, row[i_step]), parse(Float64, row[i_timer]), parse(Float64, row[i_rtime])),
         )
     end
@@ -566,9 +566,9 @@ function netlogo_runs(path::AbstractString, ticks::Int)::Vector{NetLogoRun}
         steps == collect(0:ticks) || error(
             "incomplete step sequence for run $rep in $path: got $steps, expected 0:$ticks",
         )
-        timer = Dict{Int,Float64}(e[1] => e[2] for e in entries)
-        rtime = Dict{Int,Float64}(e[1] => e[3] for e in entries)
-        tick_s = Float64[timer[k] - timer[k-1] for k in 1:ticks]
+        timer = Dict{Int, Float64}(e[1] => e[2] for e in entries)
+        rtime = Dict{Int, Float64}(e[1] => e[3] for e in entries)
+        tick_s = Float64[timer[k] - timer[k - 1] for k in 1:ticks]
         push!(
             out,
             NetLogoRun(rep, timer[0], tick_s, timer[ticks], rtime[ticks] - timer[ticks]),
@@ -606,9 +606,9 @@ Load the NetLogo per-invocation process wall times from
 Returns a `(config_id, experiment) => wall_seconds` map, empty when the
 file does not exist yet.
 """
-function load_invocation_walls()::Dict{Tuple{String,String},Float64}
+function load_invocation_walls()::Dict{Tuple{String, String}, Float64}
     path = joinpath(RESULTS_DIR, "netlogo", "invocations.csv")
-    walls = Dict{Tuple{String,String},Float64}()
+    walls = Dict{Tuple{String, String}, Float64}()
     isfile(path) || return walls
     for (i, line) in enumerate(readlines(path))
         i == 1 && continue
@@ -654,8 +654,8 @@ captured and only printed when the invocation fails. Returns the wall
 seconds of the process.
 """
 function run_netlogo_invocation(
-    config::BenchConfig, experiment::String, table_path::String, netlogo_home::String
-)::Float64
+        config::BenchConfig, experiment::String, table_path::String, netlogo_home::String
+    )::Float64
     launcher = joinpath(netlogo_home, "netlogo-headless.sh")
     isfile(launcher) || error("NetLogo launcher not found: $launcher (set NETLOGO_HOME)")
     xml_path = joinpath(RESULTS_DIR, "experiments", config.id * ".xml")
@@ -725,7 +725,7 @@ Time one Julia repetition of one config. Takes the config and the
 previously validated `RunSpec` and returns the `RepTiming`: `setup_s`
 times `create_world(spec)` (the port of NetLogo `setup`), `steps_s`
 times the `step_model!` loop for `tick in 0:(ticks - 1)` (the port of
-NetLogo `go`, first call sees tick 0, see `MDR-0010`), `total_s` their
+NetLogo `go`, first call sees tick 0, see `MDR-0022`), `total_s` their
 sum, and `tick_s` the per-call seconds of each `step_model!` call. No
 GC is forced between repetitions (see `MDR-0011`).
 """
@@ -735,10 +735,10 @@ function time_julia_rep(config::BenchConfig, spec)::RepTiming
     world = GN.create_world(spec)
     t1 = time_ns()
     tick_s = Vector{Float64}(undef, ticks)
-    for tick in 0:(ticks-1)
+    for tick in 0:(ticks - 1)
         s0 = time_ns()
         GN.step_model!(GN.GenderNormsModel, world, spec.model_config, tick)
-        tick_s[tick+1] = (time_ns() - s0) / 1.0e9
+        tick_s[tick + 1] = (time_ns() - s0) / 1.0e9
     end
     t2 = time_ns()
     return RepTiming((t1 - t0) / 1.0e9, (t2 - t1) / 1.0e9, (t2 - t0) / 1.0e9, tick_s)
@@ -758,7 +758,7 @@ function julia_config_done(config::BenchConfig, measured::Int)::Bool
     ticks_path = joinpath(RESULTS_DIR, "julia", config.id * "_ticks.csv")
     (isfile(path) && isfile(ticks_path)) || return false
     return length(readlines(path)) - 1 == measured &&
-           length(readlines(ticks_path)) - 1 == measured * config.ticks
+        length(readlines(ticks_path)) - 1 == measured * config.ticks
 end
 
 """
@@ -817,7 +817,7 @@ Compute the distribution summary of one timing column. Takes the values
 and returns `(median=, mean=, minimum=, maximum=, n=)` or `nothing` for
 an empty vector (missing implementation side in the summary CSV).
 """
-function summarise(values::Vector{Float64})::Union{NamedTuple,Nothing}
+function summarise(values::Vector{Float64})::Union{NamedTuple, Nothing}
     isempty(values) && return nothing
     return (
         median = median(values),
@@ -889,18 +889,18 @@ Read the per-call Julia series of one config from
 with the per-tick vectors ordered by tick index (0-based). Empty when
 the raw file is absent.
 """
-function julia_raw_ticks(config::BenchConfig)::Dict{Int,Vector{Float64}}
+function julia_raw_ticks(config::BenchConfig)::Dict{Int, Vector{Float64}}
     path = joinpath(RESULTS_DIR, "julia", config.id * "_ticks.csv")
-    collected = Dict{Int,Vector{Tuple{Int,Float64}}}()
-    isfile(path) || return Dict{Int,Vector{Float64}}()
+    collected = Dict{Int, Vector{Tuple{Int, Float64}}}()
+    isfile(path) || return Dict{Int, Vector{Float64}}()
     for (i, line) in enumerate(readlines(path))
         i == 1 && continue
         fields = split(line, ',')
         length(fields) == 3 || continue
         rep = parse(Int, fields[1])
-        push!(get!(collected, rep, Tuple{Int,Float64}[]), (parse(Int, fields[2]), parse(Float64, fields[3])))
+        push!(get!(collected, rep, Tuple{Int, Float64}[]), (parse(Int, fields[2]), parse(Float64, fields[3])))
     end
-    return Dict{Int,Vector{Float64}}(
+    return Dict{Int, Vector{Float64}}(
         rep => Float64[s for (_, s) in sort(entries)] for (rep, entries) in collected
     )
 end
@@ -944,7 +944,7 @@ implementation's rows already in the file, replaces this
 implementation's rows, and rewrites the file sorted by implementation
 and detail. Returns nothing.
 """
-function update_cold_start_csv!(impl::String, rows::Vector{Tuple{String,Float64}})
+function update_cold_start_csv!(impl::String, rows::Vector{Tuple{String, Float64}})
     path = joinpath(RESULTS_DIR, "cold_start.csv")
     kept = String[]
     if isfile(path)
@@ -989,7 +989,7 @@ function analyse()
     netlogo_tick_rows = String[]
     julia_tick_rows = String[]
     summary_rows = String[]
-    cold_rows = Tuple{String,Float64}[]
+    cold_rows = Tuple{String, Float64}[]
     for config in config_matrix()
         cols = config_columns(config)
         all_runs = NetLogoRun[]
@@ -1009,14 +1009,18 @@ function analyse()
         for r in measured
             push!(
                 netlogo_rows,
-                join(vcat(cols, [
-                    string(r.rep),
-                    fmt_seconds(r.total_s),
-                    fmt_seconds(r.total_s - r.setup_s),
-                    fmt_seconds(r.setup_s),
-                    fmt_seconds(r.drift_s),
-                    optional_seconds(wall),
-                ]), ","),
+                join(
+                    vcat(
+                        cols, [
+                            string(r.rep),
+                            fmt_seconds(r.total_s),
+                            fmt_seconds(r.total_s - r.setup_s),
+                            fmt_seconds(r.setup_s),
+                            fmt_seconds(r.drift_s),
+                            optional_seconds(wall),
+                        ]
+                    ), ","
+                ),
             )
             for (k, s) in enumerate(r.tick_s)
                 push!(netlogo_tick_rows, join(vcat(cols, [string(r.rep), string(k), fmt_seconds(s)]), ","))
@@ -1025,12 +1029,16 @@ function analyse()
         for r in jl_reps
             push!(
                 julia_rows,
-                join(vcat(cols, [
-                    string(r.rep),
-                    fmt_seconds(r.setup_s),
-                    fmt_seconds(r.steps_s),
-                    fmt_seconds(r.total_s),
-                ]), ","),
+                join(
+                    vcat(
+                        cols, [
+                            string(r.rep),
+                            fmt_seconds(r.setup_s),
+                            fmt_seconds(r.steps_s),
+                            fmt_seconds(r.total_s),
+                        ]
+                    ), ","
+                ),
             )
         end
         for rep in sort!(collect(keys(jl_ticks)))
@@ -1063,48 +1071,68 @@ function analyse()
     end
     write(
         joinpath(RESULTS_DIR, "netlogo_runs.csv"),
-        join(vcat([
-            "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,total_s,steps_s,setup_s,timer_drift_s,invocation_wall_s",
-        ], netlogo_rows), "\n") * "\n",
+        join(
+            vcat(
+                [
+                    "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,total_s,steps_s,setup_s,timer_drift_s,invocation_wall_s",
+                ], netlogo_rows
+            ), "\n"
+        ) * "\n",
     )
     write(
         joinpath(RESULTS_DIR, "julia_runs.csv"),
-        join(vcat([
-            "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,setup_s,steps_s,total_s",
-        ], julia_rows), "\n") * "\n",
+        join(
+            vcat(
+                [
+                    "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,setup_s,steps_s,total_s",
+                ], julia_rows
+            ), "\n"
+        ) * "\n",
     )
     write(
         joinpath(RESULTS_DIR, "netlogo_ticks.csv"),
-        join(vcat([
-            "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,tick,seconds",
-        ], netlogo_tick_rows), "\n") * "\n",
+        join(
+            vcat(
+                [
+                    "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,tick,seconds",
+                ], netlogo_tick_rows
+            ), "\n"
+        ) * "\n",
     )
     write(
         joinpath(RESULTS_DIR, "julia_ticks.csv"),
-        join(vcat([
-            "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,tick,seconds",
-        ], julia_tick_rows), "\n") * "\n",
+        join(
+            vcat(
+                [
+                    "config_id,group,agents_per_gender,ticks,network,utility,conformism,rep,tick,seconds",
+                ], julia_tick_rows
+            ), "\n"
+        ) * "\n",
     )
     write(
         joinpath(RESULTS_DIR, "summary.csv"),
-        join(vcat([
-            "config_id,group,agents_per_gender,ticks,network,utility,conformism," *
-            "netlogo_median_total_s,netlogo_median_setup_s,netlogo_median_per_tick_s," *
-            "netlogo_median_tick_first_s,netlogo_median_tick_last_s," *
-            "netlogo_mean_total_s,netlogo_min_total_s,netlogo_max_total_s,netlogo_n_reps," *
-            "julia_median_total_s,julia_median_setup_s,julia_median_per_tick_s," *
-            "julia_median_tick_first_s,julia_median_tick_last_s," *
-            "julia_mean_total_s,julia_min_total_s,julia_max_total_s,julia_n_reps," *
-            "speedup_netlogo_over_julia",
-        ], summary_rows), "\n") * "\n",
+        join(
+            vcat(
+                [
+                    "config_id,group,agents_per_gender,ticks,network,utility,conformism," *
+                        "netlogo_median_total_s,netlogo_median_setup_s,netlogo_median_per_tick_s," *
+                        "netlogo_median_tick_first_s,netlogo_median_tick_last_s," *
+                        "netlogo_mean_total_s,netlogo_min_total_s,netlogo_max_total_s,netlogo_n_reps," *
+                        "julia_median_total_s,julia_median_setup_s,julia_median_per_tick_s," *
+                        "julia_median_tick_first_s,julia_median_tick_last_s," *
+                        "julia_mean_total_s,julia_min_total_s,julia_max_total_s,julia_n_reps," *
+                        "speedup_netlogo_over_julia",
+                ], summary_rows
+            ), "\n"
+        ) * "\n",
     )
     update_cold_start_csv!("netlogo", cold_rows)
     println(
         "analysis: wrote netlogo_runs.csv ($(length(netlogo_rows)) rows), " *
-        "julia_runs.csv ($(length(julia_rows)) rows), " *
-        "netlogo_ticks.csv ($(length(netlogo_tick_rows)) rows), " *
-        "julia_ticks.csv ($(length(julia_tick_rows)) rows), " *
-        "summary.csv ($(length(summary_rows)) rows)",
+            "julia_runs.csv ($(length(julia_rows)) rows), " *
+            "netlogo_ticks.csv ($(length(netlogo_tick_rows)) rows), " *
+            "julia_ticks.csv ($(length(julia_tick_rows)) rows), " *
+            "summary.csv ($(length(summary_rows)) rows)",
     )
     return nothing
 end
@@ -1140,7 +1168,7 @@ function run_cold_start()::Nothing
         GenderNorms.step_model!(GenderNorms.GenderNormsModel, world, spec.model_config, tick)
     end
     """
-    rows = Tuple{String,Float64}[]
+    rows = Tuple{String, Float64}[]
     for i in 1:COLD_START_PROCESSES
         cmd = `$(Base.julia_cmd()) --project=$REPO_ROOT -e $script`
         println("[cold-start] julia $COLD_START_CONFIG_ID process $i/$(COLD_START_PROCESSES)")

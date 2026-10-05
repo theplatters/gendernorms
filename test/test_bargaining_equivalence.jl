@@ -166,7 +166,7 @@ otherwise `isapprox` with the `VE_ATOL`/`VE_RTOL` envelope. Exact
 (`isequal`) for specs where the arithmetic is unchanged.
 """
 veq(a::Float64, b::Float64)::Bool =
-    (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol=VE_ATOL, rtol=VE_RTOL) : isequal(a, b)
+    (isfinite(a) && isfinite(b)) ? isapprox(a, b; atol = VE_ATOL, rtol = VE_RTOL) : isequal(a, b)
 
 """
     solver_relaxed(config, theta0::Float64, pw, pm)::Bool
@@ -202,8 +202,8 @@ per-quantity `atol`/`rtol` values are the explicit `MDR-0017`
 tolerances above, not one blanket envelope.
 """
 function equiv(
-    a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64=0.0
-)::Bool
+        a::Float64, b::Float64, atol::Float64, config, relaxed::Bool; rtol::Float64 = 0.0
+    )::Bool
     if relaxed
         return (isfinite(a) && isfinite(b)) ?
             abs(a - b) <= atol + rtol * max(abs(a), abs(b)) : isequal(a, b)
@@ -244,11 +244,11 @@ Utility configuration of one solver case from its recorded spec strings,
 with the package-default weights (the fixture records only the spec).
 """
 function fixture_config(utility::AbstractString, beta::Float64)::GN.UtilityConfig
-    utility == "additive" && return GN.UtilityConfig(func=GN.Additive())
-    utility == "ces" && return GN.UtilityConfig(func=GN.CES(beta=beta))
-    utility == "multiplicative" && return GN.UtilityConfig(func=GN.Multiplicative())
+    utility == "additive" && return GN.UtilityConfig(func = GN.Additive())
+    utility == "ces" && return GN.UtilityConfig(func = GN.CES(beta = beta))
+    utility == "multiplicative" && return GN.UtilityConfig(func = GN.Multiplicative())
     utility == "multiplicative_weighted" &&
-        return GN.UtilityConfig(func=GN.MultiplicativeWeighted())
+        return GN.UtilityConfig(func = GN.MultiplicativeWeighted())
     error("unknown utility spec $(repr(utility))")
 end
 
@@ -278,9 +278,9 @@ tests fail. Returns
 `(cache, theta0, status_payoff, hw_status, hm_status)`.
 """
 function replay_search(
-    hw_init::Float64, hm_init::Float64, theta_init::Float64,
-    pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig,
-)
+        hw_init::Float64, hm_init::Float64, theta_init::Float64,
+        pw::GN.AgentPayoffParams, pm::GN.AgentPayoffParams, config::GN.UtilityConfig,
+    )
     theta0 = clamp(theta_init, -1.0, 1.0)
     hw_out, hm_out = GN.mutual_best_response(hw_init, hm_init, 0.0, pw, pm, config)
     uw_out = GN.individual_utility(hw_out, hm_out, 0.0, pw, config)
@@ -293,7 +293,7 @@ function replay_search(
         bound_w = GN._payoff_upper_bound(theta, pw, config)
         bound_m = GN._payoff_upper_bound(theta, pm, config)
         if (isfinite(bound_w) && bound_w * (1.0 + GN.OBJECTIVE_CERT_MARGIN) < uw_out) ||
-            (isfinite(bound_m) && bound_m * (1.0 + GN.OBJECTIVE_CERT_MARGIN) < um_out)
+                (isfinite(bound_m) && bound_m * (1.0 + GN.OBJECTIVE_CERT_MARGIN) < um_out)
             return GN.TransferObjectiveValue(
                 NaN, NaN, -Inf, NaN, NaN, bound_w - uw_out, bound_m - um_out
             )
@@ -302,13 +302,13 @@ function replay_search(
         gain_w, gain_m = GN._transfer_gains(theta, hw, hm, uw_out, um_out, pw, pm, config)
         return GN.TransferObjectiveValue(gain_w, gain_m, GN._nash_from_gains(gain_w, gain_m), hw, hm)
     end
-    cache = Dict{Float64,GN.TransferObjectiveValue}()
+    cache = Dict{Float64, GN.TransferObjectiveValue}()
     gain_w0, gain_m0 =
         GN._transfer_gains(theta0, hw_status, hm_status, uw_out, um_out, pw, pm, config)
     cache[theta0] = GN.TransferObjectiveValue(gain_w0, gain_m0, status_payoff, hw_status, hm_status)
     GN._transfer_local_search!(
         GN.TransferSearchScratch(cache), evaluate, theta0, GN.TRANSFER_REFINE_TOL;
-        scale_w=max(abs(uw_out), 1.0), scale_m=max(abs(um_out), 1.0),
+        scale_w = max(abs(uw_out), 1.0), scale_m = max(abs(um_out), 1.0),
     )
     return cache, theta0, status_payoff, hw_status, hm_status
 end
@@ -322,8 +322,8 @@ finite payoff, exact ties broken by the smallest `abs(theta - theta0)`,
 then the smallest `theta`. Returns `NaN` when no payoff is finite.
 """
 function replay_search_best(
-    cache::Dict{Float64,GN.TransferObjectiveValue}, theta0::Float64
-)::Float64
+        cache::Dict{Float64, GN.TransferObjectiveValue}, theta0::Float64
+    )::Float64
     best_theta = NaN
     best_payoff = -Inf
     for theta in keys(cache)
@@ -353,24 +353,24 @@ end
     @testset "solver case $(case["id"]): $(case["label"])" for case in SOLVER_CASES
         config = fixture_config(case["utility"], f64(get(case, "beta", "0.5")))
         pw = GN.AgentPayoffParams(
-            wage_self=f64(case["pw_wage_self"]),
-            wage_spouse=f64(case["pw_wage_spouse"]),
-            alpha=f64(case["pw_alpha"]),
-            conformism=f64(case["pw_conformism"]),
-            N_h=f64(case["pw_N_h"]),
-            N_theta=f64(case["pw_N_theta"]),
-            N_h_spouse=f64(case["pw_N_h_spouse"]),
-            is_woman=true,
+            wage_self = f64(case["pw_wage_self"]),
+            wage_spouse = f64(case["pw_wage_spouse"]),
+            alpha = f64(case["pw_alpha"]),
+            conformism = f64(case["pw_conformism"]),
+            N_h = f64(case["pw_N_h"]),
+            N_theta = f64(case["pw_N_theta"]),
+            N_h_spouse = f64(case["pw_N_h_spouse"]),
+            is_woman = true,
         )
         pm = GN.AgentPayoffParams(
-            wage_self=f64(case["pm_wage_self"]),
-            wage_spouse=f64(case["pm_wage_spouse"]),
-            alpha=f64(case["pm_alpha"]),
-            conformism=f64(case["pm_conformism"]),
-            N_h=f64(case["pm_N_h"]),
-            N_theta=f64(case["pm_N_theta"]),
-            N_h_spouse=f64(case["pm_N_h_spouse"]),
-            is_woman=false,
+            wage_self = f64(case["pm_wage_self"]),
+            wage_spouse = f64(case["pm_wage_spouse"]),
+            alpha = f64(case["pm_alpha"]),
+            conformism = f64(case["pm_conformism"]),
+            N_h = f64(case["pm_N_h"]),
+            N_theta = f64(case["pm_N_theta"]),
+            N_h_spouse = f64(case["pm_N_h_spouse"]),
+            is_woman = false,
         )
         theta_init = f64(case["theta_init"])
         hw_init = f64(case["hw_init"])
@@ -416,7 +416,7 @@ end
         # solver may have run.
         relaxed = solver_relaxed(config, theta0, pw, pm)
         eq_hours(a, b) = equiv(a, b, VE_HOURS_ATOL, config, relaxed)
-        eq_util(a, b) = equiv(a, b, VE_UTIL_ATOL, config, relaxed; rtol=VE_UTIL_RTOL)
+        eq_util(a, b) = equiv(a, b, VE_UTIL_ATOL, config, relaxed; rtol = VE_UTIL_RTOL)
         eq_pay(a, b) = equiv(a, b, VE_PAYOFF_ATOL, config, relaxed)
         eq(a, b) = arith_changed(config) ? veq(a, b) : isequal(a, b)
         @test eq_hours(mbr_hw, f64(case["mbr_hw"]))
@@ -434,8 +434,10 @@ end
             @test isfinite(best_theta) == isfinite(f64(case["best_theta"]))
             if relaxed
                 @test isequal(best_payoff, f64(case["best_payoff"])) ||
-                    (isfinite(best_payoff) && isfinite(f64(case["best_payoff"])) &&
-                        abs(best_payoff - f64(case["best_payoff"])) <= VE_MAXIMIZER_PAYOFF_ATOL)
+                    (
+                    isfinite(best_payoff) && isfinite(f64(case["best_payoff"])) &&
+                        abs(best_payoff - f64(case["best_payoff"])) <= VE_MAXIMIZER_PAYOFF_ATOL
+                )
             else
                 @test eq(best_payoff, f64(case["best_payoff"]))
             end
@@ -638,21 +640,21 @@ end
     # `test/test_threading.jl` (new versus new).
     @test BASELINE_TRAJECTORY["run_count"] == length(TRAJECTORY_RUNS) == 4
     @testset "trajectory $(run["id"])" for run in TRAJECTORY_RUNS
-        network = Dict{String,Any}("type" => run["network_type"])
+        network = Dict{String, Any}("type" => run["network_type"])
         if run["network_type"] == "watts_strogatz"
             network["neighbors_per_side"] = run["neighbors_per_side"]
             network["rewiring"] = f64(run["rewiring"])
         end
-        raw = Dict{String,Any}(
-            "run" => Dict{String,Any}("name" => "bargaining-baseline", "seed" => run["seed"]),
-            "model" => Dict{String,Any}(
+        raw = Dict{String, Any}(
+            "run" => Dict{String, Any}("name" => "bargaining-baseline", "seed" => run["seed"]),
+            "model" => Dict{String, Any}(
                 "name" => "gender_norms",
                 "agents_per_gender" => run["agents_per_gender"],
                 "utility" =>
-                    Dict{String,Any}("type" => run["utility_type"], "beta" => f64(run["beta"])),
+                    Dict{String, Any}("type" => run["utility_type"], "beta" => f64(run["beta"])),
                 "network" => network,
             ),
-            "runtime" => Dict{String,Any}("ticks" => run["ticks"]),
+            "runtime" => Dict{String, Any}("ticks" => run["ticks"]),
         )
         spec = GN.parse_spec(raw)
 
@@ -662,8 +664,17 @@ end
         GN.is_success(result) ||
             error("trajectory run $(run["id"]) failed: $(result.error)")
         @test result.ticks == run["metric_ticks"]
-        for name in ("working_time_men", "working_time_women", "working_time_gap")
+        for name in (
+                "working_time_men", "working_time_women", "working_time_gap",
+                "preference_men", "preference_women", "utility_men", "utility_women",
+                "transfer_mean",
+            )
             @test length(result.metrics[name]) == run["ticks"]
+        end
+        for name in (
+                "working_time_men", "working_time_women", "working_time_gap",
+                "preference_men", "preference_women",
+            )
             @test all(isfinite, result.metrics[name])
         end
 
@@ -675,7 +686,7 @@ end
         women = GN.entities_with(world, GN.Female)
         agents = vcat(women, GN.entities_with(world, GN.Male))
         @test length(agents) == run["agent_count"]
-        spouse_of = Dict{Ark.Entity,Int}(entity => i for (i, entity) in enumerate(agents))
+        spouse_of = Dict{Ark.Entity, Int}(entity => i for (i, entity) in enumerate(agents))
         for record in run["agent"]
             entity = agents[record["index"]]
             @test (entity in women ? "woman" : "man") == record["gender"]
@@ -695,12 +706,22 @@ end
                 @test isfinite(transfer.current) && -1.0 <= transfer.current <= 1.0
             end
             GN.update_old_working_time_and_transfer!(world)
-            GN.update_global_working_times!(world)
+            GN.update_observer_stats!(world)
             GN.update_preferences(world)
             stats = Ark.get_resource(world, GN.WorkingTimeStats)
             @test isequal(stats.men, result.metrics["working_time_men"][tick + 1])
             @test isequal(stats.women, result.metrics["working_time_women"][tick + 1])
             @test isequal(stats.gap, result.metrics["working_time_gap"][tick + 1])
+            preference = Ark.get_resource(world, GN.PreferenceStats)
+            @test isequal(preference.men, result.metrics["preference_men"][tick + 1])
+            @test isequal(preference.women, result.metrics["preference_women"][tick + 1])
+            utility = Ark.get_resource(world, GN.UtilityStats)
+            @test isequal(utility.men, result.metrics["utility_men"][tick + 1])
+            @test isequal(utility.women, result.metrics["utility_women"][tick + 1])
+            @test isequal(
+                Ark.get_resource(world, GN.TransferStats).mean,
+                result.metrics["transfer_mean"][tick + 1],
+            )
         end
     end
 end
@@ -715,14 +736,14 @@ end
     # ineligible and within the `MDR-0017` envelopes where the
     # derivative solve may have run; the transfer result is checked by
     # validity invariants and bit-identical repeats.
-    config = GN.UtilityConfig(func=GN.CES(beta=0.5))
+    config = GN.UtilityConfig(func = GN.CES(beta = 0.5))
     pw = GN.AgentPayoffParams(
-        wage_self=0.6, wage_spouse=1.2, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=true,
+        wage_self = 0.6, wage_spouse = 1.2, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = true,
     )
     pm = GN.AgentPayoffParams(
-        wage_self=1.2, wage_spouse=0.6, alpha=0.5, conformism=10.0,
-        N_h=0.5, N_theta=0.0, N_h_spouse=0.5, is_woman=false,
+        wage_self = 1.2, wage_spouse = 0.6, alpha = 0.5, conformism = 10.0,
+        N_h = 0.5, N_theta = 0.0, N_h_spouse = 0.5, is_woman = false,
     )
     for theta_init in (-0.0, 0.0, 1.5, -1.5, 0.37)
         theta0 = clamp(theta_init, -1.0, 1.0)

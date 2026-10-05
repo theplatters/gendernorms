@@ -1,10 +1,10 @@
 ---
 id: MDR-0018
 title: Remove the unused CurrentUtility carrier
-status: accepted
+status: superseded
 date: 2026-10-02
 supersedes: ""
-superseded_by: ""
+superseded_by: MDR-0019
 ---
 
 ## Context

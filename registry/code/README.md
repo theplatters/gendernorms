@@ -143,6 +143,17 @@ which conventions it follows, and which architecture decisions were made.
   writes and atomic promotion, and throttled Plotly panels
   (implemented under `TASK-0028`).
 
+- `registry/code/decisions/ADR-0026-committed-observer-snapshots.md`:
+  committed observer snapshots in the tick pipeline (extends
+  `ADR-0025`'s metric consumption): ECS commit capture of
+  `CommittedUtility` inside `set_theta!`'s disjoint commit step,
+  separate observer resources beside `WorkingTimeStats`, the fused
+  serial `update_observer_stats!` reductions with the bitwise-stable
+  working-time accumulation, unchanged solver APIs, the eight-name
+  `model_metrics`, and the zero-allocation/bit-identity/performance
+  requirements (model semantics under `MDR-0019`-`MDR-0022`;
+  implemented under `TASK-0029`).
+
 - `registry/code/decisions/ADR-0027-runic-pre-commit-hook.md`:
   Runic pre-commit hook for automatic formatting: tracked
   `.githooks/pre-commit` activated per clone with

@@ -78,7 +78,9 @@ instead of silent.
 - `registry/model/decisions/MDR-0009-typed-shocks.md` -- typed shock
   resources with a component tag and quirk-preserving start and recovery.
 - `registry/model/decisions/MDR-0010-go-tick-loop-scheduling.md` -- the
-  `go` tick loop scheduled as the `step_model!` port (see `ADR-0012`).
+  `go` tick loop scheduled as the `step_model!` port (see `ADR-0012`;
+  superseded by `MDR-0022`, which keeps the scheduling and swaps in the
+  fused observer snapshot).
 - `registry/model/decisions/MDR-0011-benchmark-methodology.md` --
   matched-configuration runtime comparison of the NetLogo and Julia
   implementations (see `ADR-0013`).
@@ -116,4 +118,26 @@ instead of silent.
   algorithm, and the validated-equivalence protocol (see `ADR-0022`).
 - `registry/model/decisions/MDR-0018-remove-unused-current-utility.md` --
   remove the unused stored utility component without changing the pure
-  utility evaluation or bargaining solvers.
+  utility evaluation or bargaining solvers (superseded by `MDR-0019`,
+  which reverses the prohibition only for the specified committed-bundle
+  observer).
+- `registry/model/decisions/MDR-0019-committed-utility-observers.md` --
+  committed-bundle utility observations (`CommittedUtility` plus the
+  `UtilityStats` observer): evaluation state and timing inside
+  `set_theta!`, non-scratch semantics without quirk 11 staleness, and
+  the gendered `utility_women`/`utility_men` metrics (see `ADR-0026`;
+  supersedes `MDR-0018`).
+- `registry/model/decisions/MDR-0020-preference-mean-observers.md` --
+  pre-adaptation gendered preference means (`PreferenceStats`) as a new
+  Julia-side diagnostic distinct from the unported
+  `preference-difference` (see `ADR-0026`).
+- `registry/model/decisions/MDR-0021-contemporaneous-transfer-observer.md` --
+  contemporaneous transfer mean over women (`TransferStats`), the stored
+  `global-mean-transfer` of NetLogo `update-statistics`, distinct from
+  the lagged `norm_global_means` transfer (see `ADR-0026`; discharges
+  the `TASK-0001` storage clause).
+- `registry/model/decisions/MDR-0022-observer-snapshot-tick-scheduling.md` --
+  tick scheduling with the fused `update_observer_stats!` snapshot at
+  the single pre-adaptation observation point, restating `MDR-0010`'s
+  guarantees and making the statistics/adaptation order observationally
+  significant (see `ADR-0026`; supersedes `MDR-0010`).

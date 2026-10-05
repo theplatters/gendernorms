@@ -27,7 +27,7 @@ function GN.model_name(::Type{DummyModel})::String
     return "dummy"
 end
 
-function GN.parse_model_config(::Type{DummyModel}, raw::Dict{String,Any})
+function GN.parse_model_config(::Type{DummyModel}, raw::Dict{String, Any})
     problems = String[]
     append!(problems, GN._key_problems(raw, ("fail_at", "scale"), "model"))
     fail_at = -1
@@ -64,23 +64,23 @@ function GN.step_model!(::Type{DummyModel}, world, config::DummyConfig, tick::In
     return nothing
 end
 
-function GN.model_metrics(::Type{DummyModel})::Dict{String,Function}
-    return Dict{String,Function}("value" => world -> Ark.get_resource(world, DummyState).value)
+function GN.model_metrics(::Type{DummyModel})::Dict{String, Function}
+    return Dict{String, Function}("value" => world -> Ark.get_resource(world, DummyState).value)
 end
 
-function GN.config_to_dict(::Type{DummyModel}, config::DummyConfig)::Dict{String,Any}
-    return Dict{String,Any}("fail_at" => config.fail_at, "scale" => config.scale)
+function GN.config_to_dict(::Type{DummyModel}, config::DummyConfig)::Dict{String, Any}
+    return Dict{String, Any}("fail_at" => config.fail_at, "scale" => config.scale)
 end
 
 GN.MODEL_REGISTRY["dummy"] = DummyModel
 
 mutable struct RecordingLogger <: GN.RunLogger
     started::Vector{GN.RunInfo}
-    recorded::Vector{Tuple{Int,Dict{String,Float64}}}
+    recorded::Vector{Tuple{Int, Dict{String, Float64}}}
     finished::Vector{GN.RunResult}
 end
 
-RecordingLogger() = RecordingLogger(GN.RunInfo[], Tuple{Int,Dict{String,Float64}}[], GN.RunResult[])
+RecordingLogger() = RecordingLogger(GN.RunInfo[], Tuple{Int, Dict{String, Float64}}[], GN.RunResult[])
 
 function GN.run_started!(logger::RecordingLogger, info::GN.RunInfo)
     push!(logger.started, info)
@@ -88,10 +88,10 @@ function GN.run_started!(logger::RecordingLogger, info::GN.RunInfo)
 end
 
 function GN.metrics_recorded!(
-    logger::RecordingLogger,
-    tick::Int,
-    values::Dict{String,Float64},
-)
+        logger::RecordingLogger,
+        tick::Int,
+        values::Dict{String, Float64},
+    )
     push!(logger.recorded, (tick, copy(values)))
     return nothing
 end
@@ -104,30 +104,30 @@ end
 struct ThrowingMetricsLogger <: GN.RunLogger end
 
 function GN.metrics_recorded!(
-    ::ThrowingMetricsLogger,
-    ::Int,
-    ::Dict{String,Float64},
-)
+        ::ThrowingMetricsLogger,
+        ::Int,
+        ::Dict{String, Float64},
+    )
     throw(ErrorException("logger hook failure"))
 end
 
 function make_dummy_raw(;
-    name = "dummy-run",
-    seed = 1,
-    ticks = 3,
-    fail_at = -1,
-    scale = 1.0,
-    metrics = nothing,
-    outputs = nothing,
-)
-    model = Dict{String,Any}("name" => "dummy", "fail_at" => fail_at, "scale" => scale)
-    logging = Dict{String,Any}()
+        name = "dummy-run",
+        seed = 1,
+        ticks = 3,
+        fail_at = -1,
+        scale = 1.0,
+        metrics = nothing,
+        outputs = nothing,
+    )
+    model = Dict{String, Any}("name" => "dummy", "fail_at" => fail_at, "scale" => scale)
+    logging = Dict{String, Any}()
     metrics !== nothing && (logging["metrics"] = metrics)
     outputs !== nothing && (logging["outputs"] = outputs)
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => name, "seed" => seed),
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => name, "seed" => seed),
         "model" => model,
-        "runtime" => Dict{String,Any}("ticks" => ticks),
+        "runtime" => Dict{String, Any}("ticks" => ticks),
         "logging" => logging,
     )
 end

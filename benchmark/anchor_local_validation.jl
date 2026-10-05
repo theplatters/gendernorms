@@ -10,7 +10,7 @@ using GenderNorms
 using Statistics
 
 module BargainingKernelBench
-include("bargaining_kernel.jl")
+    include("bargaining_kernel.jl")
 end
 
 const GN = GenderNorms
@@ -25,7 +25,7 @@ only the two initial conformism means to zero. Return the resolved spec.
 function validation_spec(name::String, ticks::Int)
     raw = BargainingKernelBench.workload_spec(name == "low_conformism" ? "ws_500" : name, ticks)
     if name == "low_conformism"
-        raw["model"]["initial_conformism"] = Dict{String,Any}("men" => 0.0, "women" => 0.0)
+        raw["model"]["initial_conformism"] = Dict{String, Any}("men" => 0.0, "women" => 0.0)
     end
     return GN.parse_spec(raw)
 end
@@ -40,8 +40,10 @@ function household_args(world, i::Int, config)
     net = Ark.get_resource(world, GN.SocialNetwork)
     woman = net.women_entities[i]
     wage_w, time_w, transfer_w, conformism_w, preference_w, spouse = Ark.get_components(
-        world, woman, (GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism,
-            GN.PreferencePrivate, GN.Spouse),
+        world, woman, (
+            GN.Wage, GN.WorkingTime, GN.TransferToWoman, GN.Conformism,
+            GN.PreferencePrivate, GN.Spouse,
+        ),
     )
     wage_m, time_m, conformism_m, preference_m = Ark.get_components(
         world, spouse.entity, (GN.Wage, GN.WorkingTime, GN.Conformism, GN.PreferencePrivate),
@@ -49,10 +51,14 @@ function household_args(world, i::Int, config)
     man_vertex = findfirst(isequal(spouse.entity), net.men_entities)
     nw = GN.norm_means(world, net, i, true, nothing, Ark.Entity[])
     nm = GN.norm_means(world, net, man_vertex, false, nothing, Ark.Entity[])
-    pw = GN.payoff_params(wage_w.current, wage_m.current, preference_w.current,
-        conformism_w.amount, nw, true)
-    pm = GN.payoff_params(wage_m.current, wage_w.current, preference_m.current,
-        conformism_m.amount, nm, false)
+    pw = GN.payoff_params(
+        wage_w.current, wage_m.current, preference_w.current,
+        conformism_w.amount, nw, true
+    )
+    pm = GN.payoff_params(
+        wage_m.current, wage_w.current, preference_m.current,
+        conformism_m.amount, nm, false
+    )
     return (time_w.current, time_m.current, transfer_w.current, pw, pm, config.utility)
 end
 
@@ -110,14 +116,14 @@ end
 """
     advance!(world, config, tick::Int, search::Symbol)
 
-Drive the exact MDR-0010 model schedule, selecting only the transfer driver.
+Drive the exact MDR-0022 model schedule, selecting only the transfer driver.
 """
 function advance!(world, config, tick::Int, search::Symbol)
     GN.update_shocks!(world, tick)
     GN.calculate_norm_perception!(world, config.utility)
-    GN.set_theta!(world, config.utility; search=search)
+    GN.set_theta!(world, config.utility; search = search)
     GN.update_old_working_time_and_transfer!(world)
-    GN.update_global_working_times!(world)
+    GN.update_observer_stats!(world)
     GN.update_preferences(world)
     return nothing
 end
@@ -152,7 +158,7 @@ function quality_rows()
                     context = payoff_context(args)
                     scratch = GN.TransferSearchScratch()
                     local_bundle = GN.bargain_transfer(scratch, args...)
-                    discovery_bundle = GN.bargain_transfer(args...; search=:discovery)
+                    discovery_bundle = GN.bargain_transfer(args...; search = :discovery)
                     local_payoff = bundle_payoff(local_bundle, context)
                     discovery_payoff = bundle_payoff(discovery_bundle, context)
                     theta0 = clamp(args[3], -1.0, 1.0)
@@ -164,12 +170,16 @@ function quality_rows()
                     fallback = isequal(local_bundle, (theta0, context[1], context[2]))
                     fallback || (isfinite(local_payoff) && local_payoff > status_payoff) ||
                         error("invalid production commit")
-                    push!(rows, (; workload=name, state, household=i, status_payoff,
-                        local_theta=local_bundle[1], discovery_theta=discovery_bundle[1],
-                        local_payoff, discovery_payoff, fine_theta, fine_payoff,
-                        discovery_deficit=payoff_deficit(discovery_payoff, local_payoff),
-                        fine_deficit=payoff_deficit(fine_payoff, local_payoff),
-                        bitwise=isequal(local_bundle, discovery_bundle), calls, search_solves))
+                    push!(
+                        rows, (;
+                            workload = name, state, household = i, status_payoff,
+                            local_theta = local_bundle[1], discovery_theta = discovery_bundle[1],
+                            local_payoff, discovery_payoff, fine_theta, fine_payoff,
+                            discovery_deficit = payoff_deficit(discovery_payoff, local_payoff),
+                            fine_deficit = payoff_deficit(fine_payoff, local_payoff),
+                            bitwise = isequal(local_bundle, discovery_bundle), calls, search_solves,
+                        )
+                    )
                 end
             end
             state < 5 && advance!(world, config, state, :discovery)
@@ -187,7 +197,8 @@ function household_snapshot(world)
     net = Ark.get_resource(world, GN.SocialNetwork)
     return map(net.women_entities) do woman
         time_w, transfer, spouse = Ark.get_components(
-            world, woman, (GN.WorkingTime, GN.TransferToWoman, GN.Spouse))
+            world, woman, (GN.WorkingTime, GN.TransferToWoman, GN.Spouse)
+        )
         time_m, = Ark.get_components(world, spouse.entity, (GN.WorkingTime,))
         (transfer.current, time_w.current, time_m.current)
     end
@@ -201,9 +212,9 @@ Stable FNV-style digest over Float64 bit patterns, not Julia's session hash.
 function snapshot_digest(snapshot)
     digest = UInt64(0xcbf29ce484222325)
     for household in snapshot, value in household
-        digest = xor(digest, reinterpret(UInt64, value)) * UInt64(0x100000001b3)
+        digest = xor(digest, reinterpret(UInt64, value)) * UInt64(0x00000100000001b3)
     end
-    return string(digest; base=16, pad=16)
+    return string(digest; base = 16, pad = 16)
 end
 
 """
@@ -231,27 +242,35 @@ function trajectory_rows()
             discovery_state = household_snapshot(discovery_world)
             lt, dt = first.(local_state), first.(discovery_state)
             delta = abs.(lt .- dt)
-            push!(rows, (; workload=name, tick,
-                local_sum=sum(lt), discovery_sum=sum(dt),
-                local_nonzero=count(!iszero, lt) / length(lt),
-                discovery_nonzero=count(!iszero, dt) / length(dt),
-                differing=count(i -> !isequal(lt[i], dt[i]), eachindex(lt)),
-                mean_abs_delta=mean(delta), max_abs_delta=maximum(delta),
-                local_digest=snapshot_digest(local_state),
-                discovery_digest=snapshot_digest(discovery_state)))
+            push!(
+                rows, (;
+                    workload = name, tick,
+                    local_sum = sum(lt), discovery_sum = sum(dt),
+                    local_nonzero = count(!iszero, lt) / length(lt),
+                    discovery_nonzero = count(!iszero, dt) / length(dt),
+                    differing = count(i -> !isequal(lt[i], dt[i]), eachindex(lt)),
+                    mean_abs_delta = mean(delta), max_abs_delta = maximum(delta),
+                    local_digest = snapshot_digest(local_state),
+                    discovery_digest = snapshot_digest(discovery_state),
+                )
+            )
             for i in eachindex(lt)
                 isequal(lt[i], dt[i]) && continue
                 args = local_args[i]
                 context = payoff_context(args)
-                reference_bundle = GN.bargain_transfer(args...; search=:discovery)
+                reference_bundle = GN.bargain_transfer(args...; search = :discovery)
                 local_payoff = bundle_payoff(local_state[i], context)
                 shared_reference_payoff = bundle_payoff(reference_bundle, context)
-                push!(changes, (; workload=name, tick, household=i,
-                    local_theta=lt[i], discovery_trajectory_theta=dt[i], abs_delta=delta[i],
-                    shared_reference_theta=reference_bundle[1], local_payoff,
-                    shared_reference_payoff,
-                    shared_state_deficit=payoff_deficit(shared_reference_payoff, local_payoff),
-                    bitwise_shared=isequal(local_state[i], reference_bundle)))
+                push!(
+                    changes, (;
+                        workload = name, tick, household = i,
+                        local_theta = lt[i], discovery_trajectory_theta = dt[i], abs_delta = delta[i],
+                        shared_reference_theta = reference_bundle[1], local_payoff,
+                        shared_reference_payoff,
+                        shared_state_deficit = payoff_deficit(shared_reference_payoff, local_payoff),
+                        bitwise_shared = isequal(local_state[i], reference_bundle),
+                    )
+                )
             end
         end
     end
@@ -274,11 +293,11 @@ function kernel_pass(spec, ticks::Int, search::Symbol)
         GN.calculate_norm_perception!(world, config.utility)
         gc_before = Base.gc_num()
         start = time_ns()
-        GN.set_theta!(world, config.utility; search=search)
+        GN.set_theta!(world, config.utility; search = search)
         kernel_s += (time_ns() - start) / 1.0e9
         bytes += Int(Base.GC_Diff(Base.gc_num(), gc_before).allocd)
         GN.update_old_working_time_and_transfer!(world)
-        GN.update_global_working_times!(world)
+        GN.update_observer_stats!(world)
         GN.update_preferences(world)
     end
     return (; kernel_s, bytes)
@@ -297,11 +316,15 @@ function timing_rows()
         kernel_pass(spec, 20, search)
         passes = [kernel_pass(spec, 20, search) for _ in 1:5]
         times = [p.kernel_s for p in passes]
-        push!(rows, (; workload=name, search=string(search), threads=Threads.nthreads(),
-            ticks=20, repetitions=5, households=500, median_s=median(times),
-            iqr_s=quantile(times, 0.75) - quantile(times, 0.25),
-            min_s=minimum(times), max_s=maximum(times),
-            bytes_per_household_tick=median([p.bytes for p in passes]) / 10000))
+        push!(
+            rows, (;
+                workload = name, search = string(search), threads = Threads.nthreads(),
+                ticks = 20, repetitions = 5, households = 500, median_s = median(times),
+                iqr_s = quantile(times, 0.75) - quantile(times, 0.25),
+                min_s = minimum(times), max_s = maximum(times),
+                bytes_per_household_tick = median([p.bytes for p in passes]) / 10000,
+            )
+        )
     end
     return rows
 end

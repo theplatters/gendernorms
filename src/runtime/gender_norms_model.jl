@@ -5,7 +5,8 @@
 # `GenderNormsConfig`, world setup (port of NetLogo `setup`, ODD section
 # Initialization (`setup`, `set-initials-*`)), the per-tick `step_model!`
 # (port of NetLogo `to go`, ODD section Process overview and scheduling,
-# see `MDR-0010`), working-time metrics, and the configuration echo.
+# see `MDR-0022`, which supersedes `MDR-0010`), the observer metrics of
+# `model_metrics`, and the configuration echo.
 
 """
     GenderNormsModel <: AbstractModel
@@ -60,14 +61,14 @@ out-of-range entries. Returns the `(men, women)` pair, keeping defaults for
 missing or invalid entries so every problem is collected.
 """
 function _parse_gender_pair(
-    raw::AbstractDict,
-    problems::Vector{String},
-    path::String,
-    default_men::Float64,
-    default_women::Float64,
-    lo::Float64,
-    hi::Float64,
-)::Tuple{Float64,Float64}
+        raw::AbstractDict,
+        problems::Vector{String},
+        path::String,
+        default_men::Float64,
+        default_women::Float64,
+        lo::Float64,
+        hi::Float64,
+    )::Tuple{Float64, Float64}
     append!(problems, _key_problems(raw, ("men", "women"), path))
     range = isinf(hi) ? "a number >= $lo" : "a number in [$lo, $hi]"
     men = default_men
@@ -129,8 +130,8 @@ function _parse_network_table(raw::AbstractDict, problems::Vector{String})::Netw
         push!(
             problems,
             "[model.network.type] must be one of \"random\", \"watts_strogatz\", " *
-            "\"preferential_attachment\", \"similarity\", \"homophily\", \"none\", " *
-            "\"homogeneous_mixing\", got $(repr(kind))",
+                "\"preferential_attachment\", \"similarity\", \"homophily\", \"none\", " *
+                "\"homogeneous_mixing\", got $(repr(kind))",
         )
         append!(problems, _key_problems(raw, shared, "model.network"))
         return WattsStrogatz()
@@ -207,11 +208,11 @@ function _parse_network_table(raw::AbstractDict, problems::Vector{String})::Netw
         if haskey(raw, "trait")
             value = raw["trait"]
             if !(value isa String) ||
-               !(value in ("wage", "conformism", "preference_private"))
+                    !(value in ("wage", "conformism", "preference_private"))
                 push!(
                     problems,
                     "[model.network.trait] must be one of \"wage\", \"conformism\", " *
-                    "\"preference_private\", got $(repr(value))",
+                        "\"preference_private\", got $(repr(value))",
                 )
             else
                 trait = Symbol(value)
@@ -269,13 +270,13 @@ function _parse_utility_table(raw::AbstractDict, problems::Vector{String})::Util
             push!(
                 problems,
                 "[model.utility.type] must be one of \"additive\", \"ces\", " *
-                "\"multiplicative\", \"multiplicative_weighted\", got $(repr(value))",
+                    "\"multiplicative\", \"multiplicative_weighted\", got $(repr(value))",
             )
         else
             kind = value
         end
     end
-    weights = Dict{String,Float64}("w_self" => 1.0, "w_partner" => 1.0, "w_transfer" => 1.0)
+    weights = Dict{String, Float64}("w_self" => 1.0, "w_partner" => 1.0, "w_transfer" => 1.0)
     for key in ("w_self", "w_partner", "w_transfer")
         if haskey(raw, key)
             value = raw[key]
@@ -340,7 +341,7 @@ Collects every missing key, wrong type, non-finite or out-of-range
 value, and unknown key into one `RunSpecError`. Returns the validated
 `GenderNormsConfig` on valid input.
 """
-function parse_model_config(::Type{GenderNormsModel}, raw::Dict{String,Any})
+function parse_model_config(::Type{GenderNormsModel}, raw::Dict{String, Any})
     problems = String[]
     append!(
         problems,
@@ -505,9 +506,13 @@ end
 Construct and fully initialize a runnable world for the
 `GenderNormsModel` binding (see `ADR-0012`). Takes the model type,
 the validated configuration from `parse_model_config`, and the
-seeded run RNG. Registers the household components, adds the
-`ModelProperties`, `PaidTime`, `MeanWage`, `MeanPreference`,
-`InitialConformism`, and `WorkingTimeStats` resources, then runs
+seeded run RNG. Registers the household components (including
+`CommittedUtility`, so the parallel commit loop of `set_theta!` only
+updates existing columns, see `ADR-0026`), adds the `ModelProperties`,
+`PaidTime`, `MeanWage`, `MeanPreference`, `InitialConformism`, and
+`WorkingTimeStats` resources plus the `PreferenceStats`, `UtilityStats`,
+and `TransferStats` observers initialized to `NaN` = "not yet observed"
+(see `MDR-0019`, `MDR-0020`, and `MDR-0021`), then runs
 `initialize_household` and `generate_social_network` with the RNG.
 Port of NetLogo `setup` (ODD section Initialization (`setup`,
 `set-initials-*`)) with the seed-driven draws of ODD Initialization
@@ -527,6 +532,7 @@ function setup_world(::Type{GenderNormsModel}, config::GenderNormsConfig, rng)::
         PerceptionNormDivisionOfLabor,
         Lambda,
         DirectlyAffected,
+        CommittedUtility,
     )
     Ark.add_resource!(world, config.properties)
     Ark.add_resource!(world, config.paid_time)
@@ -534,6 +540,9 @@ function setup_world(::Type{GenderNormsModel}, config::GenderNormsConfig, rng)::
     Ark.add_resource!(world, config.mean_preference)
     Ark.add_resource!(world, config.initial_conformism)
     Ark.add_resource!(world, WorkingTimeStats(0.0, 0.0, 0.0))
+    Ark.add_resource!(world, PreferenceStats(NaN, NaN))
+    Ark.add_resource!(world, UtilityStats(NaN, NaN))
+    Ark.add_resource!(world, TransferStats(NaN))
     initialize_household(world, rng)
     generate_social_network(world, rng)
     return world
@@ -546,20 +555,23 @@ Execute one tick of the `GenderNormsModel` binding (see `ADR-0012`).
 Takes the model type, the world, the validated configuration, and the
 tick count, which counts like the NetLogo `ticks` reporter at `go`
 entry: the first call sees 0. Runs, in order, `update_shocks!`
-(shock block), `calculate_norm_perception!`, `set_theta!`,
-`update_old_working_time_and_transfer!` and
-`update_global_working_times!` (the `update-statistics` core), and
-`update_preferences`. Port of NetLogo `to go` (ODD section Process
-overview and scheduling); see `MDR-0010`. `update_wages!` stays
-unscheduled (see `MDR-0009`) and quirk 11 stays deferred under
-`TASK-0010`. Returns nothing.
+(shock block), `calculate_norm_perception!`, `set_theta!` (which also
+captures the committed-bundle utilities, see `MDR-0019`),
+`update_old_working_time_and_transfer!` (the lag copy), and
+`update_preferences`, with the fused observer snapshot
+`update_observer_stats!` between the lag copy and the preference
+adaptation: the tick's single observation point (see `MDR-0022`).
+Port of NetLogo `to go` (ODD section Process overview and scheduling);
+see `MDR-0010` (superseded by `MDR-0022` for the statistics slot).
+`update_wages!` stays unscheduled (see `MDR-0009`) and quirk 11 stays
+deferred under `TASK-0010`. Returns nothing.
 """
 function step_model!(::Type{GenderNormsModel}, world, config::GenderNormsConfig, tick::Int)
     update_shocks!(world, tick)
     calculate_norm_perception!(world, config.utility)
     set_theta!(world, config.utility)
     update_old_working_time_and_transfer!(world)
-    update_global_working_times!(world)
+    update_observer_stats!(world)
     update_preferences(world)
     return nothing
 end
@@ -568,16 +580,25 @@ end
     model_metrics(::Type{GenderNormsModel})::Dict{String,Function}
 
 Per-tick metric functions of the `GenderNormsModel` binding (see
-`ADR-0012`). Takes the model type and returns the `working_time_men`,
-`working_time_women`, and `working_time_gap` mapping, each reading
-its field of the world's `WorkingTimeStats` resource. The runner
-evaluates the configured subset after every tick.
+`ADR-0012`). Takes the model type and returns the eight-name mapping of
+the observer snapshot (`MDR-0022`, `ADR-0026`): the working-time means
+and gap of `WorkingTimeStats`, the pre-adaptation preference means of
+`PreferenceStats` (`MDR-0020`), the committed-bundle utility means of
+`UtilityStats` (`MDR-0019`), and the women's transfer mean of
+`TransferStats` (`MDR-0021`), each closure reading its resource field.
+The runner evaluates the configured subset after every tick; an omitted
+`[logging].metrics` selects all eight.
 """
-function model_metrics(::Type{GenderNormsModel})::Dict{String,Function}
-    return Dict{String,Function}(
+function model_metrics(::Type{GenderNormsModel})::Dict{String, Function}
+    return Dict{String, Function}(
         "working_time_men" => world -> Ark.get_resource(world, WorkingTimeStats).men,
         "working_time_women" => world -> Ark.get_resource(world, WorkingTimeStats).women,
         "working_time_gap" => world -> Ark.get_resource(world, WorkingTimeStats).gap,
+        "preference_men" => world -> Ark.get_resource(world, PreferenceStats).men,
+        "preference_women" => world -> Ark.get_resource(world, PreferenceStats).women,
+        "utility_men" => world -> Ark.get_resource(world, UtilityStats).men,
+        "utility_women" => world -> Ark.get_resource(world, UtilityStats).women,
+        "transfer_mean" => world -> Ark.get_resource(world, TransferStats).mean,
     )
 end
 
@@ -591,33 +612,33 @@ dictionary with its `type` string and per-type values, using the
 `men`/`women` key names of the specification. Helper of
 `config_to_dict`.
 """
-function _network_to_dict(spec::NetworkSpec)::Dict{String,Any}
+function _network_to_dict(spec::NetworkSpec)::Dict{String, Any}
     if spec isa RandomNetwork
-        return Dict{String,Any}("type" => "random", "p" => Float64(spec.p))
+        return Dict{String, Any}("type" => "random", "p" => Float64(spec.p))
     end
     if spec isa WattsStrogatz
-        return Dict{String,Any}(
+        return Dict{String, Any}(
             "type" => "watts_strogatz",
             "neighbors_per_side" => Int(spec.neighbors_per_side),
             "rewiring" => Float64(spec.rewiring),
         )
     end
     if spec isa PreferentialAttachment
-        return Dict{String,Any}("type" => "preferential_attachment", "m" => Int(spec.m))
+        return Dict{String, Any}("type" => "preferential_attachment", "m" => Int(spec.m))
     end
     if spec isa SimilarityNetwork
-        return Dict{String,Any}(
+        return Dict{String, Any}(
             "type" => "similarity", "m" => Int(spec.m), "trait" => string(spec.trait)
         )
     end
     if spec isa HomophilyNetwork
-        return Dict{String,Any}("type" => "homophily", "m" => Int(spec.m))
+        return Dict{String, Any}("type" => "homophily", "m" => Int(spec.m))
     end
     if spec isa NoNetwork
-        return Dict{String,Any}("type" => "none")
+        return Dict{String, Any}("type" => "none")
     end
     if spec isa HomogeneousMixing
-        return Dict{String,Any}("type" => "homogeneous_mixing")
+        return Dict{String, Any}("type" => "homogeneous_mixing")
     end
     throw(ArgumentError("unknown NetworkSpec $(typeof(spec))"))
 end
@@ -632,8 +653,8 @@ dictionary with its `type` string, the `w_self`, `w_partner`, and
 `w_transfer` weights, and `beta` for the `ces` type. Helper of
 `config_to_dict`.
 """
-function _utility_to_dict(config::UtilityConfig)::Dict{String,Any}
-    out = Dict{String,Any}(
+function _utility_to_dict(config::UtilityConfig)::Dict{String, Any}
+    out = Dict{String, Any}(
         "w_self" => Float64(config.w_self),
         "w_partner" => Float64(config.w_partner),
         "w_transfer" => Float64(config.w_transfer),
@@ -670,25 +691,25 @@ from `_network_to_dict`, the `utility` table from
 `_utility_to_dict`, and the `men`/`women` key names, so the run
 record can recover the configuration.
 """
-function config_to_dict(::Type{GenderNormsModel}, config::GenderNormsConfig)::Dict{String,Any}
+function config_to_dict(::Type{GenderNormsModel}, config::GenderNormsConfig)::Dict{String, Any}
     properties = config.properties
-    return Dict{String,Any}(
+    return Dict{String, Any}(
         "agents_per_gender" => Int(properties.agents_per_gender),
         "std_dev" => Float64(properties.std_dev),
         "initial_transfer" => Float64(properties.initial_transfer),
         "initial_lambda" => Float64(properties.initial_lambda),
         "network" => _network_to_dict(properties.network),
-        "paid_time" => Dict{String,Any}(
+        "paid_time" => Dict{String, Any}(
             "men" => Float64(config.paid_time.men), "women" => Float64(config.paid_time.woman)
         ),
-        "mean_wage" => Dict{String,Any}(
+        "mean_wage" => Dict{String, Any}(
             "men" => Float64(config.mean_wage.men), "women" => Float64(config.mean_wage.woman)
         ),
-        "mean_preference" => Dict{String,Any}(
+        "mean_preference" => Dict{String, Any}(
             "men" => Float64(config.mean_preference.men),
             "women" => Float64(config.mean_preference.woman),
         ),
-        "initial_conformism" => Dict{String,Any}(
+        "initial_conformism" => Dict{String, Any}(
             "men" => Float64(config.initial_conformism.men),
             "women" => Float64(config.initial_conformism.woman),
         ),

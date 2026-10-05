@@ -41,7 +41,7 @@ read), and the guidance gains default to `NaN` (worst). A pruned production
 record would carry certified bound gains as `gw`/`gm`; a solved one carries
 its true gains (equal to its payoff in the manufactured cases).
 """
-local_record(payoff::Float64; gw::Float64=NaN, gm::Float64=NaN) =
+local_record(payoff::Float64; gw::Float64 = NaN, gm::Float64 = NaN) =
     GN.TransferObjectiveValue(NaN, NaN, payoff, NaN, NaN, gw, gm)
 
 """
@@ -104,7 +104,7 @@ Record a manufactured production search with only the status quo seeded
 scratch, best transfer, ordered evaluator calls (new evaluations only), and
 the independently enumerated Stage A set.
 """
-function local_synthetic(theta0::Float64, record_of; tol::Float64=GN.TRANSFER_REFINE_TOL)
+function local_synthetic(theta0::Float64, record_of; tol::Float64 = GN.TRANSFER_REFINE_TOL)
     scratch = GN.TransferSearchScratch()
     scratch.cache[theta0] = record_of(theta0)
     requested = Float64[]
@@ -113,7 +113,7 @@ function local_synthetic(theta0::Float64, record_of; tol::Float64=GN.TRANSFER_RE
         record_of(theta)
     end
     best = GN._transfer_local_search!(scratch, evaluator, theta0, tol)
-    return (; scratch, best, requested, stage_a=local_stage_a(theta0, record_of))
+    return (; scratch, best, requested, stage_a = local_stage_a(theta0, record_of))
 end
 
 """
@@ -199,11 +199,11 @@ end
     # rule of `MDR-0016`).
     signal = theta -> begin
         if isequal(theta, 0.001)
-            local_record(-Inf; gw=-1.0e-5, gm=-1.0e-5)
+            local_record(-Inf; gw = -1.0e-5, gm = -1.0e-5)
         elseif isequal(theta, -0.001)
-            local_record(-Inf; gw=-1.0e-5, gm=-1.0e-5)
+            local_record(-Inf; gw = -1.0e-5, gm = -1.0e-5)
         elseif isequal(theta, 0.0001) || isequal(theta, -0.0001)
-            local_record(-Inf; gw=-1.0e-5, gm=-3.0e-5)
+            local_record(-Inf; gw = -1.0e-5, gm = -3.0e-5)
         else
             local_record(-Inf)
         end
@@ -216,7 +216,7 @@ end
     # Below the floor or not improving over the near probe: no adaptive probe.
     weak = theta -> begin
         if isequal(theta, 0.001)
-            local_record(-Inf; gw=-3.0e-5, gm=-3.0e-5)
+            local_record(-Inf; gw = -3.0e-5, gm = -3.0e-5)
         else
             local_record(-Inf)
         end
@@ -228,7 +228,7 @@ end
     # Not improving over the +/- 0.0001 probe: no adaptive probe either.
     flat = theta -> begin
         if abs(theta) == 0.001 || abs(theta) == 0.0001
-            local_record(-Inf; gw=1.0, gm=1.0)
+            local_record(-Inf; gw = 1.0, gm = 1.0)
         else
             local_record(-Inf)
         end
@@ -244,13 +244,13 @@ end
     # with at most TRANSFER_REFINE_MAX_ITER new probes inside its
     # sampled-neighbour bracket. Nothing is feasible, so Stage C never
     # runs and no fabricated value appears.
-    peaks = Dict{Float64,Float64}(
+    peaks = Dict{Float64, Float64}(
         -0.0001 => 8.0, 0.0001 => 8.0,
         -0.001 => 7.0, 0.001 => 7.0,
         -0.003 => 6.0, 0.003 => 5.0,
     )
     record_of = theta -> haskey(peaks, theta) ?
-        local_record(-Inf; gw=peaks[theta], gm=peaks[theta]) : local_record(-Inf)
+        local_record(-Inf; gw = peaks[theta], gm = peaks[theta]) : local_record(-Inf)
     run = local_synthetic(0.0, record_of)
     sampled = sort(vcat(run.stage_a, [0.0]))
     probes = run.requested[(length(run.stage_a) + 1):end]
@@ -275,17 +275,17 @@ end
     # Finite-payoff peaks with the status quo at 0.0: the guidance stage
     # refines the top guidance peak and the payoff stage refines the top
     # strictly improving cached candidate, six iteration probes each.
-    peaks = Dict{Float64,Float64}(
+    peaks = Dict{Float64, Float64}(
         -0.0001 => 8.0, 0.0001 => 8.0,
         -0.001 => 7.0, 0.001 => 7.0,
         -0.003 => 6.0, 0.003 => 5.0,
     )
     record_of = theta -> begin
         if haskey(peaks, theta)
-            local_record(peaks[theta]; gw=peaks[theta], gm=peaks[theta])
+            local_record(peaks[theta]; gw = peaks[theta], gm = peaks[theta])
         elseif isequal(theta, 0.0)
             # The both-zero-gain status point is a candidate but never a peak.
-            local_record(0.0; gw=0.0, gm=0.0)
+            local_record(0.0; gw = 0.0, gm = 0.0)
         else
             local_record(-Inf)
         end
@@ -306,18 +306,18 @@ end
     # does not. The exact both-zero-gain zero point never refines but stays
     # a candidate.
     near = theta -> isequal(theta, 0.001) ?
-        local_record(-Inf; gw=-1.0e-5, gm=-1.0e-5) : local_record(-Inf)
+        local_record(-Inf; gw = -1.0e-5, gm = -1.0e-5) : local_record(-Inf)
     run = local_synthetic(0.0, near)
     probes = run.requested[(length(run.stage_a) + 1):end]
     @test !isempty(probes)
 
     below = theta -> isequal(theta, 0.001) ?
-        local_record(-Inf; gw=-3.0e-5, gm=-3.0e-5) : local_record(-Inf)
+        local_record(-Inf; gw = -3.0e-5, gm = -3.0e-5) : local_record(-Inf)
     run = local_synthetic(0.0, below)
     @test run.requested == run.stage_a
 
     zero = theta -> isequal(theta, 0.0) ?
-        local_record(0.5; gw=0.0, gm=0.0) : local_record(-Inf)
+        local_record(0.5; gw = 0.0, gm = 0.0) : local_record(-Inf)
     run = local_synthetic(0.0, zero)
     probes = run.requested[(length(run.stage_a) + 1):end]
     @test isempty(probes)
@@ -340,7 +340,7 @@ end
     guide(theta) = 2.0e-6 - 200.0 * (theta - 0.0007)^2
     record_of = theta -> begin
         g = guide(theta)
-        g >= 0.0 ? local_record(g; gw=g, gm=1.0) : local_record(-Inf; gw=g, gm=1.0)
+        g >= 0.0 ? local_record(g; gw = g, gm = 1.0) : local_record(-Inf; gw = g, gm = 1.0)
     end
     run = local_synthetic(0.0, record_of)
     @test isfinite(run.best)
@@ -373,18 +373,18 @@ end
     theta0 = 0.123456789
     record_of = theta -> begin
         if isequal(theta, theta0 + 0.001)
-            local_record(-Inf; gw=10.0, gm=10.0)
+            local_record(-Inf; gw = 10.0, gm = 10.0)
         elseif isequal(theta, -1.0)
-            local_record(1.0; gw=1.0, gm=1.0)
+            local_record(1.0; gw = 1.0, gm = 1.0)
         elseif theta in (0.001, -0.001, theta0 - 0.001, 0.0003, -0.0003, theta0 - 0.0003, theta0 + 0.0003)
-            local_record(-Inf; gw=2.0, gm=2.0)
+            local_record(-Inf; gw = 2.0, gm = 2.0)
         elseif theta in (0.0001, -0.0001, theta0 - 0.0001, theta0 + 0.0001)
-            local_record(-Inf; gw=1.0, gm=1.0)
+            local_record(-Inf; gw = 1.0, gm = 1.0)
         else
             local_record(-Inf)
         end
     end
-    run = local_synthetic(theta0, record_of; tol=1.0e-100)
+    run = local_synthetic(theta0, record_of; tol = 1.0e-100)
     @test length(run.stage_a) + 1 == 32
     @test length(run.scratch.cache) == GN.TRANSFER_SEARCH_MAX_EVALS
     @test length(run.requested) == length(run.stage_a) + 2 * GN.TRANSFER_REFINE_MAX_ITER
@@ -394,7 +394,7 @@ end
     # Remote exploration runs even with no finite local-neighbour samples:
     # the coarse ladder probes the broad band around 0.25.
     remote = theta -> abs(theta - 0.25) < 0.1 ? 1.0 - ((theta - 0.25) / 0.1)^2 : -Inf
-    hit = local_synthetic(0.0, theta -> local_record(remote(theta); gw=remote(theta), gm=remote(theta)))
+    hit = local_synthetic(0.0, theta -> local_record(remote(theta); gw = remote(theta), gm = remote(theta)))
     @test isfinite(hit.best)
     @test abs(hit.best - 0.25) <= 0.02
     @test hit.scratch.cache[hit.best].payoff > remote(0.256)
@@ -406,7 +406,7 @@ end
     # infeasibility.
     band = theta -> abs(theta - 0.02) < 0.003 ?
         1.0 - ((theta - 0.02) / 0.003)^2 : -Inf
-    miss = local_synthetic(0.0, theta -> local_record(band(theta); gw=band(theta), gm=band(theta)))
+    miss = local_synthetic(0.0, theta -> local_record(band(theta); gw = band(theta), gm = band(theta)))
     @test isnan(miss.best)
     @test isequal(miss.requested, miss.stage_a)
     cache = Dict(0.0 => local_record(-Inf))
@@ -419,7 +419,7 @@ end
 @testset "local transfer search: plateau and non-finite neighbour values" begin
     # A constant guidance plateau collapses to the representative nearest
     # the status quo and refines exactly one peak.
-    plateau = local_synthetic(0.0, theta -> local_record(1.0; gw=1.0, gm=1.0))
+    plateau = local_synthetic(0.0, theta -> local_record(1.0; gw = 1.0, gm = 1.0))
     probes = plateau.requested[(length(plateau.stage_a) + 1):end]
     @test !isempty(probes)
     @test all(t -> -1.0e-4 < t < 1.0e-4, probes)
@@ -432,7 +432,7 @@ end
     star = 0.001475
     peak = theta -> isequal(theta, 0.0) ? -Inf :
         (abs(theta - star) < 5.0e-4 ? 1.0 - 1000.0 * (theta - star)^2 : NaN)
-    run = local_synthetic(0.0, theta -> local_record(peak(theta); gw=peak(theta), gm=peak(theta)))
+    run = local_synthetic(0.0, theta -> local_record(peak(theta); gw = peak(theta), gm = peak(theta)))
     @test isfinite(run.best)
     @test abs(run.best - star) <= 1.0e-4
     @test !(run.best in run.stage_a)
@@ -441,8 +441,10 @@ end
     )
 
     # Non-improving candidates remain cached but cannot beat the status quo.
-    lower = local_synthetic(0.0, theta -> isequal(theta, 0.0) ?
-        local_record(2.0; gw=2.0, gm=2.0) : local_record(1.0; gw=1.0, gm=1.0))
+    lower = local_synthetic(
+        0.0, theta -> isequal(theta, 0.0) ?
+            local_record(2.0; gw = 2.0, gm = 2.0) : local_record(1.0; gw = 1.0, gm = 1.0)
+    )
     @test isequal(lower.best, 0.0)
 end
 
@@ -450,14 +452,14 @@ end
     # Bands containing a ladder point are found directly and refined.
     for star in (0.0001, -0.0001, 0.001, 0.003, 0.03, -0.3)
         peak = t -> abs(t - star) < 5.0e-5 ? 1.0 - 1.0e8 * (t - star)^2 : -Inf
-        run = local_synthetic(0.0, theta -> local_record(peak(theta); gw=peak(theta), gm=peak(theta)))
+        run = local_synthetic(0.0, theta -> local_record(peak(theta); gw = peak(theta), gm = peak(theta)))
         @test isfinite(run.best) && abs(run.best - star) <= GN.TRANSFER_REFINE_TOL
     end
     # Domain-boundary brackets stay one-sided and inside the domain.
     for edge in (-1.0, 1.0)
         star = edge - sign(edge) * 0.05
         peak = t -> abs(t - edge) < 0.2 ? 1.0 - (t - star)^2 : -Inf
-        run = local_synthetic(0.0, theta -> local_record(peak(theta); gw=peak(theta), gm=peak(theta)))
+        run = local_synthetic(0.0, theta -> local_record(peak(theta); gw = peak(theta), gm = peak(theta)))
         @test isfinite(run.best)
         @test abs(run.best - star) <= 0.02
         @test all(t -> -1.0 <= t <= 1.0, run.requested)
@@ -474,8 +476,10 @@ function local_fixture_case(h)
     fields = ("wage_self", "wage_spouse", "alpha", "conformism", "N_h", "N_theta", "N_h_spouse")
     pw = GN.AgentPayoffParams((f("pw_" * key) for key in fields)..., true)
     pm = GN.AgentPayoffParams((f("pm_" * key) for key in fields)..., false)
-    return (f("hw_init"), f("hm_init"), f("theta_init"), pw, pm,
-        GN.UtilityConfig(func=GN.CES(beta=f("beta"))))
+    return (
+        f("hw_init"), f("hm_init"), f("theta_init"), pw, pm,
+        GN.UtilityConfig(func = GN.CES(beta = f("beta"))),
+    )
 end
 
 @testset "local transfer search: fixture gains, cached hours, and scratch reuse" begin
@@ -485,7 +489,7 @@ end
     for h in fixture["household"]
         args = local_fixture_case(h)
         result = GN.bargain_transfer(scratch, args...)
-        @test isequal(result, GN.bargain_transfer(args...; search=:local))
+        @test isequal(result, GN.bargain_transfer(args...; search = :local))
         @test length(scratch.cache) <= GN.TRANSFER_SEARCH_MAX_EVALS
         entry = scratch.cache[result[1]]
         @test isequal((result[2], result[3]), (entry.hw, entry.hm))
@@ -508,18 +512,18 @@ end
         end
         # Alternating modes on the same scratch cannot leak candidates,
         # slabs, or the validation search's much larger sampled sequence.
-        GN.bargain_transfer(scratch, args...; search=:discovery)
+        GN.bargain_transfer(scratch, args...; search = :discovery)
         @test isequal(result, GN.bargain_transfer(scratch, args...))
     end
     # The non-finite-outside fast path also drops all previous scratch state.
-    pw = GN.AgentPayoffParams(wage_self=1.0, wage_spouse=0.0, is_woman=true)
-    pm = GN.AgentPayoffParams(wage_self=0.0, wage_spouse=1.0, is_woman=false)
+    pw = GN.AgentPayoffParams(wage_self = 1.0, wage_spouse = 0.0, is_woman = true)
+    pm = GN.AgentPayoffParams(wage_self = 0.0, wage_spouse = 1.0, is_woman = false)
     for search in (:local, :discovery)
         scratch.cache[0.0] = GN.TransferObjectiveValue(1.0, 1.0, 1.0, 0.5, 0.5)
         push!(scratch.samples, (0.0, 1.0))
         push!(scratch.maxima, 1)
         push!(scratch.slabs, (-1.0, 1.0))
-        result = GN.bargain_transfer(scratch, 0.5, 0.5, -0.0, pw, pm, GN.UtilityConfig(); search=search)
+        result = GN.bargain_transfer(scratch, 0.5, 0.5, -0.0, pw, pm, GN.UtilityConfig(); search = search)
         @test isequal(result[1], -0.0)
         @test isempty(scratch.cache) && isempty(scratch.samples)
         @test isempty(scratch.maxima) && isempty(scratch.slabs)
@@ -587,15 +591,15 @@ end
 end
 
 @testset "local transfer search: explicit mode and tolerance validation" begin
-    pw = GN.AgentPayoffParams(is_woman=true)
-    pm = GN.AgentPayoffParams(is_woman=false)
+    pw = GN.AgentPayoffParams(is_woman = true)
+    pm = GN.AgentPayoffParams(is_woman = false)
     config = GN.UtilityConfig()
     args = (0.5, 0.5, 0.0, pw, pm, config)
-    @test_throws ArgumentError GN.bargain_transfer(args...; search=:unknown)
-    @test_throws ArgumentError GN.bargain_transfer(GN.TransferSearchScratch(), args...; search=:unknown)
+    @test_throws ArgumentError GN.bargain_transfer(args...; search = :unknown)
+    @test_throws ArgumentError GN.bargain_transfer(GN.TransferSearchScratch(), args...; search = :unknown)
     for search in (:local, :discovery), tol in (0.0, -1.0e-5, NaN, Inf)
-        @test_throws ArgumentError GN.bargain_transfer(args...; search=search, tol=tol)
+        @test_throws ArgumentError GN.bargain_transfer(args...; search = search, tol = tol)
     end
     # Mode errors precede world queries, including an empty world.
-    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; search=:unknown)
+    @test_throws ArgumentError GN.set_theta!(Ark.World(), config; search = :unknown)
 end

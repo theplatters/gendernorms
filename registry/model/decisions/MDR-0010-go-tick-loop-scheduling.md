@@ -1,10 +1,10 @@
 ---
 id: MDR-0010
 title: Schedule the go tick loop
-status: accepted
+status: superseded
 date: 2026-09-23
 supersedes: ""
-superseded_by: ""
+superseded_by: MDR-0022
 ---
 
 ## Context

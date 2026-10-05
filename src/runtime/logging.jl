@@ -36,7 +36,7 @@ Takes the logger, the tick count, and the evaluated metric values.
 The generic fallback is a no-op; backends override it. Returns
 nothing.
 """
-function metrics_recorded!(logger::RunLogger, tick::Int, values::Dict{String,Float64})
+function metrics_recorded!(logger::RunLogger, tick::Int, values::Dict{String, Float64})
     return nothing
 end
 
@@ -122,7 +122,7 @@ it.
 """
 mutable struct TomlLogger <: RunLogger
     directory::String
-    rows::Vector{Tuple{Int,Dict{String,Float64}}}
+    rows::Vector{Tuple{Int, Dict{String, Float64}}}
 end
 
 """
@@ -132,10 +132,10 @@ Construct a TOML file logging backend (see `ADR-0012`). Takes the
 record root directory and returns the logger with an empty buffer.
 """
 function TomlLogger(directory::AbstractString = "runs")
-    return TomlLogger(string(directory), Tuple{Int,Dict{String,Float64}}[])
+    return TomlLogger(string(directory), Tuple{Int, Dict{String, Float64}}[])
 end
 
-function metrics_recorded!(logger::TomlLogger, tick::Int, values::Dict{String,Float64})
+function metrics_recorded!(logger::TomlLogger, tick::Int, values::Dict{String, Float64})
     push!(logger.rows, (tick, copy(values)))
     return nothing
 end
@@ -161,7 +161,7 @@ function _write_run_record(logger::TomlLogger, result::RunResult)
     path = joinpath(logger.directory, result.id, "run.toml")
     mkpath(dirname(path))
     status = result.status == RUN_SUCCESS ? "success" : "failure"
-    run_table = Dict{String,Any}(
+    run_table = Dict{String, Any}(
         "id" => result.id,
         "name" => result.name,
         "model" => result.model_name,
@@ -174,11 +174,11 @@ function _write_run_record(logger::TomlLogger, result::RunResult)
     if result.error !== nothing
         run_table["error"] = "$(typeof(result.error)): $(sprint(showerror, result.error))"
     end
-    metric_table = Dict{String,Any}("tick" => [tick for (tick, _) in logger.rows])
+    metric_table = Dict{String, Any}("tick" => [tick for (tick, _) in logger.rows])
     for name in result.spec.logging.metrics
         metric_table[name] = [values[name] for (_, values) in logger.rows if haskey(values, name)]
     end
-    record = Dict{String,Any}(
+    record = Dict{String, Any}(
         "run" => run_table,
         "spec" => spec_to_dict(result.spec),
         "metrics" => metric_table,

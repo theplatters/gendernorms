@@ -134,8 +134,8 @@ Returns a `Float64`.
 function norm_penalty(conformism::Float64, h_self::Float64, h_spouse::Float64, theta::Float64, means, config::UtilityConfig)
     return -conformism * (
         config.w_self * (h_self - means.division_of_labor)^2 +
-        config.w_transfer * (theta - means.transfer)^2 +
-        config.w_partner * (h_spouse - means.division_of_labor_spouse)^2
+            config.w_transfer * (theta - means.transfer)^2 +
+            config.w_partner * (h_spouse - means.division_of_labor_spouse)^2
     )
 end
 
@@ -194,9 +194,9 @@ runs, and worker failures propagate as
 world is mutated and nothing is returned.
 """
 function calculate_norm_perception!(
-    world, config::UtilityConfig;
-    chunk::Int=NORM_PERCEPTION_CHUNK, schedule::Symbol=:auto,
-)
+        world, config::UtilityConfig;
+        chunk::Int = NORM_PERCEPTION_CHUNK, schedule::Symbol = :auto,
+    )
     chunk >= 1 || throw(ArgumentError("chunk must be at least 1"))
     schedule in (:auto, :serial, :parallel) ||
         throw(ArgumentError("schedule must be :auto, :serial, or :parallel"))
@@ -212,8 +212,8 @@ function calculate_norm_perception!(
     # maximum vertex degree of the two graphs covers every call (see
     # `ADR-0015`).
     spouse_capacity = max(
-        maximum(v -> Graphs.degree(net.women, v), Graphs.vertices(net.women); init=0),
-        maximum(v -> Graphs.degree(net.men, v), Graphs.vertices(net.men); init=0),
+        maximum(v -> Graphs.degree(net.women, v), Graphs.vertices(net.women); init = 0),
+        maximum(v -> Graphs.degree(net.men, v), Graphs.vertices(net.men); init = 0),
     )
     # The single per-chunk processing implementation shared by the
     # serial path and the bounded worker tasks below (`ADR-0024`):
@@ -252,8 +252,10 @@ function calculate_norm_perception!(
         return nothing
     end
     use_parallel = schedule === :parallel ||
-        (schedule === :auto && Threads.nthreads() > 1 &&
-            (nw + nm) > NORM_PERCEPTION_SERIAL_CUTOFF)
+        (
+        schedule === :auto && Threads.nthreads() > 1 &&
+            (nw + nm) > NORM_PERCEPTION_SERIAL_CUTOFF
+    )
     if use_parallel
         # Bounded worker scheduling (`ADR-0024`, the `ADR-0023` shape):
         # at most `min(Threads.nthreads(), nchunks)` worker tasks claim

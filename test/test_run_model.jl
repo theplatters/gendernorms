@@ -25,27 +25,42 @@ function model_problems(raw)
 end
 
 function tiny_model_config(; agents = 4)
-    raw = Dict{String,Any}(
+    raw = Dict{String, Any}(
         "agents_per_gender" => agents,
-        "network" => Dict{String,Any}("type" => "none"),
+        "network" => Dict{String, Any}("type" => "none"),
     )
     return GN.parse_model_config(GN.GenderNormsModel, raw)
 end
 
+# Tiny executable run specification, with or without an explicit
+# `[logging]` table.
+function tiny_metric_run_raw(; logging = nothing)
+    raw = Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "metrics_subset", "seed" => 1),
+        "model" => Dict{String, Any}(
+            "name" => "gender_norms", "agents_per_gender" => 4,
+            "network" => Dict{String, Any}("type" => "none"),
+        ),
+        "runtime" => Dict{String, Any}("ticks" => 3),
+    )
+    logging === nothing || (raw["logging"] = logging)
+    return raw
+end
+
 function full_model_raw()
-    return Dict{String,Any}(
+    return Dict{String, Any}(
         "agents_per_gender" => 10,
         "std_dev" => 0.1,
         "initial_transfer" => 0.2,
         "initial_lambda" => 0.3,
-        "network" => Dict{String,Any}(
+        "network" => Dict{String, Any}(
             "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.2
         ),
-        "paid_time" => Dict{String,Any}("men" => 0.8, "women" => 0.4),
-        "mean_wage" => Dict{String,Any}("men" => 1.1, "women" => 1.0),
-        "mean_preference" => Dict{String,Any}("men" => 0.5, "women" => 0.6),
-        "initial_conformism" => Dict{String,Any}("men" => 5.0, "women" => 6.0),
-        "utility" => Dict{String,Any}(
+        "paid_time" => Dict{String, Any}("men" => 0.8, "women" => 0.4),
+        "mean_wage" => Dict{String, Any}("men" => 1.1, "women" => 1.0),
+        "mean_preference" => Dict{String, Any}("men" => 0.5, "women" => 0.6),
+        "initial_conformism" => Dict{String, Any}("men" => 5.0, "women" => 6.0),
+        "utility" => Dict{String, Any}(
             "type" => "ces",
             "beta" => 0.7,
             "w_self" => 2.0,
@@ -56,7 +71,7 @@ function full_model_raw()
 end
 
 @testset "empty dict yields the struct defaults" begin
-    cfg = GN.parse_model_config(GN.GenderNormsModel, Dict{String,Any}())
+    cfg = GN.parse_model_config(GN.GenderNormsModel, Dict{String, Any}())
     @test cfg.properties.agents_per_gender == 400
     @test cfg.properties.std_dev == 0.2
     @test cfg.properties.initial_transfer == 0.0
@@ -96,35 +111,35 @@ end
 
 @testset "every network type parses" begin
     cases = (
-        (Dict{String,Any}("type" => "random", "p" => 0.05), GN.RandomNetwork(p = 0.05)),
+        (Dict{String, Any}("type" => "random", "p" => 0.05), GN.RandomNetwork(p = 0.05)),
         (
-            Dict{String,Any}(
+            Dict{String, Any}(
                 "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.3
             ),
             GN.WattsStrogatz(neighbors_per_side = 2, rewiring = 0.3),
         ),
         (
-            Dict{String,Any}("type" => "preferential_attachment", "m" => 2),
+            Dict{String, Any}("type" => "preferential_attachment", "m" => 2),
             GN.PreferentialAttachment(m = 2),
         ),
         (
-            Dict{String,Any}("type" => "similarity", "m" => 2, "trait" => "wage"),
+            Dict{String, Any}("type" => "similarity", "m" => 2, "trait" => "wage"),
             GN.SimilarityNetwork(m = 2, trait = :wage),
         ),
         (
-            Dict{String,Any}("type" => "similarity", "m" => 3, "trait" => "conformism"),
+            Dict{String, Any}("type" => "similarity", "m" => 3, "trait" => "conformism"),
             GN.SimilarityNetwork(m = 3, trait = :conformism),
         ),
         (
-            Dict{String,Any}("type" => "similarity", "trait" => "preference_private"),
+            Dict{String, Any}("type" => "similarity", "trait" => "preference_private"),
             GN.SimilarityNetwork(m = 1, trait = :preference_private),
         ),
-        (Dict{String,Any}("type" => "homophily", "m" => 2), GN.HomophilyNetwork(m = 2)),
-        (Dict{String,Any}("type" => "none"), GN.NoNetwork()),
-        (Dict{String,Any}("type" => "homogeneous_mixing"), GN.HomogeneousMixing()),
+        (Dict{String, Any}("type" => "homophily", "m" => 2), GN.HomophilyNetwork(m = 2)),
+        (Dict{String, Any}("type" => "none"), GN.NoNetwork()),
+        (Dict{String, Any}("type" => "homogeneous_mixing"), GN.HomogeneousMixing()),
     )
     for (network_raw, expected) in cases
-        raw = Dict{String,Any}("network" => network_raw)
+        raw = Dict{String, Any}("network" => network_raw)
         cfg = GN.parse_model_config(GN.GenderNormsModel, raw)
         @test cfg.properties.network == expected
     end
@@ -132,24 +147,24 @@ end
 
 @testset "every utility type parses" begin
     additive = GN.parse_model_config(
-        GN.GenderNormsModel, Dict{String,Any}("utility" => Dict{String,Any}("type" => "additive"))
+        GN.GenderNormsModel, Dict{String, Any}("utility" => Dict{String, Any}("type" => "additive"))
     )
     @test additive.utility.func isa GN.Additive
     @test (additive.utility.w_self, additive.utility.w_partner, additive.utility.w_transfer) ==
-          (1.0, 1.0, 1.0)
+        (1.0, 1.0, 1.0)
     ces_default = GN.parse_model_config(
-        GN.GenderNormsModel, Dict{String,Any}("utility" => Dict{String,Any}("type" => "ces"))
+        GN.GenderNormsModel, Dict{String, Any}("utility" => Dict{String, Any}("type" => "ces"))
     )
     @test ces_default.utility.func == GN.CES(beta = 0.5)
     multiplicative = GN.parse_model_config(
         GN.GenderNormsModel,
-        Dict{String,Any}("utility" => Dict{String,Any}("type" => "multiplicative")),
+        Dict{String, Any}("utility" => Dict{String, Any}("type" => "multiplicative")),
     )
     @test multiplicative.utility.func isa GN.Multiplicative
     weighted = GN.parse_model_config(
         GN.GenderNormsModel,
-        Dict{String,Any}(
-            "utility" => Dict{String,Any}("type" => "multiplicative_weighted", "w_self" => 2.0)
+        Dict{String, Any}(
+            "utility" => Dict{String, Any}("type" => "multiplicative_weighted", "w_self" => 2.0)
         ),
     )
     @test weighted.utility.func isa GN.MultiplicativeWeighted
@@ -160,8 +175,8 @@ end
     cfg = GN.parse_model_config(GN.GenderNormsModel, full_model_raw())
     echoed = GN.config_to_dict(GN.GenderNormsModel, cfg)
     @test GN.config_to_dict(GN.GenderNormsModel, GN.parse_model_config(GN.GenderNormsModel, echoed)) ==
-          echoed
-    defaults = GN.parse_model_config(GN.GenderNormsModel, Dict{String,Any}())
+        echoed
+    defaults = GN.parse_model_config(GN.GenderNormsModel, Dict{String, Any}())
     default_echoed = GN.config_to_dict(GN.GenderNormsModel, defaults)
     @test GN.config_to_dict(
         GN.GenderNormsModel, GN.parse_model_config(GN.GenderNormsModel, default_echoed)
@@ -169,32 +184,32 @@ end
 end
 
 @testset "unknown top-level key is rejected" begin
-    @test occursin("[model", model_message(Dict{String,Any}("bogus" => 1)))
+    @test occursin("[model", model_message(Dict{String, Any}("bogus" => 1)))
 end
 
 @testset "bad agents_per_gender is rejected" begin
-    @test occursin("[model", model_message(Dict{String,Any}("agents_per_gender" => 0)))
-    @test occursin("[model", model_message(Dict{String,Any}("agents_per_gender" => "ten")))
-    @test occursin("[model", model_message(Dict{String,Any}("agents_per_gender" => true)))
+    @test occursin("[model", model_message(Dict{String, Any}("agents_per_gender" => 0)))
+    @test occursin("[model", model_message(Dict{String, Any}("agents_per_gender" => "ten")))
+    @test occursin("[model", model_message(Dict{String, Any}("agents_per_gender" => true)))
 end
 
 @testset "out-of-range scalars are rejected" begin
-    @test occursin("[model", model_message(Dict{String,Any}("std_dev" => -0.1)))
-    @test occursin("[model", model_message(Dict{String,Any}("initial_transfer" => 2)))
-    @test occursin("[model", model_message(Dict{String,Any}("initial_lambda" => -0.1)))
+    @test occursin("[model", model_message(Dict{String, Any}("std_dev" => -0.1)))
+    @test occursin("[model", model_message(Dict{String, Any}("initial_transfer" => 2)))
+    @test occursin("[model", model_message(Dict{String, Any}("initial_lambda" => -0.1)))
 end
 
 @testset "non-finite scalars are rejected" begin
-    @test occursin("[model.std_dev]", model_message(Dict{String,Any}("std_dev" => Inf)))
-    @test occursin("[model.std_dev]", model_message(Dict{String,Any}("std_dev" => NaN)))
+    @test occursin("[model.std_dev]", model_message(Dict{String, Any}("std_dev" => Inf)))
+    @test occursin("[model.std_dev]", model_message(Dict{String, Any}("std_dev" => NaN)))
     message = model_message(
-        Dict{String,Any}("utility" => Dict{String,Any}("type" => "ces", "beta" => Inf)),
+        Dict{String, Any}("utility" => Dict{String, Any}("type" => "ces", "beta" => Inf)),
     )
     @test occursin("[model.utility.beta]", message)
 end
 
 @testset "unknown network type is rejected" begin
-    raw = Dict{String,Any}("network" => Dict{String,Any}("type" => "small_world"))
+    raw = Dict{String, Any}("network" => Dict{String, Any}("type" => "small_world"))
     message = model_message(raw)
     @test occursin("[model", message)
     @test occursin("small_world", message)
@@ -202,8 +217,8 @@ end
 end
 
 @testset "network key outside its type is rejected" begin
-    raw = Dict{String,Any}(
-        "network" => Dict{String,Any}("type" => "watts_strogatz", "p" => 0.1)
+    raw = Dict{String, Any}(
+        "network" => Dict{String, Any}("type" => "watts_strogatz", "p" => 0.1)
     )
     message = model_message(raw)
     @test occursin("[model", message)
@@ -211,8 +226,8 @@ end
 end
 
 @testset "bad similarity trait is rejected" begin
-    raw = Dict{String,Any}(
-        "network" => Dict{String,Any}("type" => "similarity", "trait" => "income")
+    raw = Dict{String, Any}(
+        "network" => Dict{String, Any}("type" => "similarity", "trait" => "income")
     )
     message = model_message(raw)
     @test occursin("[model", message)
@@ -220,8 +235,8 @@ end
 end
 
 @testset "beta outside ces is rejected" begin
-    raw = Dict{String,Any}(
-        "utility" => Dict{String,Any}("type" => "additive", "beta" => 0.5)
+    raw = Dict{String, Any}(
+        "utility" => Dict{String, Any}("type" => "additive", "beta" => 0.5)
     )
     message = model_message(raw)
     @test occursin("[model", message)
@@ -229,23 +244,23 @@ end
 end
 
 @testset "bad utility type is rejected" begin
-    raw = Dict{String,Any}("utility" => Dict{String,Any}("type" => "quadratic"))
+    raw = Dict{String, Any}("utility" => Dict{String, Any}("type" => "quadratic"))
     message = model_message(raw)
     @test occursin("[model", message)
     @test occursin("quadratic", message)
 end
 
 @testset "non-numeric paid_time entry is rejected" begin
-    raw = Dict{String,Any}("paid_time" => Dict{String,Any}("women" => "high"))
+    raw = Dict{String, Any}("paid_time" => Dict{String, Any}("women" => "high"))
     message = model_message(raw)
     @test occursin("[model", message)
     @test occursin("women", message)
 end
 
 @testset "multiple problems aggregate into one error" begin
-    problems = model_problems(Dict{String,Any}("bogus" => 1, "agents_per_gender" => 0))
+    problems = model_problems(Dict{String, Any}("bogus" => 1, "agents_per_gender" => 0))
     @test length(problems) >= 2
-    message = model_message(Dict{String,Any}("bogus" => 1, "agents_per_gender" => 0))
+    message = model_message(Dict{String, Any}("bogus" => 1, "agents_per_gender" => 0))
     @test occursin("[model", message)
     @test occursin("bogus", message)
     @test occursin("agents_per_gender", message)
@@ -255,14 +270,17 @@ end
     cfg = tiny_model_config()
     world = GN.setup_world(GN.GenderNormsModel, cfg, Random.MersenneTwister(1))
     for resource in (
-        GN.ModelProperties,
-        GN.PaidTime,
-        GN.MeanWage,
-        GN.MeanPreference,
-        GN.InitialConformism,
-        GN.WorkingTimeStats,
-        GN.SocialNetwork,
-    )
+            GN.ModelProperties,
+            GN.PaidTime,
+            GN.MeanWage,
+            GN.MeanPreference,
+            GN.InitialConformism,
+            GN.WorkingTimeStats,
+            GN.PreferenceStats,
+            GN.UtilityStats,
+            GN.TransferStats,
+            GN.SocialNetwork,
+        )
         @test Ark.has_resource(world, resource)
     end
     women = GN.entities_with(world, GN.Female)
@@ -282,23 +300,117 @@ end
     @test Ark.get_resource(world, GN.SocialNetwork) isa GN.SocialNetwork
 end
 
+@testset "model_metrics exposes exactly the eight observer metrics" begin
+    available = sort!(collect(keys(GN.model_metrics(GN.GenderNormsModel))))
+    @test available == sort(
+        [
+            "working_time_men",
+            "working_time_women",
+            "working_time_gap",
+            "preference_men",
+            "preference_women",
+            "utility_men",
+            "utility_women",
+            "transfer_mean",
+        ]
+    )
+
+    # Omitted `[logging]` selects every available metric.
+    spec = GN.parse_spec(
+        Dict{String, Any}(
+            "run" => Dict{String, Any}("name" => "metrics", "seed" => 1),
+            "model" => Dict{String, Any}(
+                "name" => "gender_norms", "agents_per_gender" => 4,
+                "network" => Dict{String, Any}("type" => "none"),
+            ),
+            "runtime" => Dict{String, Any}("ticks" => 2),
+        )
+    )
+    @test spec.logging.metrics == available
+
+    # An explicit subset keeps exactly its listed names and order.
+    subset = GN.parse_spec(
+        Dict{String, Any}(
+            "run" => Dict{String, Any}("name" => "metrics", "seed" => 1),
+            "model" => Dict{String, Any}(
+                "name" => "gender_norms", "agents_per_gender" => 4,
+                "network" => Dict{String, Any}("type" => "none"),
+            ),
+            "runtime" => Dict{String, Any}("ticks" => 2),
+            "logging" => Dict{String, Any}("metrics" => ["transfer_mean", "working_time_gap"]),
+        )
+    )
+    @test subset.logging.metrics == ["transfer_mean", "working_time_gap"]
+end
+
 @testset "run executes two ticks with finite metric series" begin
-    raw = Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "tiny", "seed" => 1),
-        "model" => Dict{String,Any}(
+    raw = Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "tiny", "seed" => 1),
+        "model" => Dict{String, Any}(
             "name" => "gender_norms",
             "agents_per_gender" => 4,
-            "network" => Dict{String,Any}("type" => "none"),
+            "network" => Dict{String, Any}("type" => "none"),
         ),
-        "runtime" => Dict{String,Any}("ticks" => 2),
+        "runtime" => Dict{String, Any}("ticks" => 2),
     )
     spec = GN.parse_spec(raw)
     result = GN.run(GN.create_world(spec))
     @test GN.is_success(result)
     @test result.ticks_executed == 2
-    for name in ("working_time_men", "working_time_women", "working_time_gap")
+    # every configured metric is recorded once per executed tick
+    @test length(result.metrics) == 8
+    for name in spec.logging.metrics
         @test haskey(result.metrics, name)
-        @test length(result.metrics[name]) == 2
+        @test length(result.metrics[name]) == result.ticks_executed
+        @test result.ticks == collect(0:(result.ticks_executed - 1))
+    end
+    for name in (
+            "working_time_men", "working_time_women", "working_time_gap",
+            "preference_men", "preference_women", "utility_men", "utility_women", "transfer_mean",
+        )
         @test all(isfinite, result.metrics[name])
+    end
+    for name in ("preference_men", "preference_women")
+        @test all(x -> 0.0 <= x <= 1.0, result.metrics[name])
+    end
+    for name in ("working_time_men", "working_time_women")
+        @test all(x -> 0.0 <= x <= 1.0, result.metrics[name])
+    end
+    @test all(x -> -1.0 <= x <= 1.0, result.metrics["transfer_mean"])
+end
+
+@testset "logging metric subsets record exactly their configured metrics" begin
+    subset = ["transfer_mean", "utility_women", "working_time_gap"]
+    spec = GN.parse_spec(
+        tiny_metric_run_raw(
+            logging = Dict{String, Any}("metrics" => subset),
+        )
+    )
+    result = GN.run(GN.create_world(spec))
+    @test GN.is_success(result)
+    @test result.ticks_executed == 3
+    @test result.ticks == collect(0:(result.ticks_executed - 1))
+    # Exactly the subset: no observer of the expanded eight-metric set
+    # leaks into the recorded series.
+    @test length(result.metrics) == length(subset)
+    @test Set(keys(result.metrics)) == Set(subset)
+    for name in subset
+        series = result.metrics[name]
+        @test length(series) == result.ticks_executed == length(result.ticks)
+        @test all(isfinite, series)
+    end
+
+    # Omitted `[logging]` records every available metric, each aligned
+    # with the executed ticks.
+    full_spec = GN.parse_spec(tiny_metric_run_raw())
+    @test length(full_spec.logging.metrics) == 8
+    full_result = GN.run(GN.create_world(full_spec))
+    @test GN.is_success(full_result)
+    @test full_result.ticks_executed == 3
+    @test full_result.ticks == collect(0:(full_result.ticks_executed - 1))
+    @test Set(keys(full_result.metrics)) == Set(keys(GN.model_metrics(GN.GenderNormsModel)))
+    @test length(full_result.metrics) == 8
+    for (name, series) in full_result.metrics
+        @test length(series) == full_result.ticks_executed == length(full_result.ticks)
     end
 end

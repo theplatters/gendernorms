@@ -30,6 +30,7 @@ function make_shock_world(n::Int; seed::Int = 11)
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
         GN.DirectlyAffected,
+        GN.CommittedUtility,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = GN.NoNetwork()))
     Ark.add_resource!(world, GN.PaidTime())

@@ -63,8 +63,8 @@ function generate_similarity(s::SimilarityNetwork, values::AbstractVector{Float6
     for i in 1:n
         weights = [
             j == i ? 0.0 :
-            1 / max(abs(values[i] - values[j] + 0.001 * randn(rng)), eps())
-            for j in 1:n
+                1 / max(abs(values[i] - values[j] + 0.001 * randn(rng)), eps())
+                for j in 1:n
         ]
         for j in sample_nodes(weights, s.m, rng)
             Graphs.add_edge!(graph, i, j)
@@ -81,13 +81,13 @@ function generate_homophily(s::HomophilyNetwork, conformism, wage, preference, r
     for i in 1:n
         weights = [
             j == i ? 0.0 :
-            1 / max(
-                abs(conformism[i] - conformism[j] + 0.001 * randn(rng)) +
-                abs(wage[i] - wage[j]) +
-                abs(preference[i] - preference[j]),
-                eps(),
-            )
-            for j in 1:n
+                1 / max(
+                    abs(conformism[i] - conformism[j] + 0.001 * randn(rng)) +
+                    abs(wage[i] - wage[j]) +
+                    abs(preference[i] - preference[j]),
+                    eps(),
+                )
+                for j in 1:n
         ]
         for j in sample_nodes(weights, s.m, rng)
             Graphs.add_edge!(graph, i, j)

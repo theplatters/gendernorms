@@ -10,7 +10,7 @@
 # workload specs, one discarded tiny and one discarded full-size JIT
 # warmup pass per configuration, one fresh `create_world` per measured
 # repetition (identical initial states across repetitions), 20 ticks
-# per pass with only the `set_theta!` calls of the `MDR-0010` tick
+# per pass with only the `set_theta!` calls of the `MDR-0022` tick
 # order timed via `time_ns()` and `Base.gc_num()` deltas taken around
 # exactly those calls, and one `GenderNorms.run` end-to-end timing per
 # repetition reported separately. Workload specs come from
@@ -50,7 +50,7 @@
 # printed at the end so medians and IQRs can be recomputed offline.
 
 module BargainingKernelBench
-include("bargaining_kernel.jl")
+    include("bargaining_kernel.jl")
 end
 
 using GenderNorms
@@ -74,17 +74,17 @@ function sweep_workload_spec(name::String, ticks::Int)
     if m !== nothing
         n = parse(Int, m.captures[1])
         n >= 1 || error("ws_<N> needs N >= 1, got $(repr(name))")
-        return Dict{String,Any}(
-            "run" => Dict{String,Any}("name" => "bargaining-kernel-" * name, "seed" => 1),
-            "model" => Dict{String,Any}(
+        return Dict{String, Any}(
+            "run" => Dict{String, Any}("name" => "bargaining-kernel-" * name, "seed" => 1),
+            "model" => Dict{String, Any}(
                 "name" => "gender_norms",
                 "agents_per_gender" => n,
-                "network" => Dict{String,Any}(
+                "network" => Dict{String, Any}(
                     "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1
                 ),
-                "utility" => Dict{String,Any}("type" => "ces", "beta" => 0.5),
+                "utility" => Dict{String, Any}("type" => "ces", "beta" => 0.5),
             ),
-            "runtime" => Dict{String,Any}("ticks" => ticks),
+            "runtime" => Dict{String, Any}("ticks" => ticks),
         )
     end
     return BargainingKernelBench.workload_spec(name, ticks)
@@ -98,10 +98,10 @@ One measurement pass of this driver, identical to
 the sweep keywords `chunk`, `schedule`, and `search`. Builds the
 `RunSpec` with `parse_spec`, times `create_world` (setup, outside the
 reported kernel numbers), then drives `ticks` ticks manually in the
-exact `step_model!` order of `MDR-0010` (`update_shocks!`,
+exact `step_model!` order of `MDR-0022` (`update_shocks!`,
 `calculate_norm_perception!`, `set_theta!`,
 `update_old_working_time_and_transfer!`,
-`update_global_working_times!`, `update_preferences`), timing only the
+`update_observer_stats!`, `update_preferences`), timing only the
 `set_theta!` calls with `time_ns()` and taking `Base.gc_num()` deltas
 around exactly those calls. Then times one `GenderNorms.run` on a
 fresh world from the same specification with the tree default
@@ -111,8 +111,8 @@ kernel numbers). Returns a `NamedTuple` with `kernel_s` (sum of the
 (totals of the timed `set_theta!` sections), `setup_s`, and `e2e_s`.
 """
 function measure_pass(
-    spec_dict::Dict{String,Any}, ticks::Int, chunk::Int, schedule::Symbol, search::Symbol
-)
+        spec_dict::Dict{String, Any}, ticks::Int, chunk::Int, schedule::Symbol, search::Symbol
+    )
     spec = GN.parse_spec(spec_dict)
     config = spec.model_config
     setup_start = time_ns()
@@ -126,13 +126,13 @@ function measure_pass(
         GN.calculate_norm_perception!(world, config.utility)
         alloc_start = Base.gc_num()
         kernel_start = time_ns()
-        GN.set_theta!(world, config.utility; chunk=chunk, schedule=schedule, search=search)
+        GN.set_theta!(world, config.utility; chunk = chunk, schedule = schedule, search = search)
         kernel_s += (time_ns() - kernel_start) / 1.0e9
         alloc_diff = Base.GC_Diff(Base.gc_num(), alloc_start)
         alloc_bytes += Int(alloc_diff.allocd)
         alloc_count += Int(Base.gc_alloc_count(alloc_diff))
         GN.update_old_working_time_and_transfer!(world)
-        GN.update_global_working_times!(world)
+        GN.update_observer_stats!(world)
         GN.update_preferences(world)
     end
     e2e_world = GN.create_world(spec)
@@ -170,8 +170,8 @@ returns the CSV row fields of the configuration as a `NamedTuple` plus
 passes.
 """
 function benchmark_config(
-    name::String, ticks::Int, reps::Int, chunk::Int, schedule::Symbol, search::Symbol
-)
+        name::String, ticks::Int, reps::Int, chunk::Int, schedule::Symbol, search::Symbol
+    )
     spec_dict = sweep_workload_spec(name, ticks)
     tiny_dict = sweep_workload_spec(name, 1)
     tiny_dict["model"]["agents_per_gender"] = 2
@@ -180,13 +180,13 @@ function benchmark_config(
     passes = [measure_pass(spec_dict, ticks, chunk, schedule, search) for _ in 1:reps]
     raw = [
         (;
-            rep = i,
-            kernel_s = pass.kernel_s,
-            alloc_bytes = pass.alloc_bytes,
-            alloc_count = pass.alloc_count,
-            setup_s = pass.setup_s,
-            e2e_s = pass.e2e_s,
-        ) for (i, pass) in enumerate(passes)
+                rep = i,
+                kernel_s = pass.kernel_s,
+                alloc_bytes = pass.alloc_bytes,
+                alloc_count = pass.alloc_count,
+                setup_s = pass.setup_s,
+                e2e_s = pass.e2e_s,
+            ) for (i, pass) in enumerate(passes)
     ]
     kernel = [pass.kernel_s for pass in passes]
     e2e = [pass.e2e_s for pass in passes]
@@ -279,32 +279,34 @@ floats use `repr` for full precision. Returns the line without trailing
 newline.
 """
 function csv_row(row)
-    return join((
-        row.workload,
-        row.schedule,
-        repr(row.chunk),
-        row.search,
-        repr(row.threads),
-        repr(row.ticks),
-        repr(row.reps),
-        repr(row.households),
-        repr(row.kernel_median_s),
-        repr(row.kernel_iqr_s),
-        repr(row.kernel_min_s),
-        repr(row.kernel_max_s),
-        repr(row.kernel_mean_s),
-        repr(row.alloc_bytes),
-        repr(row.alloc_bytes_iqr),
-        repr(row.alloc_count),
-        repr(row.alloc_count_iqr),
-        repr(row.alloc_bytes_per_tick),
-        repr(row.alloc_count_per_tick),
-        repr(row.alloc_bytes_per_household_tick),
-        repr(row.alloc_count_per_household_tick),
-        repr(row.setup_median_s),
-        repr(row.e2e_median_s),
-        repr(row.e2e_iqr_s),
-    ), ",")
+    return join(
+        (
+            row.workload,
+            row.schedule,
+            repr(row.chunk),
+            row.search,
+            repr(row.threads),
+            repr(row.ticks),
+            repr(row.reps),
+            repr(row.households),
+            repr(row.kernel_median_s),
+            repr(row.kernel_iqr_s),
+            repr(row.kernel_min_s),
+            repr(row.kernel_max_s),
+            repr(row.kernel_mean_s),
+            repr(row.alloc_bytes),
+            repr(row.alloc_bytes_iqr),
+            repr(row.alloc_count),
+            repr(row.alloc_count_iqr),
+            repr(row.alloc_bytes_per_tick),
+            repr(row.alloc_count_per_tick),
+            repr(row.alloc_bytes_per_household_tick),
+            repr(row.alloc_count_per_household_tick),
+            repr(row.setup_median_s),
+            repr(row.e2e_median_s),
+            repr(row.e2e_iqr_s),
+        ), ","
+    )
 end
 
 """
@@ -328,21 +330,23 @@ that row. The floats use `repr` for full precision. Returns the line
 without trailing newline.
 """
 function raw_csv_row(row, entry)
-    return join((
-        row.workload,
-        row.schedule,
-        repr(row.chunk),
-        row.search,
-        repr(row.threads),
-        repr(row.ticks),
-        repr(row.households),
-        repr(entry.rep),
-        repr(entry.kernel_s),
-        repr(entry.alloc_bytes),
-        repr(entry.alloc_count),
-        repr(entry.setup_s),
-        repr(entry.e2e_s),
-    ), ",")
+    return join(
+        (
+            row.workload,
+            row.schedule,
+            repr(row.chunk),
+            row.search,
+            repr(row.threads),
+            repr(row.ticks),
+            repr(row.households),
+            repr(entry.rep),
+            repr(entry.kernel_s),
+            repr(entry.alloc_bytes),
+            repr(entry.alloc_count),
+            repr(entry.setup_s),
+            repr(entry.e2e_s),
+        ), ","
+    )
 end
 
 """

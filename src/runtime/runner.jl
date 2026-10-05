@@ -23,7 +23,7 @@ function create_world(spec::RunSpec)::Ark.World
     rng = Random.MersenneTwister(spec.seed)
     world = setup_world(model, spec.model_config, rng)
     available = model_metrics(model)
-    metric_functions = Dict{String,Function}(
+    metric_functions = Dict{String, Function}(
         name => available[name] for name in spec.logging.metrics
     )
     loggers = RunLogger[build_logger(output) for output in spec.logging.outputs]
@@ -98,14 +98,14 @@ function run(world)::RunResult
     end
     names = sort!(collect(keys(context.metric_functions)))
     ticks = Int[]
-    series = Dict{String,Vector{Float64}}(name => Float64[] for name in names)
+    series = Dict{String, Vector{Float64}}(name => Float64[] for name in names)
     status = RUN_SUCCESS
     failure = nothing
     for tick in 0:(spec.runtime.ticks - 1)
-        values = Dict{String,Float64}()
+        values = Dict{String, Float64}()
         try
             step_model!(context.model, world, context.model_config, tick)
-            values = Dict{String,Float64}(
+            values = Dict{String, Float64}(
                 name => Float64(context.metric_functions[name](world)) for name in names
             )
             push!(ticks, tick)

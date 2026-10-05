@@ -6,14 +6,14 @@
 #  ]
 
 function update_preferences(world)
-  for (e, lambda, preference_private, wt) in Ark.Query(world, (Lambda, PreferencePrivate, WorkingTime))
-    @inbounds for i in eachindex(e)
-      preference_private[i] = PreferencePrivate(
-        (1 - lambda[i].amount) * preference_private[i].current + lambda[i].amount * wt[i].current,
-        preference_private[i].pre,
-      )
-    end
+    for (e, lambda, preference_private, wt) in Ark.Query(world, (Lambda, PreferencePrivate, WorkingTime))
+        @inbounds for i in eachindex(e)
+            preference_private[i] = PreferencePrivate(
+                (1 - lambda[i].amount) * preference_private[i].current + lambda[i].amount * wt[i].current,
+                preference_private[i].pre,
+            )
+        end
 
-  end
-  return
+    end
+    return
 end

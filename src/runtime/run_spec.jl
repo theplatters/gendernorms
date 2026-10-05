@@ -28,7 +28,7 @@ carries the remaining `[[logging.outputs]]` keys validated by
 """
 struct OutputSpec
     type::String
-    args::Dict{String,Any}
+    args::Dict{String, Any}
 end
 
 """
@@ -150,8 +150,8 @@ function parse_spec(raw::AbstractDict)::RunSpec
         if !haskey(run_raw, "seed")
             push!(problems, "[run] missing required key \"seed\"")
         elseif run_raw["seed"] isa Bool ||
-               !(run_raw["seed"] isa Integer) ||
-               run_raw["seed"] < 0
+                !(run_raw["seed"] isa Integer) ||
+                run_raw["seed"] < 0
             push!(problems, "[run.seed] must be an integer >= 0, got $(repr(run_raw["seed"]))")
         else
             seed = Int(run_raw["seed"])
@@ -180,7 +180,7 @@ function parse_spec(raw::AbstractDict)::RunSpec
             end
         end
         if model !== nothing
-            config_raw = Dict{String,Any}(string(k) => v for (k, v) in model_raw if string(k) != "name")
+            config_raw = Dict{String, Any}(string(k) => v for (k, v) in model_raw if string(k) != "name")
             try
                 model_config = parse_model_config(model, config_raw)
             catch e
@@ -200,8 +200,8 @@ function parse_spec(raw::AbstractDict)::RunSpec
         if !haskey(runtime_raw, "ticks")
             push!(problems, "[runtime] missing required key \"ticks\"")
         elseif runtime_raw["ticks"] isa Bool ||
-               !(runtime_raw["ticks"] isa Integer) ||
-               runtime_raw["ticks"] < 1
+                !(runtime_raw["ticks"] isa Integer) ||
+                runtime_raw["ticks"] < 1
             push!(
                 problems,
                 "[runtime.ticks] must be an integer >= 1, got $(repr(runtime_raw["ticks"]))",
@@ -286,7 +286,7 @@ function parse_spec(raw::AbstractDict)::RunSpec
                         )
                         continue
                     end
-                    args = Dict{String,Any}(
+                    args = Dict{String, Any}(
                         string(k) => v for (k, v) in entry if string(k) != "type"
                     )
                     output = OutputSpec(entry["type"], args)
@@ -336,17 +336,17 @@ TOML-printable dictionary with the `run`, `model` (the
 `config_to_dict` echo plus `name`), `runtime`, and `logging` tables,
 so `parse_spec(spec_to_dict(spec))` round-trips.
 """
-function spec_to_dict(spec::RunSpec)::Dict{String,Any}
+function spec_to_dict(spec::RunSpec)::Dict{String, Any}
     model_dict = config_to_dict(resolve_model(spec.model_name), spec.model_config)
     model_dict["name"] = spec.model_name
     outputs = Any[
-        Dict{String,Any}("type" => output.type, output.args...) for output in spec.logging.outputs
+        Dict{String, Any}("type" => output.type, output.args...) for output in spec.logging.outputs
     ]
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => spec.name, "seed" => spec.seed),
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => spec.name, "seed" => spec.seed),
         "model" => model_dict,
-        "runtime" => Dict{String,Any}("ticks" => spec.runtime.ticks),
-        "logging" => Dict{String,Any}(
+        "runtime" => Dict{String, Any}("ticks" => spec.runtime.ticks),
+        "logging" => Dict{String, Any}(
             "metrics" => copy(spec.logging.metrics),
             "outputs" => outputs,
         ),

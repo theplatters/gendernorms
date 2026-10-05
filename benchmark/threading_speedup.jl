@@ -27,16 +27,16 @@ Build one run specification table of this driver (the shape accepted by
 and tick count. Returns the dictionary.
 """
 function speedup_spec(agents_per_gender::Int, ticks::Int)
-    return Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "threading-speedup", "seed" => 1),
-        "model" => Dict{String,Any}(
+    return Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "threading-speedup", "seed" => 1),
+        "model" => Dict{String, Any}(
             "name" => "gender_norms",
             "agents_per_gender" => agents_per_gender,
-            "network" => Dict{String,Any}(
+            "network" => Dict{String, Any}(
                 "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1
             ),
         ),
-        "runtime" => Dict{String,Any}("ticks" => ticks),
+        "runtime" => Dict{String, Any}("ticks" => ticks),
     )
 end
 

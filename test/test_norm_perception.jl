@@ -27,6 +27,7 @@ function make_world(network::GN.NetworkSpec, n::Int)
         GN.NormParameter,
         GN.PerceptionNormDivisionOfLabor,
         GN.Lambda,
+        GN.CommittedUtility,
     )
     Ark.add_resource!(world, GN.ModelProperties(agents_per_gender = n, network = network))
     Ark.add_resource!(world, GN.PaidTime())
@@ -64,10 +65,10 @@ end
     w1, w2 = women
     m1, m2 = men
 
-    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
-    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
+    set_state!(world, w1; h = 0.35, h_old = 0.3, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.5, theta = 0.32, theta_old = 0.3, conformism = 1.5)
+    set_state!(world, m1; h = 0.72, h_old = 0.7, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.9, theta = 0.32, theta_old = 0.3, conformism = 1.5)
 
     women_graph = Graphs.SimpleGraph(2)
     Graphs.add_edge!(women_graph, 1, 2)
@@ -77,17 +78,17 @@ end
     GN.calculate_norm_perception!(world, GN.UtilityConfig())
 
     percept_w1, penalty_w1 = stored_percepts(world, w1)
-    @test percept_w1 ≈ 0.50
-    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.50)^2 + (0.12 - 0.30)^2 + (0.72 - 0.90)^2)
+    @test percept_w1 ≈ 0.5
+    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.5)^2 + (0.12 - 0.3)^2 + (0.72 - 0.9)^2)
 
     percept_w2, penalty_w2 = stored_percepts(world, w2)
-    @test percept_w2 ≈ 0.30
-    @test penalty_w2 ≈ -1.5 * ((0.55 - 0.30)^2 + (0.32 - 0.10)^2 + (0.92 - 0.70)^2)
+    @test percept_w2 ≈ 0.3
+    @test penalty_w2 ≈ -1.5 * ((0.55 - 0.3)^2 + (0.32 - 0.1)^2 + (0.92 - 0.7)^2)
 
     # Isolated men under a non-mixing network fall back to their own lag.
     percept_m1, penalty_m1 = stored_percepts(world, m1)
-    @test percept_m1 ≈ 0.70
-    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.70)^2 + (0.12 - 0.10)^2 + (0.35 - 0.30)^2)
+    @test percept_m1 ≈ 0.7
+    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.7)^2 + (0.12 - 0.1)^2 + (0.35 - 0.3)^2)
 end
 
 @testset "isolated agent under NoNetwork uses own lag and spouse lag" begin
@@ -97,8 +98,8 @@ end
     w1 = only(women)
     m1 = only(men)
 
-    set_state!(world, w1; h = 0.40, h_old = 0.36, theta = 0.20, theta_old = 0.25, conformism = 3.0)
-    set_state!(world, m1; h = 0.80, h_old = 0.77, theta = 0.20, theta_old = 0.25, conformism = 3.0)
+    set_state!(world, w1; h = 0.4, h_old = 0.36, theta = 0.2, theta_old = 0.25, conformism = 3.0)
+    set_state!(world, m1; h = 0.8, h_old = 0.77, theta = 0.2, theta_old = 0.25, conformism = 3.0)
 
     Ark.add_resource!(
         world, GN.SocialNetwork(Graphs.SimpleGraph(1), Graphs.SimpleGraph(1), men, women)
@@ -108,11 +109,11 @@ end
 
     percept_w1, penalty_w1 = stored_percepts(world, w1)
     @test percept_w1 ≈ 0.36
-    @test penalty_w1 ≈ -3.0 * ((0.40 - 0.36)^2 + (0.20 - 0.25)^2 + (0.80 - 0.77)^2)
+    @test penalty_w1 ≈ -3.0 * ((0.4 - 0.36)^2 + (0.2 - 0.25)^2 + (0.8 - 0.77)^2)
 
     percept_m1, penalty_m1 = stored_percepts(world, m1)
     @test percept_m1 ≈ 0.77
-    @test penalty_m1 ≈ -3.0 * ((0.80 - 0.77)^2 + (0.20 - 0.25)^2 + (0.40 - 0.36)^2)
+    @test penalty_m1 ≈ -3.0 * ((0.8 - 0.77)^2 + (0.2 - 0.25)^2 + (0.4 - 0.36)^2)
 end
 
 @testset "isolated agents under HomogeneousMixing use global lagged means" begin
@@ -122,33 +123,33 @@ end
     w1, w2 = women
     m1, m2 = men
 
-    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 2.0)
-    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 2.0)
+    set_state!(world, w1; h = 0.35, h_old = 0.3, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.5, theta = 0.32, theta_old = 0.3, conformism = 2.0)
+    set_state!(world, m1; h = 0.72, h_old = 0.7, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.9, theta = 0.32, theta_old = 0.3, conformism = 2.0)
 
     # `HomogeneousMixing` generates an empty graph: every agent is isolated.
     net = GN.SocialNetwork(Graphs.SimpleGraph(2), Graphs.SimpleGraph(2), men, women)
     Ark.add_resource!(world, net)
 
     globals = GN.norm_global_means(world, net)
-    @test globals.women_h ≈ 0.40
-    @test globals.men_h ≈ 0.80
-    @test globals.transfer ≈ 0.20
+    @test globals.women_h ≈ 0.4
+    @test globals.men_h ≈ 0.8
+    @test globals.transfer ≈ 0.2
 
     GN.calculate_norm_perception!(world, GN.UtilityConfig())
 
     # Women see the women hours mean, the women transfer mean, and the men
     # hours mean for the spouse percept.
     percept_w1, penalty_w1 = stored_percepts(world, w1)
-    @test percept_w1 ≈ 0.40
-    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.40)^2 + (0.12 - 0.20)^2 + (0.72 - 0.80)^2)
+    @test percept_w1 ≈ 0.4
+    @test penalty_w1 ≈ -2.0 * ((0.35 - 0.4)^2 + (0.12 - 0.2)^2 + (0.72 - 0.8)^2)
 
     # Men see the men hours mean, the same women transfer mean, and the
     # women hours mean for the spouse percept.
     percept_m1, penalty_m1 = stored_percepts(world, m1)
-    @test percept_m1 ≈ 0.80
-    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.80)^2 + (0.12 - 0.20)^2 + (0.35 - 0.40)^2)
+    @test percept_m1 ≈ 0.8
+    @test penalty_m1 ≈ -2.0 * ((0.72 - 0.8)^2 + (0.12 - 0.2)^2 + (0.35 - 0.4)^2)
 end
 
 @testset "norm_means allocates nothing on the neighbour branch" begin
@@ -162,12 +163,12 @@ end
     w1, w2, w3 = women
     m1, m2, m3 = men
 
-    set_state!(world, w1; h = 0.35, h_old = 0.30, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, w2; h = 0.55, h_old = 0.50, theta = 0.32, theta_old = 0.30, conformism = 1.5)
-    set_state!(world, w3; h = 0.45, h_old = 0.40, theta = 0.22, theta_old = 0.20, conformism = 2.0)
-    set_state!(world, m1; h = 0.72, h_old = 0.70, theta = 0.12, theta_old = 0.10, conformism = 2.0)
-    set_state!(world, m2; h = 0.92, h_old = 0.90, theta = 0.32, theta_old = 0.30, conformism = 1.5)
-    set_state!(world, m3; h = 0.82, h_old = 0.80, theta = 0.22, theta_old = 0.20, conformism = 2.0)
+    set_state!(world, w1; h = 0.35, h_old = 0.3, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, w2; h = 0.55, h_old = 0.5, theta = 0.32, theta_old = 0.3, conformism = 1.5)
+    set_state!(world, w3; h = 0.45, h_old = 0.4, theta = 0.22, theta_old = 0.2, conformism = 2.0)
+    set_state!(world, m1; h = 0.72, h_old = 0.7, theta = 0.12, theta_old = 0.1, conformism = 2.0)
+    set_state!(world, m2; h = 0.92, h_old = 0.9, theta = 0.32, theta_old = 0.3, conformism = 1.5)
+    set_state!(world, m3; h = 0.82, h_old = 0.8, theta = 0.22, theta_old = 0.2, conformism = 2.0)
 
     women_graph = Graphs.SimpleGraph(3)
     Graphs.add_edge!(women_graph, 1, 2)

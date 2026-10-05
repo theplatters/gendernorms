@@ -83,7 +83,7 @@ function start_shock!(world, ::WageShock)
             wages[i] = Wage(wages[i].current, wages[i].current)
         end
     end
-    for (entities, wages) in Ark.Query(world, (Wage,); with=(DirectlyAffected,))
+    for (entities, wages) in Ark.Query(world, (Wage,); with = (DirectlyAffected,))
         @inbounds for i in eachindex(entities)
             wages[i] = Wage(WAGE_CUT * wages[i].old, wages[i].old)
         end
@@ -102,12 +102,12 @@ deltas of `shock`. Port of the preference branch of NetLogo
 returned.
 """
 function start_shock!(world, shock::PreferenceShock)
-    for (entities, prefs) in Ark.Query(world, (PreferencePrivate,); with=(Male,))
+    for (entities, prefs) in Ark.Query(world, (PreferencePrivate,); with = (Male,))
         @inbounds for i in eachindex(entities)
             prefs[i] = PreferencePrivate(max(0.0, prefs[i].current - shock.delta_men), prefs[i].current)
         end
     end
-    for (entities, prefs) in Ark.Query(world, (PreferencePrivate,); with=(Female,))
+    for (entities, prefs) in Ark.Query(world, (PreferencePrivate,); with = (Female,))
         @inbounds for i in eachindex(entities)
             prefs[i] = PreferencePrivate(max(0.0, prefs[i].current - shock.delta_woman), prefs[i].current)
         end
@@ -209,7 +209,7 @@ agents carrying `Wage`.
 function update_wages!(world, growth::WageGrowth)
     women_total = 0.0
     women_count = 0
-    for (entities, wages) in Ark.Query(world, (Wage,); with=(Female,))
+    for (entities, wages) in Ark.Query(world, (Wage,); with = (Female,))
         @inbounds for i in eachindex(entities)
             women_total += wages[i].current
             women_count += 1
@@ -219,7 +219,7 @@ function update_wages!(world, growth::WageGrowth)
 
     men_total = 0.0
     men_count = 0
-    for (entities, wages) in Ark.Query(world, (Wage,); with=(Male,))
+    for (entities, wages) in Ark.Query(world, (Wage,); with = (Male,))
         @inbounds for i in eachindex(entities)
             men_total += wages[i].current
             men_count += 1
@@ -232,7 +232,7 @@ function update_wages!(world, growth::WageGrowth)
     gap = 1.0 - (women_total / women_count) / (men_total / men_count)
     gap <= 0.0 && return nothing
     daily = (1.0 + rate)^(1.0 / 365.0) - 1.0
-    for (entities, wages) in Ark.Query(world, (Wage,); with=(Female,))
+    for (entities, wages) in Ark.Query(world, (Wage,); with = (Female,))
         @inbounds for i in eachindex(entities)
             wages[i] = Wage(wages[i].current * (1.0 + daily), wages[i].old)
         end

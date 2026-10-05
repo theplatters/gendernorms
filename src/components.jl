@@ -3,22 +3,22 @@ struct Male <: Gender end
 struct Female <: Gender end
 
 struct WorkingTime
-  current::Float64
-  old::Float64
+    current::Float64
+    old::Float64
 end
 
 struct TransferToWoman
-  current::Float64
-  old::Float64
+    current::Float64
+    old::Float64
 end
 
 struct Spouse
-  entity::Ark.Entity
+    entity::Ark.Entity
 end
 
 struct Wage
-  current::Float64
-  old::Float64
+    current::Float64
+    old::Float64
 end
 
 """
@@ -34,8 +34,8 @@ preference shock starts and is the recovery target of
 `pre`.
 """
 struct PreferencePrivate
-  current::Float64
-  pre::Float64
+    current::Float64
+    pre::Float64
 end
 
 """
@@ -51,11 +51,11 @@ by `start_shock!`.
 struct DirectlyAffected end
 
 struct Conformism
-  amount::Float64
+    amount::Float64
 end
 
 struct Lambda
-  amount::Float64
+    amount::Float64
 end
 
 """
@@ -65,7 +65,7 @@ Stored norm penalty (`norm-parameter` turtles-own variable).
 Set by the norm perception system in `src/systems/norm_perception.jl`.
 """
 struct NormParameter
-  amount::Float64
+    amount::Float64
 end
 
 """
@@ -77,5 +77,27 @@ same-sex reference group. Set by the norm perception system in
 `src/systems/norm_perception.jl`.
 """
 struct PerceptionNormDivisionOfLabor
-  amount::Float64
+    amount::Float64
+end
+
+"""
+    CommittedUtility
+
+Committed-bundle utility observation (`current-utility` in NetLogo is
+the mutable `choose-bundle` scratch of the reference implementation;
+ODD sections Entities, state variables, and scales and Labour best
+response). The Julia observer stores the `individual_utility` level of
+one partner at the household's committed bundle of the tick, evaluated
+by `set_theta!` immediately after `bargain_transfer` returns with that
+tick's prepared payoff parameters (see `MDR-0019`, which supersedes
+`MDR-0018` only for this specified, populated, consumed observer). It
+is evaluation state, not solver scratch: the stale last-counterfactual
+value of the reference is deliberately not reproduced (ODD quirk 11
+stays unported). Initialized to `NaN` = "not yet observed" at setup and
+aggregated into the `UtilityStats` observer by `update_observer_stats!`
+(see `MDR-0022`). Not named `CurrentUtility`: the unused zero-valued
+placeholder of that name was removed under `MDR-0018`.
+"""
+struct CommittedUtility
+    value::Float64
 end

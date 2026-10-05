@@ -20,8 +20,8 @@ The affected-share draws (`perc-affected-*`) are not stored here;
 they are `select_affected!` setup arguments.
 """
 Base.@kwdef struct WageShock <: Shock
-  start::Int = 60
-  depreciation::Float64 = 0.005
+    start::Int = 60
+    depreciation::Float64 = 0.005
 end
 
 """
@@ -36,10 +36,10 @@ tick and the per-tick `shock-depreciation` recovery rate; fields
 turtles.
 """
 Base.@kwdef struct PreferenceShock <: Shock
-  start::Int = 60
-  depreciation::Float64 = 0.005
-  delta_men::Float64 = 0.0
-  delta_woman::Float64 = 0.0
+    start::Int = 60
+    depreciation::Float64 = 0.005
+    delta_men::Float64 = 0.0
+    delta_woman::Float64 = 0.0
 end
 
 """
@@ -52,5 +52,5 @@ only while a wage gap remains. Ported but unscheduled: NetLogo `go`
 never calls `update-wages`.
 """
 Base.@kwdef struct WageGrowth
-  rate::Float64 = 0.0
+    rate::Float64 = 0.0
 end

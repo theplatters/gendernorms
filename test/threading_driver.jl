@@ -24,14 +24,29 @@ const GN = GenderNorms
 
 # Deterministic per-agent final state row shared by the run blocks and
 # the forced-schedule segments: the full-precision Float64 state tuple
-# printed for every agent.
+# printed for every agent, including the committed-bundle utility
+# observation (see `MDR-0019`).
 function agent_state_row(world, entity)
-    time, transfer, param, percept = Ark.get_components(
+    time, transfer, param, percept, utility = Ark.get_components(
         world,
         entity,
-        (GN.WorkingTime, GN.TransferToWoman, GN.NormParameter, GN.PerceptionNormDivisionOfLabor),
+        (
+            GN.WorkingTime,
+            GN.TransferToWoman,
+            GN.NormParameter,
+            GN.PerceptionNormDivisionOfLabor,
+            GN.CommittedUtility,
+        ),
     )
-    return (time.current, time.old, transfer.current, transfer.old, param.amount, percept.amount)
+    return (
+        time.current,
+        time.old,
+        transfer.current,
+        transfer.old,
+        param.amount,
+        percept.amount,
+        utility.value,
+    )
 end
 
 function print_run_block(prefix::String, result, world)
@@ -47,7 +62,7 @@ function print_run_block(prefix::String, result, world)
     men = GN.entities_with(world, GN.Male)
     agents = vcat(women, men)
     rows = map(entity -> agent_state_row(world, entity), agents)
-    totals = zeros(Float64, 6)
+    totals = zeros(Float64, 7)
     for row in rows
         for (index, value) in enumerate(row)
             totals[index] += value
@@ -60,6 +75,7 @@ function print_run_block(prefix::String, result, world)
         "transfer_old",
         "norm_parameter",
         "norm_percept",
+        "committed_utility",
     )
     for (name, total) in zip(names, totals)
         println(prefix, "mean ", name, " ", repr(total / length(agents)))
@@ -80,16 +96,16 @@ function print_segment_block(label::String, world)
 end
 
 function main()
-    raw = Dict{String,Any}(
-        "run" => Dict{String,Any}("name" => "threading-driver", "seed" => 1),
-        "model" => Dict{String,Any}(
+    raw = Dict{String, Any}(
+        "run" => Dict{String, Any}("name" => "threading-driver", "seed" => 1),
+        "model" => Dict{String, Any}(
             "name" => "gender_norms",
             "agents_per_gender" => 64,
-            "network" => Dict{String,Any}(
+            "network" => Dict{String, Any}(
                 "type" => "watts_strogatz", "neighbors_per_side" => 2, "rewiring" => 0.1
             ),
         ),
-        "runtime" => Dict{String,Any}("ticks" => 3),
+        "runtime" => Dict{String, Any}("ticks" => 3),
     )
     spec = GN.parse_spec(raw)
     world = GN.create_world(spec)
@@ -113,8 +129,8 @@ function main()
     for (label, schedule) in (("serial", :serial), ("parallel", :parallel), ("auto", :auto))
         segment_world = GN.create_world(spec)
         for _ in 1:3
-            GN.calculate_norm_perception!(segment_world, config; chunk=3, schedule=schedule)
-            GN.set_theta!(segment_world, config; chunk=3, schedule=schedule)
+            GN.calculate_norm_perception!(segment_world, config; chunk = 3, schedule = schedule)
+            GN.set_theta!(segment_world, config; chunk = 3, schedule = schedule)
         end
         print_segment_block(label, segment_world)
     end
