@@ -79,6 +79,26 @@ const DERIVATIVE_RESPONSE_TOL = 1.0e-8
 # `MDR-0002` fallback.
 const DERIVATIVE_RESPONSE_MAX_ITER = 40
 
+_is_eligible(func::Additive) = true
+_is_eligible(func::Multiplicative) = true
+_is_eligible(func::MultiplicativeWeighted) = true
+_is_eligible(func::CES) = CES_DERIVATIVE_MIN_BETA <= func.beta <= 1.0
+_is_eligible(func) = false
+
+
+function _is_ok(obj::BestResponseObjective)
+    return isfinite(obj.alpha) && 0.0 <= obj.alpha <= 1.0 &&
+        isfinite(obj.one_minus_alpha) &&
+        isfinite(obj.wage_self) && obj.wage_self >= 0.0 &&
+        isfinite(obj.transfer_income) && obj.transfer_income >= 0.0 &&
+        isfinite(obj.one_minus_transfer) &&
+        isfinite(obj.h_spouse) && 0.0 <= obj.h_spouse <= 1.0 &&
+        isfinite(obj.norm_transfer) && isfinite(obj.norm_spouse) &&
+        isfinite(obj.norm_weight) && obj.norm_weight >= 0.0 &&
+        isfinite(obj.norm_hours) &&
+        isfinite(obj.conformism) && obj.conformism >= 0.0
+end
+
 """
     _derivative_applicable(obj::BestResponseObjective{S}, h_start::Float64)
 
@@ -98,28 +118,12 @@ payer `wage_self * one_minus_transfer`) and `B` =
 objective runs the `MDR-0002` fallback. Returns a `Bool`.
 """
 function _derivative_applicable(
-        obj::BestResponseObjective{S}, h_start::Float64
-    )::Bool where {S}
+        obj::BestResponseObjective, h_start::Float64
+    )::Bool
     isfinite(h_start) || return false
     func = obj.func
-    eligible = func isa Additive || func isa Multiplicative ||
-        func isa MultiplicativeWeighted ||
-        (
-        func isa CES && isfinite(func.beta) &&
-            CES_DERIVATIVE_MIN_BETA <= func.beta <= 1.0
-    )
-    eligible || return false
-    ok = isfinite(obj.alpha) && 0.0 <= obj.alpha <= 1.0 &&
-        isfinite(obj.one_minus_alpha) &&
-        isfinite(obj.wage_self) && obj.wage_self >= 0.0 &&
-        isfinite(obj.transfer_income) && obj.transfer_income >= 0.0 &&
-        isfinite(obj.one_minus_transfer) &&
-        isfinite(obj.h_spouse) && 0.0 <= obj.h_spouse <= 1.0 &&
-        isfinite(obj.norm_transfer) && isfinite(obj.norm_spouse) &&
-        isfinite(obj.norm_weight) && obj.norm_weight >= 0.0 &&
-        isfinite(obj.norm_hours) &&
-        isfinite(obj.conformism) && obj.conformism >= 0.0
-    ok || return false
+    _is_eligible(func) || return false
+    _is_ok(obj) || return false
     A = _consumption_slope(obj)
     B = _consumption_intercept(obj)
     (isfinite(A) && A >= 0.0 && isfinite(B) && B >= 0.0) || return false
