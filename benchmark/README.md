@@ -123,6 +123,41 @@ JULIA_NUM_THREADS=1 julia --project=. benchmark/bargaining_kernel.jl [workloads]
   equivalence results, the exactness argument of the certified `-Inf`
   transfer-objective certificate, and the deviations.
 
+## Current implementation profiling
+
+`benchmark/profile_current.jl` profiles the current Julia implementation
+without modifying or instrumenting package code. It uses the seed-1
+workloads of `bargaining_kernel.jl`, production local transfer search,
+and the current `MDR-0022` tick order. The findings from the 2026-10-06
+run are in `benchmark/current_performance.md`; older optimization reports
+are historical baselines, not measurements of current HEAD.
+
+```sh
+JULIA_NUM_THREADS=1 julia --startup-file=no --project=. benchmark/profile_current.jl /tmp/opencode/gn-profile-1t all ws_500,heterogeneous 15 6
+JULIA_NUM_THREADS=8 julia --startup-file=no --project=. benchmark/profile_current.jl /tmp/opencode/gn-profile-8t timings ws_500,ws_2000,ws_4000 15
+```
+
+Positional arguments: output directory (default
+`/tmp/opencode/gendernorms-current-profile`), section
+(`timings|cpu|allocs|all`, default `all`), comma-separated workloads,
+measured repetitions (default 15), and CPU-profile seconds per workload
+(default 5). CPU/allocation sections require one worker thread; timings
+support any thread count. Run measurements sequentially without other
+heavy jobs. No dependencies are added.
+
+Additional workloads: `ws_<N>` for population scaling and `additive`,
+`multiplicative`, `multiplicative_weighted`, and `ces_0.3` for utility
+comparisons at 500 households. All keep package-default parameters;
+these are not NetLogo-matched runs of `run_benchmarks.jl`.
+
+Outputs: raw/summary per-system timing and GC-counter CSVs, warmed CPU
+flat/tree reports, inclusive function and leaf-location sample CSVs,
+and full-rate allocation source/type totals with example stacks.
+Setup is excluded from tick measurements and CPU sample CSVs. Inclusive
+CPU percentages overlap; do not sum them. Instrumented execution times
+are not performance baselines. Allocation-profiler object sizes omit
+some GC bookkeeping; use the timing CSVs for total allocated bytes.
+
 ## Transfer search validation
 
 `benchmark/transfer_search_validation.md` is the validation package for
