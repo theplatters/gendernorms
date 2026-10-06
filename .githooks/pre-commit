@@ -2,9 +2,10 @@
 #
 # .githooks/pre-commit
 #
-# Pre-commit hook for the GenderNorms repository (see ADR-0027): format
-# Julia sources with Runic before every commit and commit the formatted
-# version of the staged content.
+# Pre-commit hook for the GenderNorms repository (see ADR-0027): run
+# the Julia test suite as a blocking gate and format Julia sources with
+# Runic before every commit, committing the formatted version of the
+# staged content.
 #
 # Activate once per clone with:
 #
@@ -12,14 +13,25 @@
 #
 # On every commit the hook:
 #
-#   1. runs scripts/format.jl (Runic from the dedicated @runic Julia
+#   1. runs the test suite (julia --project=. test/runtests.jl)
+#      unconditionally and blocks the commit when it fails; the test
+#      step runs before any formatting touches the tree, so a failed
+#      suite leaves the working tree and the index exactly as they
+#      were. The suite tests the working tree, while the commit
+#      contains the staged content, which may differ;
+#   2. runs scripts/format.jl (Runic from the dedicated @runic Julia
 #      environment) in place over all *.jl files in the working tree
 #      (directory scans skip symlinks, so files outside the repository
 #      are never written through a link);
-#   2. formats the staged blob of every staged *.jl file and writes that
+#   3. formats the staged blob of every staged *.jl file and writes that
 #      blob back into the index, so the commit contains the formatted
 #      version of the previously staged content only. Unstaged and
 #      untracked content never ends up in the commit.
+#
+# Exactly two failures block the commit: 'julia' missing from PATH and
+# a failing test suite. Runic problems only warn and the commit
+# proceeds. 'git commit --no-verify' is the only way to bypass the
+# hook.
 #
 # Every git command that receives literal paths runs with
 # --literal-pathspecs, so a filename like [x].jl is never mistaken for
@@ -36,6 +48,19 @@ fi
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
+
+# Run the test suite as a blocking gate before formatting touches the
+# working tree or the index, so a failed test run leaves both exactly
+# as they were. The suite runs unconditionally on every commit and
+# reads the working-tree files of the committed project, which may
+# differ from the staged content being committed (see ADR-0027).
+echo "pre-commit: running test suite (julia --project=. test/runtests.jl)" >&2
+if ! julia --project=. test/runtests.jl; then
+    echo "pre-commit: error: test suite failed; the commit is blocked" >&2
+    echo "pre-commit: fix the failing tests or bypass the hook with 'git commit --no-verify'" >&2
+    exit 1
+fi
+echo "pre-commit: test suite passed" >&2
 
 # Snapshot the staged paths before formatting; only these are re-staged
 # afterwards, so nothing that was not staged before can sneak in.

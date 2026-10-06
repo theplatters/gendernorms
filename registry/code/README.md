@@ -155,13 +155,14 @@ which conventions it follows, and which architecture decisions were made.
   requirements (model semantics under `MDR-0019`-`MDR-0022`;
   implemented under `TASK-0029`).
 
-- `registry/code/decisions/ADR-0027-runic-pre-commit-hook.md`:
-  Runic pre-commit hook for automatic formatting: tracked
-  `.githooks/pre-commit` activated per clone with
-  `git config core.hooksPath .githooks`, Runic in the separate
-  `@runic` environment auto-installed by `scripts/format.jl` (never in
-  `Project.toml`/`Manifest.toml`), format-all plus restage-only-staged
-  semantics on every commit.
+- `registry/code/decisions/ADR-0027-pre-commit-hook-formatting-and-test-gate.md`:
+  pre-commit hook for automatic formatting and a blocking test gate:
+  tracked `.githooks/pre-commit` activated per clone with
+  `git config core.hooksPath .githooks`, an unconditional blocking test
+  suite step (`julia --project=. test/runtests.jl`) before any
+  formatting, Runic in the separate `@runic` environment auto-installed
+  by `scripts/format.jl` (never in `Project.toml`/`Manifest.toml`),
+  format-all plus restage-only-staged semantics on every commit.
 
 - `registry/code/decisions/ADR-0028-optimization-layer-boundary.md`:
   `optim` layer between `resources` and `systems` holding the solver

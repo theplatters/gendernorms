@@ -79,14 +79,14 @@ Fix all validator errors and warnings; CI runs `--strict`, so warnings are block
 - One logical change per commit; keep a change and its registry update
   together. Do not sweep unrelated work in progress into your commit.
 - Commits are guarded by the `.githooks/pre-commit` hook (see `ADR-0027`),
-  which auto-formats Julia files with Runic; activate it per clone with
-  `git config core.hooksPath .githooks`.
+  which runs the test suite as a blocking gate (a failing suite aborts
+  the commit) and auto-formats Julia files with Runic; activate it per
+  clone with `git config core.hooksPath .githooks`.
 - Imperative subject line, at most 72 characters, no trailing period;
   explain what and why in the body and cite the governing `MDR-####` or
   `ADR-####`.
-- Every commit must leave a working tree: run the validator and the
-  package load check (and the test suite once it exists) before
-  committing.
+- Every commit must leave a working tree: run the validator, the
+  package load check, and the test suite before committing.
 - Stage explicit paths; never `git add -A` over unrelated edits. Start
   from `.gitmessage` and follow `registry/code/conventions.md` and the
   `commit` command.

@@ -121,8 +121,8 @@ comprehensible.
   `MDR-####` or `ADR-####`, the NetLogo procedure, and the ODD section.
 - Every commit must leave a working tree. Before committing, run
   `julia --project=. scripts/registry_check.jl --strict` and
-  `julia --project=. -e 'using GenderNorms'`, plus the test suite once
-  `test/` is wired into `Pkg.test`.
+  `julia --project=. -e 'using GenderNorms'`, plus the test suite
+  (`julia --project=. test/runtests.jl`).
 - Stage explicit paths. Do not use `git add -A` or `git add .` when the
   tree contains unrelated work in progress, and never commit secrets,
   debug output, generated artifacts, or commented-out code.
@@ -132,8 +132,10 @@ comprehensible.
   `git config commit.template .gitmessage`) and follow the `commit`
   command for the step-by-step workflow.
 - Commits are guarded by `.githooks/pre-commit` (see `ADR-0027`),
-  which runs Runic over all `.jl` files on every commit and restages
-  only already-staged files. Activate it once per clone with
+  which runs the test suite as a blocking gate
+  (`julia --project=. test/runtests.jl`; a failing suite aborts the
+  commit) and then runs Runic over all `.jl` files on every commit and
+  restages only already-staged files. Activate it once per clone with
   `git config core.hooksPath .githooks`.
 
 ## Enforcement
